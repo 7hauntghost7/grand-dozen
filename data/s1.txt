@@ -1,0 +1,238 @@
+DECK: Set 1 — Q17–42 · immunity, Hb, haemostasis, fluids
+
+Q: The complement effect is activated by:
+NO: 17
+A. T-helper cell
+B. Antigen antibody complex
+C. C2
+D. C3-C4
+ANSWER: B
+EXPLANATION: Antigen–antibody complexes trigger the classical complement pathway.
+
+Q: IgG:
+NO: 18
+A. Responsible for primary immunity
+B. Activate mast cells and basophiles
+C. Responsible for mucosal immunity
+D. Help in neonate immunity
+ANSWER: D
+EXPLANATION: IgG crosses the placenta, giving passive neonatal immunity. (IgM = primary response, IgE = mast cells/basophils, IgA = mucosal.)
+
+Q: Regarding Hb, which of the following is correct:
+NO: 19
+A. Fetal Hb has less affinity to O2 than HbA
+B. In adults Hb A is formed by 2a 2 epsilon chains
+C. Gower 1 Hb is one of the embryological Hb
+D. Hb S results from deletion in a chain
+ANSWER: C
+EXPLANATION: Embryonic Hbs are Gower 1, Gower 2 and Portland. HbF has HIGHER O2 affinity; HbA = 2α2β; HbS is a point substitution (β6 Glu→Val), not a deletion.
+
+Q: In normal healthy person, which of the following cells have the shortest life span:
+NO: 20
+A. Macrophages
+B. Memory T cells
+C. Neutrophils
+D. Monocyte
+ANSWER: C
+EXPLANATION: Neutrophils survive only ~6–10 h in blood (a few days in tissue).
+
+Q: Regarding erythropoietin hormone:
+NO: 21
+A. Is polypeptide
+B. absent hypoxia would have little role in erythropoiesis
+C. Mainly produced in liver
+D. Its deficiency leads to hypochromic microcytic anemia
+ANSWER: B
+EXPLANATION: EPO release is driven by hypoxia. It is mainly renal (not liver) and its deficiency gives normocytic normochromic anaemia.
+NOTE: Option A is arguable — EPO is a glycoprotein hormone. B is the unambiguous choice.
+
+Q: Which one of the following is increased by parasitic infection:
+NO: 22
+A. Eosinophil
+B. Neutrophil
+C. B lymphocyte
+D. Tlymphocyte
+ANSWER: A
+EXPLANATION: Parasites and allergy → eosinophilia.
+
+Q: Which one of the following is true about specific immunity:
+NO: 23
+A. Very rapid and more stronger effect
+B. Changed with repeated infection by the same pathogen
+ANSWER: B
+EXPLANATION: Specific (adaptive) immunity has memory, so the response changes/strengthens on re-exposure.
+NOTE: Source options B and C were blank; shown here as A and B.
+
+Q: MHC 2 Proteins:
+NO: 24
+A. Coupled with intracellular antigens
+B. Recognised by CD8 (Cytotoxic T cells)
+C. Recognised by CD4 (helper T cells)
+ANSWER: C
+EXPLANATION: MHC II presents extracellular antigen to CD4 helper T cells; MHC I presents intracellular antigen to CD8 cells.
+NOTE: Source option C was blank; remaining options shown as A–C.
+
+Q: Immunoglobulin that is found in body secretions is:
+NO: 25
+A. Ig E
+B. Ig A
+C. Ig G
+D. Ig M
+ANSWER: B
+EXPLANATION: Secretory IgA (dimer with J chain + secretory piece).
+
+Q: Which of the following would best explain prolonged bleeding time (BT)?
+NO: 26
+A. Hemophilia A
+B. Hemophilia B
+C. Thrombocytopenia
+D. Warfarin use
+ANSWER: C
+EXPLANATION: BT tests platelet plug/vascular phase. Haemophilia and warfarin affect the coagulation cascade (prolong CT/PT/aPTT, not BT).
+
+Q: CD4 is a marker of:
+NO: 27
+A. B cells
+B. Helper T cells
+C. Cytotoxic cells
+D. An activated macrophage
+ANSWER: B
+EXPLANATION: CD4 = helper T cells (the HIV target); CD8 = cytotoxic T cells.
+
+Q: Normal Red blood cell:
+NO: 28
+A. Rupture when suspended in 0.35% sodium chloride solution
+B. Are fragile than spherocyte
+C. Count 5 million in female
+D. Volume is 85 femtoliter
+ANSWER: A
+EXPLANATION: Source key: A (complete haemolysis at ~0.35% NaCl). Spherocytes are MORE fragile than normal cells.
+NOTE: D (85 fL) is also within the normal MCV range — check against your key.
+
+Q: The cell that does endocytosis and presents antigens is:
+NO: 29
+A. Natural killer cell
+B. Macrophages
+C. Neutrophils
+D. Eosinophils
+ANSWER: B
+EXPLANATION: Macrophages phagocytose and present antigen via MHC II.
+
+Q: Bleeding from small cut in the skin:
+NO: 30
+A. Stops within 6 minutes in normal people
+B. Is prolonged in severe factor viii deficiency
+C. Is greater from cold skin than from warm skin
+D. Requires activation of fibrinogen by thrombin
+ANSWER: A
+EXPLANATION: Normal bleeding time ≈ 2–6 min. It is NORMAL in haemophilia; bleeding is greater from warm (vasodilated) skin.
+
+Q: Generalized edema caused by:
+NO: 32
+A. Failure of left ventricle
+B. Central venous pressure
+C. Pulmonary artery stenosis
+ANSWER: B
+EXPLANATION: Source key B. Raised central venous pressure (right-sided failure) causes generalized edema; left failure gives pulmonary oedema.
+NOTE: Source wording for B is incomplete — presumably 'increased' central venous pressure.
+
+Q: What are the following combination used to measure intracellular fluid volume?
+NO: 33
+A. Radioactive sodium & heavy water
+B. Tritium oxide & Evan’s blue dye
+C. Sucrose & Evan’s blue dye
+D. Deuterium oxide & iodine labeled albumin
+ANSWER: A
+EXPLANATION: ICF can’t be measured directly: ICF = total body water − ECF. Heavy water gives TBW; radioactive sodium gives ECF.
+
+Q: The globin part of haemoglobin F consists of
+NO: 34
+A. 2 alpha and 2 delta chains
+B. 2 beta and 2 alpha chains
+C. 2 gamma and 2 alpha chains
+D. 2 gamma and 2 delta chains
+E. 2 beta and 2 gamma chains
+ANSWER: C
+EXPLANATION: HbF = α2γ2.
+
+Q: The following are natural anticoagulants except:
+NO: 35
+A. thromboxane A2
+B. prostacycline
+C. protein C
+D. antithrombin III
+E. plasminogen
+ANSWER: A
+EXPLANATION: Thromboxane A2 is pro-aggregatory/pro-clotting (platelet-derived).
+NOTE: Plasminogen is a fibrinolytic proenzyme, not a classic anticoagulant, but TXA2 is the clear key.
+
+Q: Concerning vitamin B12:
+NO: 36
+A. is a fat soluble vitamin
+B. is found in green vegetable
+C. is absorbed in the duodenum
+D. antagonized folic acid
+E. is required for myelin formation
+ANSWER: E
+EXPLANATION: B12 is water-soluble, from animal foods, absorbed in the terminal ileum with intrinsic factor, and needed for myelin.
+
+Q: Physiological jaundice:
+NO: 37
+A. is due to rhesus incompatibility
+B. appears in the first 24 hours after birth
+C. is treated by exchange transfusion
+D. is due to excessive RBC break down
+E. is less common in pre term babies
+ANSWER: D
+EXPLANATION: Breakdown of fetal RBCs + immature hepatic conjugation. Appears after ~24–48 h, is MORE common in preterms.
+
+Q: Vitamin K deficiency leads to decrease production of the following factor:
+NO: 38
+A. I
+B. VII
+C. VIII
+D. IX
+E. XII
+ANSWER: B, D
+EXPLANATION: Vitamin K-dependent factors: II, VII, IX, X (plus proteins C and S).
+NOTE: Both VII and IX are correct here.
+
+Q: In a 30 years old man red marrow will be found at all these sites except:
+NO: 39
+A. skull
+B. ribs
+C. pelvic bones
+D. shaft of the femur
+E. sternum
+ANSWER: D
+EXPLANATION: In adults, red marrow persists in flat bones/axial skeleton and proximal ends of long bones; shafts are fatty (yellow) marrow.
+
+Q: Reticulocyte count in normal blood is
+NO: 40
+A. not present
+B. 1%
+C. 3%
+D. 5%
+E. 10%
+ANSWER: B
+EXPLANATION: Normal ≈ 0.5–2%.
+
+Q: In obstructive jaundice:
+NO: 41
+A. bilirubin is excreted in urine
+B. stool colour is dark
+C. urobilinogen in urine is increased
+D. reticulocyte count is increased
+E. van den berg test is indirect
+ANSWER: A
+EXPLANATION: Conjugated (water-soluble) bilirubin is filtered → dark urine; stools pale; urobilinogen absent; Van den Bergh is direct.
+
+Q: Which of the following is not an action of thrombin:
+NO: 42
+A. activation of factor XIII
+B. stimulation of tissue plasminogen activator
+C. activation of factor X
+D. activation of protein C
+E. action of factor VIII
+ANSWER: C
+EXPLANATION: Thrombin activates XIII, V, VIII, XI, protein C (with thrombomodulin) and stimulates tPA release — but not factor X.

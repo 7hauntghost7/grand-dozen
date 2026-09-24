@@ -1,0 +1,92 @@
+DECK: Set 3 — Q43–51 · Hb F, jaundice, thrombin
+
+Q: The globin part of haemoglobin F consists of:
+NO: 43
+A. 2α and 2β chains
+B. 2α and 2γ chains
+C. 2α and 2δ chains
+D. 2β and 2γ chains
+E. 2β and 2δ chains
+ANSWER: B
+EXPLANATION: HbF = α2γ2.
+
+Q: The following are natural anticoagulants except:
+NO: 44
+A. thromboxane A2
+B. prostacycline
+C. protein C
+D. antithrombin III
+E. plasminogen
+ANSWER: A
+EXPLANATION: TXA2 promotes platelet aggregation and vasoconstriction.
+
+Q: Concerning vitamin B12:
+NO: 45
+A. is a fat soluble vitamin
+B. is found in green vegetables
+C. is absorbed in the duodenum
+D. antagonized folic acid
+E. is required for myelin formation
+ANSWER: E
+EXPLANATION: B12 is needed for myelin/neurological function.
+
+Q: Physiological jaundice:
+NO: 46
+A. is due to rhesus incompatibility
+B. appears in the first 24 hours after birth
+C. is treated by exchange transfusion
+D. is due to excessive RBC break down
+E. is less common in pre term babies
+ANSWER: D
+EXPLANATION: Fetal RBC breakdown + immature liver conjugation.
+
+Q: Vitamin K deficiency leads to decrease production of the following factor:
+NO: 47
+A. II
+B. VII
+C. VIII
+D. IX
+E. XII
+ANSWER: A, B, D
+EXPLANATION: II, VII, IX (and X) are vitamin K-dependent.
+NOTE: II, VII and IX are all correct.
+
+Q: In a 30 years old man red marrow will be found at all these sites except:
+NO: 48
+A. skull
+B. ribs
+C. pelvic bones
+D. shaft of the femur
+E. sternum
+ANSWER: D
+EXPLANATION: Femoral shaft has yellow (fatty) marrow in adults.
+
+Q: Reticulocyte count in normal blood is:
+NO: 49
+A. not present
+B. 1%
+C. 3%
+D. 5%
+E. 10%
+ANSWER: B
+EXPLANATION: ≈ 0.5–2% of RBCs.
+
+Q: In obstructive jaundice:
+NO: 50
+A. bilirubin is excreted in urine
+B. stool colour is dark
+C. urobilinogen in urine is increased
+D. reticulocyte count is increased
+E. van den berg test is indirect
+ANSWER: A
+EXPLANATION: Conjugated bilirubin is water-soluble and appears in urine.
+
+Q: Which of the following is not an action of thrombin:
+NO: 51
+A. activation of factor XIII
+B. stimulation of tissue plasminogen activator
+C. activation of factor X
+D. activation of protein C
+E. activation of factor VIII
+ANSWER: C
+EXPLANATION: Factor X is activated by the tenase complexes (IXa–VIIIa or VIIa–TF), not by thrombin.

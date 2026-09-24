@@ -1,0 +1,182 @@
+DECK: Set 2 — Unnumbered mixed questions
+
+Q: Red blood cell formation in children occurs in the:
+NO: 1
+A. yolk sac
+B. adrenal medulla
+C. liver and spleen
+D. red bone marrow
+E. yellow bone marrow
+ANSWER: D
+EXPLANATION: After birth, erythropoiesis is in red bone marrow (yolk sac → liver/spleen → marrow in fetal life).
+
+Q: Iron deficiency anemia is characterized by:
+NO: 2
+A. high PCV
+B. folic acid deficiency
+C. microcytic hypochromic RBCs
+D. macrocytic hypochromic RBCs
+E. macrocytic normochromic RBCs
+ANSWER: C
+EXPLANATION: Low MCV and MCH: microcytic hypochromic.
+
+Q: A person who is blood group O positive, can receive blood from:
+NO: 3
+A. Blood group A negative persons
+B. Blood group A positive persons
+C. Blood group AB positive persons
+D. Blood group O negative persons
+E. Blood group B negative persons
+ANSWER: D
+EXPLANATION: O+ has anti-A and anti-B, so he can receive only group O (O− or O+).
+
+Q: B- Lymphocyte:
+NO: 4
+A. its cytoplasm contains large number of granules
+B. is increased in bacterial infections
+C. can produce antibodies
+D. can phagocytose bacteria
+E. its nucleus is kidney shaped
+ANSWER: C
+EXPLANATION: B cells differentiate into plasma cells that secrete antibodies.
+
+Q: Platelets:
+NO: 5
+A. are non-nucleated biconcave cells
+B. their count is higher than red blood cell count
+ANSWER: A
+EXPLANATION: Platelets are anucleate cell fragments; their count (150–400k/µL) is far below RBC count.
+NOTE: Source question was cut off after option b. Strictly, platelets are discoid; RBCs are the biconcave ones — A is correct by elimination.
+
+Q: Megaloblastic anaemia occurs in deficiency of:
+NO: 6
+A. Protein
+B. Folic acid
+C. Vitamin C
+D. Iron
+E. Copper
+ANSWER: B
+EXPLANATION: Folate (and B12) deficiency impairs DNA synthesis.
+
+Q: Iron:
+NO: 7
+A. Is mainly stored in the form of haemosiderin
+B. Deficiency is frequently accompanied by folic acid deficiency
+C. Requirements is greater in males
+D. Absorption is reduced by achlorohydria
+E. Is mainly stored in the spleen
+ANSWER: D
+EXPLANATION: Gastric acid reduces Fe³⁺ to the absorbable Fe²⁺, so achlorohydria reduces absorption. Requirements are higher in women; stores are in liver/marrow.
+NOTE: A is a common trap: the main storage form is ferritin (haemosiderin is the insoluble overflow form).
+
+Q: Phagocytosis is the major function of:
+NO: 8
+A. B lymphocytes
+B. Neutrophils
+C. Endothelial cells
+D. Basophils
+E. Mast cells
+ANSWER: B
+EXPLANATION: Neutrophils (and macrophages) are the professional phagocytes.
+
+Q: The major function of T lymphocytes:
+NO: 9
+A. Release of antibodies
+B. Killing of parasites
+C. Secretion of heparin
+D. Phagocytosis of antigen-antibody complexes
+E. Secretion of cytokines
+ANSWER: E
+EXPLANATION: T cells orchestrate/execute cell-mediated immunity chiefly via cytokines.
+
+Q: B lymphocytes:
+NO: 10
+A. Cannot form memory cells
+B. Mature in lymphoid tissue of the gastrointestinal tract
+C. Attacked by HIV
+D. Form plasma cells
+E. Stimulate macrophages
+ANSWER: D
+EXPLANATION: Activated B cells differentiate into plasma cells (and memory cells). HIV attacks CD4 T cells.
+
+Q: Which of the following is an antigen presenting cell:
+NO: 11
+A. Neutrophil
+B. Basophil
+C. Eosinophil
+D. Macrophage
+E. T-lymphocyte
+ANSWER: D
+EXPLANATION: Macrophages, dendritic cells and B cells are APCs.
+
+Q: The following is not a functions of plasma proteins:
+NO: 12
+A. Blood coagulation
+B. Transport of oxygen
+C. Transport of iron
+D. Development of colloid osmotic pressure
+E. Transport of hormones
+ANSWER: B
+EXPLANATION: O2 is carried by haemoglobin, not plasma proteins.
+
+Q: A person with blood group AB Rh positive:
+NO: 13
+A. Has both antibody A and B in plasma
+B. Can donate blood to a person with blood group O Rh positive
+C. Can receive blood from a person with blood group A Rh negative
+D. Has no agglutinogens on red blood cells
+E. Is considered as a universal donor
+ANSWER: C
+EXPLANATION: AB+ is the universal recipient: no anti-A/B/D antibodies, so A− blood is compatible.
+
+Q: The intrinsic pathway:
+NO: 14
+A. Takes a shorter time than the extrinsic pathway
+B. In vivo can be accelerated by factor VII
+C. In vitro does not require factor XII
+D. Does not occur in absence of factor VI
+E. Requires vitamin K
+ANSWER: E
+EXPLANATION: Intrinsic pathway uses IX, X, II (vitamin K-dependent). It is slower than the extrinsic pathway and starts with XII in vitro.
+
+Q: The following are functions of thrombin EXCEPT:
+NO: 15
+A. Breakdown of fibrinogen
+B. Activation of factor V
+C. Activation of factor VIII
+D. Activation of Plasminogen
+E. Activation of factor XII
+ANSWER: D, E
+EXPLANATION: Thrombin cleaves fibrinogen and activates V, VIII, XI, XIII, protein C and platelets. It doesn’t activate factor XII (contact activation) and doesn’t directly activate plasminogen (it only stimulates tPA release).
+NOTE: Both D and E are technically 'except' — E is the more classic key.
+
+Q: Concerning the immunoglobulins:
+NO: 16
+A. IgM can cross the placenta
+B. IgA is found in saliva
+C. IgD is increases in primary immune response
+D. IgE is the most abundant
+E. IgG is increased in allergy
+ANSWER: B
+EXPLANATION: Secretory IgA is present in saliva, tears, milk. IgG is the most abundant and crosses the placenta; IgE rises in allergy.
+
+Q: Passage of neutrophils through the capillary wall is called:
+NO: 17
+A. Chemotaxis
+B. Opsonization
+C. Diapedesis
+D. Margination
+E. Degranulation
+ANSWER: C
+EXPLANATION: Diapedesis (transmigration).
+
+Q: Plasminogen is activated by all of the following EXCEPT:
+NO: 18
+A. Urokinase
+B. Streptokinase
+C. Tissue plasminogen activator (tPA)
+D. Factor V
+E. Thrombin
+ANSWER: D
+EXPLANATION: Urokinase, streptokinase and tPA activate plasminogen; factor V is a clotting cofactor.
+NOTE: Thrombin acts only indirectly (by releasing tPA), but factor V is the clear key.

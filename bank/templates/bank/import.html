@@ -1,0 +1,115 @@
+{% extends "bank/base.html" %}
+{% block title %}Import questions{% endblock %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0">Import questions</h2>
+  <ol class="mute" style="margin-top:0">
+    <li>Copy your raw questions and ask an AI to reformat them with the prompt below.</li>
+    <li>Choose <b>subject</b>, <b>semester</b> and the <b>deck title</b> (the lesson name), paste the AI’s output (or upload a .txt) and press <b>Preview</b>.</li>
+    <li>Fix anything flagged, then press <b>Import</b>.</li>
+  </ol>
+  <details>
+    <summary><b>AI formatting prompt</b> (click to open)</summary>
+    <pre id="prompt" class="code">{{ prompt }}</pre>
+    <button type="button" class="btn" onclick="navigator.clipboard.writeText(document.getElementById('prompt').textContent);this.textContent='Copied ✓'">Copy prompt</button>
+  </details>
+</div>
+
+{% if not subjects %}
+<div class="fb error">No subjects exist yet. Run <code>python manage.py seed_subjects</code> or add them in Admin first.</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="card" style="margin-top:12px">
+  {% csrf_token %}
+  <div class="trio">
+    <label>Subject<br>
+      <select name="subject">
+        <option value="">Select…</option>
+        {% for s in subjects %}<option value="{{ s.pk }}" {% if s.pk|stringformat:"s" == subject_id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+      </select></label>
+    <label>Semester<br>
+      <select name="semester">
+        <option value="">Select…</option>
+        {% for n in semesters %}<option value="{{ n }}" {% if n|stringformat:"s" == semester %}selected{% endif %}>Semester {{ n }}</option>{% endfor %}
+      </select></label>
+    <label>Deck title (lesson name)<br>
+      <input type="text" name="deck_title" list="deck-list" value="{{ deck_title }}" placeholder="e.g. Haematology" autocomplete="off">
+      <datalist id="deck-list"></datalist></label>
+  </div>
+  <p class="mute" style="margin:4px 0 0">Typing the title of an existing deck adds to it; a new title creates a new deck.
+  You can also start the pasted text with <code>SUBJECT:</code> / <code>SEMESTER:</code> / <code>DECK:</code> lines to fill these in.</p>
+  <p><textarea name="text" rows="16" placeholder="Q: …&#10;A. …&#10;B. …&#10;ANSWER: B">{{ text }}</textarea></p>
+  <p class="row" style="justify-content:flex-start">
+    <label>or upload .txt <input type="file" name="file" accept=".txt,text/plain"></label>
+    <label><input type="checkbox" name="skip_dupes" value="1" {% if skip_dupes %}checked{% endif %}> Skip duplicates</label>
+  </p>
+  <p class="row" style="justify-content:flex-start">
+    <button class="btn" name="action" value="preview">Preview</button>
+    {% if previewed and importable %}<button class="btn pri" name="action" value="commit">Import {{ importable }} question{{ importable|pluralize }}</button>{% endif %}
+  </p>
+</form>
+{{ decks_json|json_script:"decks-data" }}
+
+{% if previewed %}
+<div class="card" style="margin-top:12px">
+  <h3 style="margin-top:0">Preview</h3>
+  {% if deck_exists %}
+    <div class="fb info">Will add to the existing deck <b>{{ deck_exists.path }}</b>.</div>
+  {% elif subject_id and semester and deck_title %}
+    <div class="fb info">Will create a new deck <b>{{ deck_title }}</b> (Semester {{ semester }}).</div>
+  {% else %}
+    <div class="fb error">Choose a subject, semester and deck title before importing.</div>
+  {% endif %}
+  <p>
+    <b>{{ rows|length }}</b> parsed ·
+    <span class="okc"><b>{{ importable }}</b> ready</span> ·
+    <span class="badc"><b>{{ n_errors }}</b> with errors</span> ·
+    <span class="warnc"><b>{{ n_dupes }}</b> duplicate{{ n_dupes|pluralize }}</span>
+  </p>
+  {% if stray %}
+  <div class="fb error">Text found before the first “Q:” line was ignored (line {{ stray.0.0 }}: “{{ stray.0.1|truncatechars:60 }}”).</div>
+  {% endif %}
+  {% if not rows %}<div class="fb error">No “Q:” lines found — is the text in the expected format?</div>{% endif %}
+  <div class="scroll">
+  <table>
+    <tr><th>#</th><th>Question</th><th>Type</th><th>Answer</th><th>Status</th></tr>
+    {% for r in rows %}
+    <tr class="{% if not r.q.ok %}bad{% elif r.skipped %}skip{% endif %}">
+      <td>{{ r.q.number|default:"–" }}</td>
+      <td>{{ r.q.stem|truncatechars:110 }}<div class="mute">{{ r.q.options|length }} option{{ r.q.options|length|pluralize }}</div></td>
+      <td>{{ r.q.kind|upper }}</td>
+      <td>{{ r.answer|default:"–" }}</td>
+      <td>
+        {% if not r.q.ok %}<span class="badc">✗ error</span>
+        {% elif r.skipped %}<span class="warnc">⤳ skipped</span>
+        {% else %}<span class="okc">✓ ok</span>{% endif %}
+        <ul class="msgs">
+          {% for e in r.q.errors %}<li class="badc">{{ e }}</li>{% endfor %}
+          {% if r.q.duplicate_of %}<li class="warnc">Duplicate: {{ r.q.duplicate_of }}</li>{% endif %}
+          {% for w in r.q.warnings %}<li class="mute">{{ w }}</li>{% endfor %}
+        </ul>
+        <div class="mute">line {{ r.q.line }}</div>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const decks = JSON.parse(document.getElementById('decks-data').textContent);
+  const sub = document.querySelector('[name=subject]'), sem = document.querySelector('[name=semester]');
+  const dl = document.getElementById('deck-list');
+  const fill = () => {
+    dl.innerHTML = '';
+    decks.filter(d => String(d.s) === sub.value && String(d.m) === sem.value).forEach(d => {
+      const o = document.createElement('option'); o.value = d.t; dl.appendChild(o);
+    });
+  };
+  sub.onchange = sem.onchange = fill; fill();
+})();
+</script>
+{% endblock %}

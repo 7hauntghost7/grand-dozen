@@ -1,0 +1,612 @@
+DECK: Set 5 — Q95–154 · haematology & coagulation paper
+
+Q: Hemolytic anemia is due to all of the following except:
+NO: 95
+A. Malaria
+B. Sickle cell disease
+C. Spheroctosis
+D. Rhesus incompatibility
+E. Iron deficiency
+ANSWER: E
+EXPLANATION: Iron deficiency is a hypoproliferative (microcytic) anaemia, not a haemolytic one.
+
+Q: Leucopenia:
+NO: 96
+A. Reduction in white blood cell count
+B. Caused by acute bacterial infections
+C. Caused by Vitamin B12 deficiency
+D. Is normally seen in children
+E. Might involve the granular cells
+ANSWER: A, C, E
+EXPLANATION: Leucopenia = reduced WBC count (B12 deficiency can cause it; neutropenia involves granulocytes). Acute bacterial infection causes leukocytosis.
+NOTE: A is the definition; C and E are also true.
+
+Q: The following is a function of neutrophils:
+NO: 97
+A. Phagocytosis
+B. Antibody production
+C. Cell mediate immunity
+D. Humoral immunity
+E. Complement activation
+ANSWER: A
+EXPLANATION: Neutrophils are phagocytes.
+
+Q: The following are true about T-Lymphocytes except:
+NO: 98
+A. They produce antibodies
+B. They are involved in cell mediated immunity
+C. They form memory cells when activated
+D. They are involved in transplant rejection
+E. They are attacked by HIV
+ANSWER: A
+EXPLANATION: Antibodies come from plasma cells (B lineage).
+
+Q: Hemostasis requires involvement of all of the following except:
+NO: 99
+A. Activation of factor X
+B. Vasospasm
+C. Platelets aggregation
+D. Intrinsic system activation
+E. Extrinsic system suppression
+ANSWER: E
+EXPLANATION: Hemostasis needs the coagulation systems activated, not suppressed.
+
+Q: Hemophilia is caused by:
+NO: 100
+A. Deficiency of factor VIII
+B. Deficiency of factor IX
+C. Thrombocytopenia
+D. Thrombocytosis
+E. Liver failure
+ANSWER: A, B
+EXPLANATION: Haemophilia A = factor VIII; haemophilia B = factor IX.
+NOTE: Both A and B are correct.
+
+Q: The following diseases are transmitted by blood transfusion except:
+NO: 101
+A. HIV
+B. Hepatitis C
+C. Hepatitis B
+D. Syphilis
+E. Influenza virus infection
+ANSWER: E
+EXPLANATION: Influenza isn’t transfusion-transmitted (short viraemia).
+
+Q: The bleeding time:
+NO: 102
+A. Normally equals 15-20 minutes
+B. Is abnormal in thrombocytopenia
+C. Is abnormal in hemophilia
+D. Is abnormal in liver failure
+E. Reflects the vascular role in the arrest of bleeding
+ANSWER: B
+EXPLANATION: BT tests platelets/vessels: normal 2–6 min; prolonged in thrombocytopenia; normal in haemophilia.
+NOTE: E is partly true (BT reflects platelet + vascular phase), but B is the cleanest answer.
+
+Q: Unconjugated Bilirubin:
+NO: 103
+A. Is water-soluble
+B. Is the main type of bilirubin in hemolytic jaundice
+C. Gives direct Van Den Berg Test
+D. Appears in urine
+E. Is converted in the liver to stercobilinogen
+ANSWER: B
+EXPLANATION: Haemolysis raises unconjugated (indirect, albumin-bound, not in urine) bilirubin.
+
+Q: The following cell produces heparin:
+NO: 104
+A. Neutrophil
+B. Eosinophil
+C. Basophil
+D. Lymphocyte
+E. Monocyte
+ANSWER: C
+EXPLANATION: Basophils (and mast cells).
+
+Q: The following cell is a precursor of kupffer cells:
+NO: 105
+A. Neutrophil
+B. Eosinophil
+C. Basophil
+D. Lymphocyte
+E. Monocyte
+ANSWER: E
+EXPLANATION: Monocytes → tissue macrophages (Kupffer cells).
+
+Q: The count of the following cell is typically raised in parasitic infection:
+NO: 106
+A. Neutrophil
+B. Eosinophil
+C. Basophil
+D. Lymphocyte
+E. Monocyte
+ANSWER: B
+EXPLANATION: Eosinophils.
+
+Q: HLA type 1 is essential for the following cell to recognize foreign antigens:
+NO: 107
+A. Plasma cells
+B. B memory cells
+C. T-cytotoxic cells
+D. T-helper cells
+E. T-memory cells
+ANSWER: C
+EXPLANATION: MHC/HLA class I is recognised by CD8 cytotoxic T cells.
+
+Q: Regarding iron distribution in the body:
+NO: 108
+A. 50% in hemoglobin
+B. 30% as ferritin
+C. 10% myoglobin
+D. 5% hemosedrin
+E. 3% enzymes
+ANSWER: B
+EXPLANATION: Approximately: Hb ≈ 65%, storage (ferritin) ≈ 15–30%, myoglobin ≈ 4–10%, enzymes ~1–3%.
+NOTE: Ambiguous — figures vary by textbook. B is the best fit.
+
+Q: Neural tube closure may occur in babies whose mothers were suffering from:
+NO: 109
+A. Vitamin B12 deficiency
+B. Folic acid deficiency
+C. Iron deficiency
+D. Protein deficiency
+E. Intrinsic factor deficiency
+ANSWER: B
+EXPLANATION: Maternal folate deficiency → neural tube defects.
+NOTE: Wording should read 'neural tube defects'.
+
+Q: Reticulocytes count in normal blood is:
+NO: 110
+A. 10%
+B. 7%
+C. 5%
+D. 3%
+E. 1%
+ANSWER: E
+EXPLANATION: About 1%.
+
+Q: In hemolytic jaundice:
+NO: 111
+A. Bilirubin is excreted in urine
+B. Stool color is pale
+C. Van Den Berg test is direct
+D. Urinary urobilinogen is increased
+E. Reticulocyte count typically is < 1%
+ANSWER: D
+EXPLANATION: More bilirubin reaches the gut → more urobilinogen (urine). No bilirubinuria; indirect VdB; reticulocytosis.
+
+Q: The following cells are tissue macrophages except:
+NO: 112
+A. Kupffer cells
+B. Osteoclasts
+C. Parietal cells
+D. Microglial cells
+E. Mesangeal cells
+ANSWER: C
+EXPLANATION: Parietal cells are gastric acid-secreting cells.
+
+Q: Iron absorption takes place mainly in the:
+NO: 113
+A. Stomach
+B. Duodenum and jejunum
+C. First part of ileum
+D. Terminal ileum
+E. Large intestine
+ANSWER: B
+EXPLANATION: Duodenum and proximal jejunum.
+
+Q: Myelination of the neurons may be abnormal if there is deficiency of:
+NO: 114
+A. Vitamin B12
+B. Folic acid
+C. Iron
+D. Erythropoietin
+E. Interleukin 4
+ANSWER: A
+EXPLANATION: B12 deficiency causes demyelination.
+
+Q: The cell that is important in all types of immunity is:
+NO: 115
+A. B-lymphocyte memory cells
+B. T-memory cells
+C. T-helper cells
+D. Neutrophils
+E. B-helper cells
+ANSWER: C
+EXPLANATION: Helper T cells coordinate both humoral and cell-mediated responses.
+
+Q: All of the following may be a complication of blood transfusion, except:
+NO: 116
+A. Sodium overload
+B. Potassium overload
+C. Iron overload
+D. Volume overload
+E. Allergic reactions
+ANSWER: A
+EXPLANATION: K⁺, volume, iron (repeated) and allergy are recognised complications; sodium overload is not typical.
+
+Q: Methemoglobin:
+NO: 117
+A. Is a hemoglobin bound to glucose
+B. Is a hemoglobin with oxidized iron
+C. Normally forms 30% of the total hemoglobin
+D. Is formed when blood is exposed to reducing agents
+E. Has a high affinity to O2
+ANSWER: B
+EXPLANATION: Fe³⁺ (ferric).
+
+Q: Plasma:
+NO: 118
+A. Is 85% water
+B. Contains about 5g protein/dL
+C. Contains 290 mosmol/liter
+D. Volume can be measured by inulin dilution method
+E. Constitute about 45% of the blood
+ANSWER: C
+EXPLANATION: Plasma osmolarity ≈ 285–295 mOsm/L. It’s ~92% water, ~7 g protein/dL, ~55% of blood; plasma volume uses Evans blue/125I-albumin.
+
+Q: Compared to other plasma proteins, albumin is the main generator of the colloid osmotic pressure of plasma because:
+NO: 119
+A. Of its high concentration and relatively small molecular weight
+B. It can bind other substances in blood
+C. It can relatively easily cross the capillary membrane
+D. It is not ionized
+E. It can be made by the liver
+ANSWER: A
+EXPLANATION: Oncotic pressure depends on the NUMBER of molecules: albumin is abundant and small.
+
+Q: Which of the following substances has the highest molar concentration in plasma:
+NO: 120
+A. Glucose
+B. Protein
+C. Sodium
+D. Calcium
+E. Bicarbonate
+ANSWER: C
+EXPLANATION: Na⁺ ≈ 140 mmol/L.
+
+Q: Normal red blood cells:
+NO: 121
+A. Rupture if suspended in a solution which is 0.9% sodium chloride
+B. Are more fragile than sphercytes
+C. Count is about 5 million/mm3 in adult females
+D. Count about 40 picograms of hemoglobin per cell
+E. Volume is about 85 femtoliters
+ANSWER: E
+EXPLANATION: MCV ≈ 80–100 fL. 0.9% saline is isotonic; spherocytes are more fragile; female count ≈ 4.5 million; MCH ≈ 30 pg.
+NOTE: C (5 million) is borderline; E is the cleanest.
+
+Q: During the last month of pregnancy, red blood cells of the fetus are produced mainly by:
+NO: 122
+A. Liver
+B. Spleen
+C. Bone marrow
+D. Yolk sac
+E. Lymph nodes
+ANSWER: C
+EXPLANATION: Bone marrow takes over in the last trimester.
+
+Q: An increase in the number of reticulocytes occurs in:
+NO: 123
+A. Severe hemolysis
+B. Folic acid deficiency
+C. Iron deficiency
+D. Erythropoietin deficiency
+E. Vitamin B12 deficiency
+ANSWER: A
+EXPLANATION: Marrow response to haemolysis.
+
+Q: The main storage protein for iron in the body is:
+NO: 124
+A. Hemoglobin
+B. Transferrin
+C. Ferritin
+D. Hemopexin
+E. Haptoglobin
+ANSWER: C
+EXPLANATION: Ferritin.
+
+Q: Destruction of red blood cells in the vascular system is associated with:
+NO: 125
+A. Decreased potassium concentration in plasma
+B. Agglutination of red blood cells
+C. Increased secretion of hemoglobin in urine
+D. Cyanosis
+E. High transferring concentration
+ANSWER: C
+EXPLANATION: Intravascular haemolysis → haemoglobinaemia and haemoglobinuria (K⁺ rises).
+
+Q: Appearance of the early forms of red blood cells in the blood may indicate:
+NO: 126
+A. Iron deficiency
+B. Folic acid deficiency
+C. A high rate of erythropoiesis
+D. Bone marrow failure
+E. Erythropoietin deficiency
+ANSWER: C
+EXPLANATION: Immature forms are released when erythropoiesis is intense.
+
+Q: Of the total white blood cells, the normal percentages of the different types of cells is:
+NO: 127
+A. About 40% neutrophils
+B. Less than 1% basophils
+C. About 60% lymphocytes
+D. About 1% monocytes
+E. 8% eosinophils
+ANSWER: B
+EXPLANATION: Basophils ≈ 0.4–1%.
+
+Q: The lifespan of neutrophils
+NO: 128
+A. Is about one hour in the circulation
+B. 4-5 days in tissues
+C. Is prolonged in bacterial infections
+D. In the circulation is longer than the half life of monocytes
+E. Is longer than normal inpatients with hypersplenic function
+ANSWER: B
+EXPLANATION: Best fit: hours in the circulation, a few days in tissue. In infection/hypersplenism they are used up faster.
+NOTE: Loosely worded; B is the closest to the textbook.
+
+Q: Which of the following means attraction of white blood cells to the site of infection:
+NO: 129
+A. Diapedesis
+B. Ameboid motion
+C. Chemotaxis
+D. Complement fixation
+E. Immune tolerance
+ANSWER: C
+EXPLANATION: Chemotaxis.
+
+Q: Active immunity:
+NO: 130
+A. Develop against antigens with molecular weights greater than 8000
+B. Does not develop unless a foreign organism or toxin invade the body
+C. Is a function of phagocytes
+D. Acquired by the child through the milk of his mother
+E. Acquired by the fetus through the placenta
+ANSWER: A, B
+EXPLANATION: Active immunity requires exposure to an antigen (usually MW > 8000). Milk/placental antibodies are passive.
+NOTE: Both A and B are defensible (Guyton wording).
+
+Q: Which of the following is not a function of antibodies:
+NO: 131
+A. Agglutination of antigens
+B. Precipitation of antigens
+C. Attraction of white blood cells to the site of infection
+D. Neutrolization of toxins
+E. Lysis of bacteria
+ANSWER: C
+EXPLANATION: Attracting WBCs is done by complement fragments/cytokines, not by antibodies directly.
+
+Q: A baby whose blood group is A+ve and whose mother's blood group is B+ve, can only mean that the father cannot be:
+NO: 132
+A. Blood group O-ve
+B. Blood group AB+ve
+C. Blood group A-ve
+D. Blood group AB-ve
+E. Blood group A+ve
+ANSWER: A
+EXPLANATION: The baby’s A allele must come from the father, so he cannot be group O.
+
+Q: The most important antigen for causing graft rejection is:
+NO: 133
+A. Human leukocyte antigen
+B. The ABO blood group antigens
+C. The rhesus factor antigens
+D. Cell membrane phospholipase
+E. Cell membrane phospholipase A
+ANSWER: A
+EXPLANATION: HLA (MHC) mismatch drives rejection.
+
+Q: The degree of vascular spasm following injury to a blood vessel depends mostly on:
+NO: 134
+A. The degree of trauma to a blood vessel
+B. The platelet count
+C. The activity of the sympathetic nervous system
+D. The concentration of clotting factors
+E. The concentration of prostacycline in the blood
+ANSWER: A
+EXPLANATION: Spasm is mainly myogenic, proportional to vessel trauma.
+
+Q: The Von Willibrand Factor:
+NO: 135
+A. Directly binds to and activates platelets
+B. Is essential for formation of the platelet plug
+C. Causes clot retraction
+D. Activates the extrinsic pathway of coagulation
+E. Deficiency prolongs the clotting time
+ANSWER: B
+EXPLANATION: vWF mediates platelet adhesion to subendothelial collagen (GPIb) and carries factor VIII.
+
+Q: Which of the following steps of coagulation does not require Ca2+?
+NO: 136
+A. Activation of prothrombin
+B. Activation of factor IX
+C. Release of tissue thromboplastin
+D. Activation of factor X
+E. Formation of prothrombin activator
+ANSWER: C
+EXPLANATION: Release of tissue factor from injured tissue is a passive event; the other steps need Ca²⁺.
+
+Q: A patient with obstructive jaundice is likely to develop bleeding tendency due to:
+NO: 137
+A. Deficiency of prothrombin
+B. Thrombocytopenia
+C. Deficiency of von willibrand factor
+D. Tissue thromboplastin deficiency
+E. Formation of prothrombin activator
+ANSWER: A
+EXPLANATION: No bile → poor vitamin K absorption → low prothrombin and other K-dependent factors.
+
+Q: The tissue stabilizing factor is activated by:
+NO: 138
+A. Fibrin
+B. Thrombin
+C. Thrombomodulin
+D. Active factor X
+E. Plasmin
+ANSWER: B
+EXPLANATION: Fibrin-stabilising factor XIII is activated by thrombin.
+
+Q: Folic acid:
+NO: 139
+A. Is a fat-soluble vitamin
+B. Is found only in meats
+C. Is needed for ana formation
+D. Deficiency causes macrocytic
+E. Deficiency causes defect in mitochondria
+ANSWER: C, D
+EXPLANATION: Folate is water-soluble, in green vegetables/liver, needed for DNA synthesis; deficiency → megaloblastic (macrocytic) anaemia.
+NOTE: Options C ('DNA') and D (truncated) are both right.
+
+Q: The most prevalent blood group is:
+NO: 140
+A. A
+B. B
+C. AB
+D. O (-ve)
+E. O (+ve)
+ANSWER: E
+EXPLANATION: O positive is the commonest worldwide.
+
+Q: Most white blood cells are:
+NO: 141
+A. Lymphocytes
+B. Monocytes
+C. Neutrophils
+D. Eosinophils
+E. Plasma cells
+ANSWER: C
+EXPLANATION: Neutrophils 50–70%.
+
+Q: A good indicator of hemolysis is:
+NO: 142
+A. Pale stool colour
+B. High reticulocyte count
+C. High white blood cell count
+D. Macrocytosis
+E. Microcytosis
+ANSWER: B
+EXPLANATION: Reticulocytosis.
+
+Q: Platelets:
+NO: 143
+A. Are produced in the spleen
+B. Have a small nucleus
+C. Change their shape when they make contact with collagen
+D. Have a normal count of 10, 000 per mm3
+E. Produce prostacyclin
+ANSWER: C
+EXPLANATION: Adhesion → shape change and degranulation.
+
+Q: The endothelium produces the following substances that helps keep the blood in the fluid state:
+NO: 144
+A. Prostacycline
+B. Thromboxane A2
+C. Plasminogen
+D. Protein C
+E. Heparin
+ANSWER: A
+EXPLANATION: Endothelium makes prostacyclin, NO, thrombomodulin and tPA.
+
+Q: Concerning hemoglobin S, the abnormality is in the:
+NO: 145
+A. Alpha chain
+B. Beta chain
+C. Iron molecule
+D. Porphyrin ring
+E. The red cell enzymes
+ANSWER: B
+EXPLANATION: β-chain (Glu→Val at position 6).
+
+Q: A person whose blood group is AB:
+NO: 146
+A. Has only antibodies against A antigens
+B. Has only antibodies against B antigens
+C. Has both antibodies A and B
+D. Has no antibodies
+E. Acts as a universal donor
+ANSWER: D
+EXPLANATION: AB has A and B antigens and no anti-A/anti-B.
+
+Q: Iron deficiency anemia is:
+NO: 147
+A. Due to intrinsic factor deficiency
+B. Commoner in women than men
+C. An example of hemolytic anemias
+D. Typically seen in patients with hemoglobin S
+E. Characterized by macrocytic cells
+ANSWER: B
+EXPLANATION: Menstrual loss and pregnancy demands.
+
+Q: Hemophilia is due to deficiency of:
+NO: 148
+A. Platelets
+B. Factor VIII
+C. Factor X
+D. Factor XI
+E. Factor XII
+ANSWER: B
+EXPLANATION: Classic haemophilia A = factor VIII.
+
+Q: The white blood cells that contain blue granules are the:
+NO: 149
+A. Neutrophils
+B. Basophils
+C. Eosinophils
+D. Lymphocytes
+E. Monocytes
+ANSWER: B
+EXPLANATION: Basophils stain deep blue.
+
+Q: Which of the following is the primary function of B lymphocytes:
+NO: 150
+A. Phagocytosis
+B. Production of antibodies
+C. Production of complement
+D. Regulation of red blood cell production
+E. Cellular immunity
+ANSWER: B
+EXPLANATION: B cells → plasma cells → antibodies.
+
+Q: Functions of antibodies include all of the following except:
+NO: 151
+A. Neutralization of bacterial toxins
+B. Osponizing bacteria
+C. Promoting phagocytosis
+D. Active inflammatory response
+E. Inactivation of viruses
+ANSWER: D
+EXPLANATION: Best guess by elimination.
+NOTE: All five are commonly listed antibody functions (antibodies activate complement); the wording of D looks garbled — treat with caution.
+
+Q: Vitamin K-dependent factors include:
+NO: 152
+A. Fibrinogen
+B. Prothrombin
+C. Tissue thromboplastin
+D. Factor X
+E. Factor VIII
+ANSWER: B, D
+EXPLANATION: II (prothrombin), VII, IX and X are vitamin K-dependent.
+NOTE: B and D are both correct.
+
+Q: Plasma is different from serum in that it contains:
+NO: 153
+A. Contains less albumin
+B. Contains more fibrinogen
+C. Has higher sodium concentration
+D. Does not clot
+E. Has no cells
+ANSWER: B
+EXPLANATION: Serum lacks fibrinogen and other clotting factors used up in clotting.
+
+Q: The common pathway of coagulation starts with activation of factor:
+NO: 154
+A. II
+B. V
+C. VII
+D. IX
+E. X
+ANSWER: E
+EXPLANATION: Factor X.

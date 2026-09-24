@@ -1,0 +1,21 @@
+{% extends "bank/base.html" %}
+{% block title %}Saved · {{ bank.title }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{% url 'bank:saved_home' %}">Saved</a>
+  {% if bank.subject %}› <a href="{% url 'bank:saved_subject' bank.subject.slug %}">{{ bank.subject.name }}</a>{% endif %}
+  › Semester {{ bank.semester }}</p>
+<div class="row" style="margin-top:0"><h2 class="pagetitle" style="margin:0">{{ bank.title }}</h2>
+  {% if questions %}<a class="btn pri" href="{% url 'bank:saved_quiz' bank.slug %}">Practise saved questions</a>{% endif %}</div>
+{% for q in questions %}
+<div class="card" style="margin-top:10px">
+  <div class="qh"><span class="qn">Q{{ q.number|default:q.pk }}</span></div>
+  <div class="stem">{{ q.stem }}</div>
+  <ul class="w">{% for o in q.options.all %}<li><b>{{ forloop.counter0|add:65|stringformat:"c" }}.</b> <span>{{ o.text }}</span></li>{% endfor %}</ul>
+  <form method="post" action="{% url 'bank:saved_remove' q.pk %}">{% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.path }}">
+    <button class="btn">Remove from saved</button></form>
+</div>
+{% empty %}
+<div class="card">No saved questions in this deck.</div>
+{% endfor %}
+{% endblock %}

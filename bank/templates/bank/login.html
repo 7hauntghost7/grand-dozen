@@ -1,0 +1,12 @@
+{% extends "bank/base.html" %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+<form method="post" class="card narrow">
+  <h2 style="margin-top:0">Log in</h2>
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  {{ form.non_field_errors }}
+  {% for f in form %}<div class="field">{{ f.label_tag }}{{ f }}{{ f.errors }}</div>{% endfor %}
+  <button class="btn pri">Log in</button>
+</form>
+{% endblock %}

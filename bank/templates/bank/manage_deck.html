@@ -1,0 +1,25 @@
+{% extends "bank/base.html" %}
+{% block title %}Manage · {{ bank.title }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{% url 'bank:home' %}">Subjects</a>
+  {% if bank.subject %}› <a href="{{ bank.subject.get_absolute_url }}">{{ bank.subject.name }}</a>{% endif %}
+  › Semester {{ bank.semester }} › <a href="{{ bank.get_absolute_url }}">{{ bank.title }}</a> › Manage</p>
+<div class="row" style="margin-top:0"><h2 class="pagetitle" style="margin:0">Edit questions</h2>
+  <span>{% if perms.bank.add_question %}<a class="btn pri" href="{% url 'bank:question_add' bank.slug %}">+ Add question</a>
+  <a class="btn" href="{% url 'bank:import' %}?subject={{ bank.subject_id|default_if_none:"" }}&semester={{ bank.semester }}&deck_title={{ bank.title|urlencode }}">Bulk import</a>{% endif %}</span></div>
+<div class="card scroll" style="margin-top:10px">
+<table>
+  <tr><th>#</th><th>Question</th><th>Type</th><th></th></tr>
+  {% for q in questions %}
+  <tr>
+    <td>{{ q.number|default:q.pk }}</td>
+    <td>{{ q.stem|truncatechars:120 }}
+      {% if q.open_comments %}<div class="warnc">💬 {{ q.open_comments }} open comment{{ q.open_comments|pluralize }}</div>{% endif %}</td>
+    <td>{{ q.kind|upper }}</td>
+    <td><a class="btn" href="{% url 'bank:question_edit' q.pk %}">Edit</a></td>
+  </tr>
+  {% empty %}<tr><td colspan="4">No questions yet.</td></tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

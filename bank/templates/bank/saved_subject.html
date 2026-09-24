@@ -1,0 +1,20 @@
+{% extends "bank/base.html" %}
+{% block title %}Saved · {{ subject.name }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{% url 'bank:saved_home' %}">Saved</a> › {{ subject.name }}</p>
+<h2 class="pagetitle">{{ subject.name }}</h2>
+{% regroup decks by semester as sems %}
+{% for sem in sems %}
+  <h3 class="semband">Semester {{ sem.grouper }}</h3>
+  <div class="grid decks">
+    {% for d in sem.list %}
+    <a class="set" href="{% url 'bank:saved_deck' d.slug %}">
+      <h3>{{ d.title }}</h3>
+      <p>{{ d.saved_n }} saved question{{ d.saved_n|pluralize }}</p>
+    </a>
+    {% endfor %}
+  </div>
+{% empty %}
+  <div class="card">Nothing saved in this subject yet.</div>
+{% endfor %}
+{% endblock %}

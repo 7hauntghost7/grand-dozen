@@ -1,0 +1,78 @@
+{% extends "bank/base.html" %}
+{% block title %}{% if is_new %}Add question{% else %}Edit question{% endif %}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{% url 'bank:manage_deck' question.bank.slug %}">← {{ question.bank.path }}</a></p>
+<h2 class="pagetitle">{% if is_new %}Add a question{% else %}Edit question {{ question.number|default:question.pk }}{% endif %}</h2>
+
+{% if comments %}
+<div class="card" style="margin-bottom:12px">
+  <h3 style="margin-top:0">💬 Comments from users</h3>
+  <p class="mute">Tick a comment to mark it resolved when you save.</p>
+  <ul class="w">
+  {% for c in comments %}
+    <li>{% if not c.resolved %}<input type="checkbox" form="qform" name="resolve" value="{{ c.pk }}" title="Resolve on save">{% else %}<span class="okc">✓</span>{% endif %}
+      <span><b>{{ c.user.username|default:"(deleted user)" }}</b> · <span class="mute">{{ c.created_at|date:"j M Y H:i" }}</span><br>{{ c.text|linebreaksbr }}</span></li>
+  {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<form method="post" class="card" id="qform">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  {{ form.non_field_errors }}
+  {% for f in form %}
+  <div class="field">{{ f.label_tag }}{{ f }}{{ f.errors }}{% if f.help_text %}<span class="mute">{{ f.help_text }}</span>{% endif %}</div>
+  {% endfor %}
+
+  <h3>Options</h3>
+  <p class="mute">Multiple choice: tick the correct option(s). True/False: each option is a statement — tick it if the statement is <b>true</b>.</p>
+  {{ formset.management_form }}
+  {{ formset.non_form_errors }}
+  <div id="opts">
+    {% for f in formset %}
+    <div class="optrow">
+      {% for h in f.hidden_fields %}{{ h }}{% endfor %}
+      {{ f.text }}
+      <label class="nowrap">{{ f.is_correct }} correct</label>
+      {% if f.instance.pk %}<label class="nowrap badc">{{ f.DELETE }} delete</label>{% endif %}
+      {{ f.text.errors }}
+    </div>
+    {% endfor %}
+  </div>
+  <template id="empty-form">
+    {% for h in formset.empty_form.hidden_fields %}{{ h }}{% endfor %}
+    {{ formset.empty_form.text }}
+    <label class="nowrap">{{ formset.empty_form.is_correct }} correct</label>
+  </template>
+  <p><button type="button" class="btn" id="add-opt">+ Add option</button></p>
+
+  <div class="ctl">
+    <a class="btn" href="{% url 'bank:manage_deck' question.bank.slug %}">Cancel</a>
+    <button class="btn pri">Save question</button>
+  </div>
+</form>
+
+{% if not is_new and perms.bank.delete_question %}
+<form method="post" action="{% url 'bank:question_delete' question.pk %}" style="margin-top:14px"
+      onsubmit="return confirm('Delete this question permanently?')">
+  {% csrf_token %}<button class="btn badc">Delete question</button>
+</form>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const total = document.querySelector('[name$="-TOTAL_FORMS"]');
+  document.getElementById('add-opt').onclick = () => {
+    const n = +total.value;
+    if (n >= 8) return;
+    const d = document.createElement('div');
+    d.className = 'optrow';
+    d.innerHTML = document.getElementById('empty-form').innerHTML.replace(/__prefix__/g, n);
+    document.getElementById('opts').appendChild(d);
+    total.value = n + 1;
+  };
+})();
+</script>
+{% endblock %}

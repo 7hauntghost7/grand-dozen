@@ -1,0 +1,25 @@
+{% extends "bank/base.html" %}
+{% block content %}
+{% if not subjects %}
+<div class="card">
+  <p>No subjects yet.</p>
+  <p class="mute">Run <code>python manage.py seed_subjects</code> (or add them in <a href="{% url 'admin:bank_subject_add' %}">Admin</a>), then import some questions.</p>
+</div>
+{% endif %}
+<div class="blocks">
+  {% for s in subjects %}
+  <a class="block" href="{{ s.get_absolute_url }}">
+    <div class="bname">{{ s.name }}</div>
+    {% if s.description %}<div class="bdesc">{{ s.description }}</div>{% endif %}
+    <div class="bmeta">{{ s.n_decks }} deck{{ s.n_decks|pluralize }} · {{ s.n_q }} question{{ s.n_q|pluralize }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% if unfiled %}
+<h2 class="semband" style="margin-top:22px">Not filed yet</h2>
+<div class="grid">
+  {% for d in unfiled %}<a class="set" href="{{ d.get_absolute_url }}"><h3>{{ d.title }} <span class="mute">· {{ d.n }} questions</span></h3></a>{% endfor %}
+</div>
+{% if user.is_staff %}<p class="mute">Give these decks a subject and semester in <a href="{% url 'admin:bank_questionbank_changelist' %}">Admin → Decks</a> (you can edit them right in the list).</p>{% endif %}
+{% endif %}
+{% endblock %}

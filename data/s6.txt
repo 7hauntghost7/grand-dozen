@@ -1,0 +1,300 @@
+DECK: Set 6 — Q1–27 · True / False per statement
+
+Q: Blood group antigens (agglutinogens) are
+NO: 1
+TYPE: TF
+A. Carried on the haemoglobin molecule.
+B. Beta globulins.
+C. Equally immunogenic.
+D. Not present in fetal blood.
+E. Inherited as recessive Mendelian characteristics.
+ANSWER: FFFFF
+EXPLANATION: They are glycoproteins/glycolipids on the RBC membrane, present early in fetal life, inherited as dominant/co-dominant alleles, and A/B/D are far more immunogenic than others.
+
+Q: Breakdown of erythrocytes in the body
+NO: 2
+TYPE: TF
+A. Occurs when they are 6–8 weeks old.
+B. Takes place in the reticulo-endothelial system.
+C. Yields iron, most of which is excreted in the urine.
+D. Yields bilirubin which is carried by plasma protein to the liver.
+E. Is required for the synthesis of bile salts.
+ANSWER: FTFTF
+EXPLANATION: Lifespan ≈ 120 days; iron is recycled, not excreted; bilirubin (albumin-bound) goes to the liver; bile salts come from cholesterol.
+
+Q: A person with group A blood
+NO: 3
+TYPE: TF
+A. Has anti-B antibody in the plasma.
+B. May have the genotype AB.
+C. May have a parent with group O blood.
+D. May have children with group A or group O blood only.
+E. Whose partner is also A can only have children of groups A or O.
+ANSWER: TFTFT
+EXPLANATION: Group A (AA/AO) has anti-B; AB is a different group. A child AO can have an OO parent. If the partner is B/AB, children may be B or AB.
+
+Q: Blood platelets assist in arresting bleeding by
+NO: 4
+TYPE: TF
+A. Releasing factors promoting blood clotting.
+B. Adhering together to form plugs when exposed to collagen.
+C. Liberating high concentrations of calcium.
+D. Releasing factors causing vasoconstriction.
+E. Inhibiting fibrinolysis by blocking the conversion of plasminogen to plasmin.
+ANSWER: TTFTF
+EXPLANATION: Platelets release clotting factors, aggregate at collagen, and release TXA2/serotonin (vasoconstriction). Calcium release and blocking plasmin formation are not their usual described roles.
+NOTE: C and E are the most debatable — some platelet granules do contain Ca²⁺ and PAI-1.
+
+Q: Plasma bilirubin
+NO: 5
+TYPE: TF
+A. Is a steroid pigment.
+B. Is converted to biliverdin in the liver.
+C. Does not normally cross cerebral capillary walls.
+D. Is freely filtered in the renal glomerulus.
+E. Is sensitive to light.
+ANSWER: FFTFT
+EXPLANATION: Bilirubin is a tetrapyrrole (from haem). Biliverdin → bilirubin, not the reverse. Unconjugated bilirubin is albumin-bound (not filtered, doesn’t enter the brain normally) and light breaks it down (phototherapy).
+
+Q: Monocytes
+NO: 6
+TYPE: TF
+A. Originate from precursor cells in lymph nodes.
+B. Can increase in number when their parent cells are stimulated by factors released from activated lymphocytes.
+C. Unlike granulocytes, do not migrate across capillary walls.
+D. Can transform into large multinucleated cells in certain chronic infections.
+E. Manufacture immunoglobulin M.
+ANSWER: FTFTF
+EXPLANATION: They come from bone marrow, respond to CSFs/cytokines, leave the circulation to become macrophages (and giant cells in TB, etc.), and don’t make antibodies.
+
+Q: Erythrocytes
+NO: 7
+TYPE: TF
+A. Are responsible for the major part of blood viscosity.
+B. Contain the enzyme carbonic anhydrase.
+C. Metabolize glucose to produce CO2 and H2O.
+D. Swell to bursting point when suspended in 0.9 per cent (150 mmol/litre) saline.
+E. Have rigid walls.
+ANSWER: TTFFF
+EXPLANATION: Viscosity is mainly due to RBC number. RBCs have no mitochondria (glycolysis → lactate). 0.9% saline is isotonic; the membrane is flexible.
+
+Q: Human plasma albumin
+NO: 8
+TYPE: TF
+A. Contributes more to plasma colloid osmotic pressure than globulin.
+B. Filters freely at the renal glomerulus.
+C. Is negatively charged at the normal pH of blood.
+D. Carries carbon dioxide in blood.
+E. Lacks the essential amino acids.
+ANSWER: TFTFF
+EXPLANATION: Albumin gives ~75% of oncotic pressure; it is barely filtered (size + charge); it does not carry CO2 (Hb does) and contains all amino acids.
+
+Q: Neutrophil granulocytes
+NO: 9
+TYPE: TF
+A. Are the most common leukocyte in normal blood.
+B. Contain proteolytic enzymes.
+C. Have a lifespan in the circulation of 3–4 weeks.
+D. Contain actin and myosin microfilaments.
+E. Are present in high concentration in pus.
+ANSWER: TTFTT
+EXPLANATION: Circulating lifespan is hours (6–10 h).
+
+Q: Bleeding from a small cut in the skin
+NO: 10
+TYPE: TF
+A. Is normally diminished by local vascular spasm.
+B. Ceases within about five minutes in normal people.
+C. Is prolonged in severe factor VIII (antihaemophilic globulin) deficiency.
+D. Is greater from warm skin than from cold skin.
+E. Is reduced if the affected limb is elevated.
+ANSWER: TTFTT
+EXPLANATION: Bleeding time is normal in haemophilia; it depends on platelets and vessels.
+
+Q: Antibodies
+NO: 11
+TYPE: TF
+A. Are protein molecules.
+B. Are absent from the blood in early fetal life.
+C. Are produced at a greater rate after a first, than after a second, exposure to an antigen six weeks later.
+D. Circulating as free immunoglobulins are produced by B lymphocytes.
+E. With a 1 in 8 titre are more concentrated than ones with a 1 in 4 titre.
+ANSWER: TTFTT
+EXPLANATION: The secondary response is faster and larger. A 1:8 titre means antibody is still detectable after greater dilution, i.e. more concentrated.
+
+Q: Circulating red blood cells
+NO: 12
+TYPE: TF
+A. Are about 1 per cent nucleated.
+B. May show an intracellular network pattern if appropriately stained.
+C. Are distributed evenly across the blood stream in large blood vessels.
+D. Travel at slower velocity in venules than in capillaries.
+E. Deform as they pass through the capillaries.
+ANSWER: FTFFT
+EXPLANATION: Mature RBCs have no nucleus (reticulocytes show a network with supravital stain). RBCs axially concentrate in large vessels. Velocity is slowest in capillaries.
+
+Q: Lymphocytes
+NO: 13
+TYPE: TF
+A. Constitute 1–2 per cent of circulating white cells.
+B. Are motile.
+C. Can transform into plasma cells.
+D. Decrease in number following removal of the adult thymus gland.
+E. Decrease in number during immunosuppressive drug therapy.
+ANSWER: FTTFT
+EXPLANATION: Lymphocytes are 20–40% of WBCs; adult thymectomy has little effect.
+
+Q: The specific gravity (relative density) of
+NO: 14
+TYPE: TF
+A. Red cells is less than that of plasma.
+B. Plasma is due more to its protein than to its electrolyte content.
+C. Plasma decreases as extracellular fluid and electrolytes are lost.
+D. Blood is higher on average in women than in men.
+E. Urine can fall below 1.000 in a water diuresis.
+ANSWER: FTFFF
+EXPLANATION: RBCs are denser (≈1.09) than plasma (≈1.027). Blood SG is higher in men (higher haematocrit). Urine SG minimum is ~1.001.
+
+Q: Blood
+NO: 15
+TYPE: TF
+A. Makes up about 7 per cent of body weight.
+B. Forms a higher percentage of body weight in fat than in thin people.
+C. Volume can be calculated by multiplying plasma volume by the haematocrit (expressed as a percentage).
+D. Volume rises after water is drunk.
+E. Expresses serum when it clots.
+ANSWER: TFFTT
+EXPLANATION: Fat is poorly vascular, so blood is a lower % of weight in obese people. Blood volume = plasma volume ÷ (1 − Hct).
+
+Q: Antigens
+NO: 16
+TYPE: TF
+A. Are usually proteins or polypeptide molecules.
+B. Can only be recognized by immune system cells previously exposed to that antigen.
+C. Are normally absorbed from the gut via lymphatics and carried to mesenteric lymph nodes.
+D. Induce a smaller immune response when protein synthesis is suppressed.
+E. Are taken up by antigen-presenting macrophages which activate the immune system.
+ANSWER: TFFTT
+EXPLANATION: Naive cells can recognise novel antigen (primary response). Dietary antigens are normally digested; only small amounts are sampled by M cells.
+NOTE: C is debatable.
+
+Q: Blood eosinophils
+NO: 17
+TYPE: TF
+A. Have agranular cytoplasm.
+B. Are about a quarter of all leukocytes.
+C. Are relatively abundant in the mucosa of the respiratory, urinary and alimentary tracts.
+D. Release cytokines.
+E. Increase in number in viral infections.
+ANSWER: FFTTF
+EXPLANATION: They are granulocytes (1–4%), rise in allergy/parasitic infection.
+
+Q: Normal blood clotting requires
+NO: 18
+TYPE: TF
+A. Inactivation of heparin.
+B. Inactivation of plasmin (fibrinolysin).
+C. Calcium ions.
+D. An adequate intake of vitamin K.
+E. An adequate intake of vitamin C.
+ANSWER: FFTTF
+EXPLANATION: Ca²⁺ and vitamin K (for II, VII, IX, X) are required. Vitamin C affects vessel integrity, not coagulation.
+
+Q: Antibodies (agglutinins) of the A and B red cell antigens (agglutinogens)
+NO: 19
+TYPE: TF
+A. Are present in fetal plasma.
+B. Cause haemolysis of RBCs containing the A and B antigens when added to a suspension of red cells in saline.
+C. Do not normally cross the placental barrier.
+D. Have a molecular weight in excess of 500 000.
+E. Are monovalent.
+ANSWER: FFTTF
+EXPLANATION: Anti-A/B are IgM (MW ~900,000, pentameric/multivalent), appear after birth, agglutinate cells (haemolysis needs complement).
+
+Q: Lymph
+NO: 20
+TYPE: TF
+A. Contains plasma proteins.
+B. Vessels are involved in the absorption of amino acids from the intestine.
+C. Production increases during muscular activity.
+D. Does not normally contain cells.
+E. Flow is aided by contraction of adjacent skeletal muscles.
+ANSWER: TFTFT
+EXPLANATION: Amino acids go via the portal vein; lymph contains lymphocytes.
+
+Q: Blood platelets
+NO: 21
+TYPE: TF
+A. Are formed in the bone marrow.
+B. Are normally more numerous than white cells.
+C. Have a small single-lobed nucleus.
+D. Increase in number after injury and surgery.
+E. Alter shape when in contact with collagen.
+ANSWER: TTFTT
+EXPLANATION: Platelets are anucleate fragments of megakaryocytes.
+
+Q: The conversion of fibrinogen to fibrin
+NO: 22
+TYPE: TF
+A. Is effected by prothrombin.
+B. Involves the disruption of certain peptide linkages by a proteolytic enzyme.
+C. Is followed by polymerization of fibrin monomers.
+D. Is inhibited by heparin.
+E. Is reversed by plasmin (fibrinolysin).
+ANSWER: FTTTF
+EXPLANATION: Thrombin (not prothrombin) cleaves fibrinopeptides; heparin inhibits thrombin via antithrombin III. Plasmin degrades fibrin — it doesn’t reverse the conversion.
+
+Q: Haemolytic disease of the newborn
+NO: 23
+TYPE: TF
+A. Affects mainly babies of Rh-positive mothers.
+B. Occurs mainly in babies who lack D agglutinogen.
+C. Causes jaundice which clears rapidly after birth.
+D. Can be treated by transfusing the affected baby with Rh-positive blood.
+E. Can be prevented by injecting the mother with anti-D agglutinins just after delivery.
+ANSWER: FFFFT
+EXPLANATION: Rh-NEGATIVE mother, Rh-positive baby; jaundice persists; exchange transfusion uses Rh-negative blood.
+
+Q: The appearance of centrifuged blood may suggest that
+NO: 24
+TYPE: TF
+A. Anaemia is present if there is more plasma than packed cells.
+B. The plasma lipid level is high.
+C. The patient has jaundice.
+D. Haemolysis has occurred.
+E. The patient has leukaemia.
+ANSWER: TTTTT
+EXPLANATION: Low haematocrit; milky plasma (lipids); yellow plasma (bilirubin); pink plasma (haemolysis); thick buffy coat (leukaemia).
+
+Q: Patients with moderate to severe anaemia have a reduced
+NO: 25
+TYPE: TF
+A. Cardiac output.
+B. Incidence of vascular bruits.
+C. 2:3-diphosphoglycerate blood level.
+D. Arterial PO2.
+E. Capacity to raise oxygen consumption in exercise.
+ANSWER: FFFFT
+EXPLANATION: In anaemia: cardiac output ↑, flow murmurs/bruits ↑, 2,3-DPG ↑, arterial PO2 normal; exercise capacity ↓.
+
+Q: Iron deficiency
+NO: 26
+TYPE: TF
+A. Frequently follows persistent loss of blood from the body.
+B. Is more common in men than in women.
+C. May cause anaemia by inhibiting the rate of multiplication of RBC stem cells.
+D. May cause large pale erythrocytes to appear in peripheral blood.
+E. Anaemia should normally be treated by injections of iron.
+ANSWER: TFFFF
+EXPLANATION: Commoner in women; iron deficiency impairs haemoglobin synthesis (small pale cells), not stem-cell multiplication; treatment is oral iron.
+
+Q: Severe reactions are likely after transfusion of blood group
+NO: 27
+TYPE: TF
+A. A to a group B person.
+B. O to a group AB person.
+C. A to a group O person.
+D. A to a group AB person.
+E. O Rh-negative to a group AB Rh-positive person.
+ANSWER: TFTFF
+EXPLANATION: Reactions occur when donor cells meet recipient antibodies: A→B (anti-A) and A→O (anti-A).

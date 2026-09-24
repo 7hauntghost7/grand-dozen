@@ -1,0 +1,14 @@
+{% extends "bank/base.html" %}
+{% block title %}Saved questions{% endblock %}
+{% block content %}
+<h2 class="pagetitle">★ Saved questions</h2>
+<p class="mute">Questions you saved with the ★ button, filed by subject › semester › deck.</p>
+<div class="blocks">
+  {% for s in subjects %}
+  <a class="block {% if not s.n_saved %}empty{% endif %}" href="{% url 'bank:saved_subject' s.slug %}">
+    <div class="bname">{{ s.name }}</div>
+    <div class="bmeta">{{ s.n_saved }} saved question{{ s.n_saved|pluralize }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

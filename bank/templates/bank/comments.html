@@ -1,0 +1,24 @@
+{% extends "bank/base.html" %}
+{% block title %}Comments{% endblock %}
+{% block content %}
+<h2 class="pagetitle">💬 Comments from users</h2>
+<p>
+  <a class="btn {% if show == 'open' %}pri{% endif %}" href="?show=open">Open ({{ n_open }})</a>
+  <a class="btn {% if show == 'resolved' %}pri{% endif %}" href="?show=resolved">Resolved ({{ n_resolved }})</a>
+</p>
+{% for c in comments %}
+<div class="card" style="margin-bottom:10px">
+  <div class="mute">{{ c.question.bank.path }} · Q{{ c.question.number|default:c.question.pk }}</div>
+  <div class="stem" style="font-size:.98rem">{{ c.question.stem|truncatechars:160 }}</div>
+  <div class="fb info" style="margin:6px 0"><b>{{ c.user.username|default:"(deleted user)" }}</b> · {{ c.created_at|date:"j M Y H:i" }}<p>{{ c.text|linebreaksbr }}</p></div>
+  <div class="row" style="margin:0;justify-content:flex-start">
+    <a class="btn pri" href="{% url 'bank:question_edit' c.question_id %}?next={% url 'bank:comments' %}">Edit question</a>
+    <form method="post" action="{% url 'bank:comment_toggle' c.pk %}">{% csrf_token %}
+      <button class="btn">{% if c.resolved %}Reopen{% else %}Mark resolved{% endif %}</button></form>
+    {% if c.resolved and c.resolved_by %}<span class="mute">resolved by {{ c.resolved_by.username }}</span>{% endif %}
+  </div>
+</div>
+{% empty %}
+<div class="card">{% if show == 'open' %}No open comments 🎉{% else %}No resolved comments yet.{% endif %}</div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,1070 @@
+DECK: Set 4 — Q27–131 · full haematology & immunity paper
+
+Q: Neutrophils:
+NO: 27
+A. contains heparin.
+B. are produced mainly in the spleen in adults.
+C. can produce hydrogen peroxide.
+D. have life span of few days.
+E. increases in viral infections.
+ANSWER: C
+EXPLANATION: Respiratory burst generates H2O2/superoxide. Heparin is in basophils/mast cells; adult production is in marrow; neutrophilia is typical of bacterial infection.
+NOTE: D is loosely true too (hours in blood, days in tissue) but C is the classic key.
+
+Q: Red blood cell (RBC):
+NO: 28
+A. have few organelles.
+B. in adults are produced in the spleen & bone marrow.
+C. their size increases in iron deficiency anaemia.
+D. their mean haemoglobin concentration increases in folic acid deficiency.
+ANSWER: A
+EXPLANATION: Mature RBCs have no nucleus or mitochondria. In adults they’re made only in marrow; iron deficiency makes them smaller (microcytic).
+NOTE: Source option c was missing; remaining shown as A–D.
+
+Q: The following is true about iron:
+NO: 29
+A. it is mainly absorbed in the duodenum.
+B. daily loss in males is less than 1 mg.
+C. serum ferritin is a good index of iron storage.
+D. milk is a good dietary source.
+E. vitamin C reduces its absorption.
+ANSWER: A, C
+EXPLANATION: Absorbed mainly in duodenum/upper jejunum; serum ferritin reflects stores. Milk is a poor source; vitamin C INCREASES absorption.
+NOTE: B (~1 mg/day loss) is roughly right too.
+
+Q: Erythropoietin:
+NO: 30
+A. stimulated by increased oxygen tension.
+B. increases Hb synthesis.
+C. reduces maturation time of red blood cells.
+D. its level is increased in people living at high altitudes.
+E. its level is reduced in chronic kidney failure.
+ANSWER: B, C, D, E
+EXPLANATION: Only A is false: EPO is stimulated by LOW oxygen tension.
+NOTE: B–E are all defensible; D and E are the strongest.
+
+Q: Immunoglobulin:
+NO: 31
+A. D has the largest size.
+B. E is found in milk.
+C. G is found mainly in primary response.
+D. M is found mainly in secondary response.
+E. A is found in large amounts in the respiratory tract.
+ANSWER: E
+EXPLANATION: Secretory IgA guards mucosae. IgM is the largest and dominates the primary response; IgG the secondary.
+
+Q: Hb S:
+NO: 32
+A. contains 2 alpha , 2 β chains.
+B. the alpha-chains are abnormal.
+C. glutamic acid is replaced by valine in the chains.
+D. is more common in the Mediterranean area.
+E. has iron in the oxidized state.
+ANSWER: A, C
+EXPLANATION: HbS = α2βˢ2 with Glu→Val at β6. The α chain is normal; iron is ferrous; HbS is common in Africa/India (thalassaemia is the Mediterranean one).
+NOTE: A and C are both true.
+
+Q: The following are true about platelets except:
+NO: 33
+A. are derived from megakaryocytes.
+B. life span is 5–11 days.
+C. increase in number after splenectomy.
+D. have anti-inflammatory role.
+E. size is 4 times the RBC.
+ANSWER: E
+EXPLANATION: Platelets (2–4 µm) are SMALLER than RBCs (~7.5 µm).
+
+Q: Regarding iron absorption:
+NO: 34
+A. is reduced by excess secretion of HCl.
+B. is reduced by absence of the intrinsic factor.
+C. is increased by tetracycline.
+D. iron from meat is absorbed better than iron in plants.
+E. absorption takes place mainly in the ileum.
+ANSWER: D
+EXPLANATION: Haem iron (meat) is absorbed far better than non-haem iron. Acid helps, tetracycline chelates iron (reduces absorption), IF is for B12, and absorption is in duodenum.
+
+Q: Haemoglobin:
+NO: 35
+A. forms 80% of haemoglobin in adults.
+B. consists of 2 alpha & 2 gamma chains.
+C. has higher affinity for O2 than haemoglobin F.
+D. contains iron in the oxidized form.
+E. its amount in each red cell is 30 picogram.
+ANSWER: E
+EXPLANATION: MCH ≈ 27–32 pg. HbA = ~97% of adult Hb, 2α2β, lower O2 affinity than HbF, iron is ferrous.
+
+Q: A stained normal blood film shows:
+NO: 36
+A. 50–70% neutrophils.
+B. 4% basophils.
+C. 2–8% lymphocytes.
+D. 0–4% monocytes.
+E. 0–0.4% eosinophils.
+ANSWER: A
+EXPLANATION: Neutrophils 50–70%, lymphocytes 20–40%, monocytes 2–8%, eosinophils 1–4%, basophils <1%.
+
+Q: Lymphocytes:
+NO: 37
+A. forms 5–15% of lymphocytes.
+B. have no nuclei.
+C. produce IgM antibodies.
+D. convert to plasma cell when activated.
+E. produce perforins.
+ANSWER: C, D, E
+EXPLANATION: B cells/plasma cells make IgM, activated B cells become plasma cells, and cytotoxic T/NK cells release perforin.
+NOTE: A is meaningless; B is false. C, D, E are all true.
+
+Q: Immunoglobulin M (IgM):
+NO: 38
+A. are called secretory immunoglobulin.
+B. most abundant in the secondary immune response.
+C. can cross the placenta.
+D. constitutes the antibodies in the ABO blood group system.
+E. consist of 4 light chains.
+ANSWER: D
+EXPLANATION: Natural anti-A/anti-B are IgM. Secretory = IgA; secondary response = IgG; only IgG crosses the placenta; IgM is a pentamer (10 light chains).
+
+Q: A person who is group O:
+NO: 39
+A. has both A & B antigens.
+B. has both anti-A & B antibodies.
+C. acts as universal recipient.
+D. cannot be a father of child whose group is B.
+E. his genotype is AB.
+ANSWER: B
+EXPLANATION: Group O has no antigens and both anti-A and anti-B; he is the universal DONOR.
+
+Q: For the reticulocyte to develop into a mature red blood cell, it takes:
+NO: 40
+A. 2 hours.
+B. 20 hours.
+C. 2 days.
+D. 7 days.
+E. 30 days.
+ANSWER: C
+EXPLANATION: Reticulocytes mature in ~1–2 days.
+
+Q: The mature red blood cell volume is more than 100 femtoliters in:
+NO: 41
+A. Vitamin B12 deficiency.
+B. Iron deficiency.
+C. Blood loss anemia.
+D. Hemolytic anemia.
+E. Sickle cell anemia.
+ANSWER: A
+EXPLANATION: B12 (and folate) deficiency → macrocytic anaemia.
+
+Q: In parasitic infection, there is a marked increase in the count of:
+NO: 42
+A. Neutrophils.
+B. Basophils.
+C. Eosinophils.
+D. Monocytes.
+E. Lymphocytes.
+ANSWER: C
+EXPLANATION: Eosinophilia.
+
+Q: Antigen-presenting cells present antigens to:
+NO: 43
+A. Neutrophils.
+B. Monocytes.
+C. Reticulocytes.
+D. B-Lymphocytes.
+E. T-Lymphocytes.
+ANSWER: E
+EXPLANATION: APCs present processed antigen on MHC to T lymphocytes.
+
+Q: Acute hemolytic anemia:
+NO: 44
+A. Is associated with low MCV.
+B. Is associated with high reticulocyte count.
+C. Is associated with low MCH.
+D. Leads to low urobilinogen in urine.
+E. Is usually caused by renal failure.
+ANSWER: B
+EXPLANATION: Marrow compensates → reticulocytosis. Urinary urobilinogen is HIGH.
+
+Q: The extrinsic pathway of coagulation is initiated by factor:
+NO: 45
+A. I.
+B. II.
+C. III.
+D. IX.
+E. XII.
+ANSWER: C
+EXPLANATION: Factor III = tissue factor (tissue thromboplastin).
+
+Q: Which of the following substances is used as an anticoagulant in vivo only?
+NO: 46
+A. Heparin.
+B. Calcium-chelating agents.
+C. Vitamin K antagonist.
+D. Thromboxane A2.
+E. Interleukin I.
+ANSWER: C
+EXPLANATION: Warfarin works only in vivo (blocks synthesis of factors). Heparin works in vitro and in vivo; citrate/EDTA work only in vitro.
+
+Q: Urobilinogen:
+NO: 47
+A. Is formed in the liver.
+B. Is not found in the normal urine.
+C. Gives the stool its normal color.
+D. Gives the urine its normal color.
+E. Its concentration in the blood is high in obstructive jaundice.
+ANSWER: C, D
+EXPLANATION: Formed in the gut from bilirubin; derivatives (stercobilin, urobilin) colour stool and urine. Small amounts are normal in urine; it is absent in obstructive jaundice.
+NOTE: Wording is loose — C and D are the best fits.
+
+Q: Concerning Hemoglobin S:
+NO: 48
+A. The alpha-chain is missing.
+B. The beta-chain is missing.
+C. The alpha-chain is abnormal.
+D. The beta-chain is abnormal.
+E. Is more common in the Mediterranean area.
+ANSWER: D
+EXPLANATION: β6 Glu→Val: the β chain is abnormal.
+
+Q: The only antibody that can cross the placenta is:
+NO: 49
+A. IgA.
+B. IgG.
+C. IgM.
+D. IgE.
+E. IgD.
+ANSWER: B
+EXPLANATION: IgG.
+
+Q: The main antibody in the primary immune response is:
+NO: 50
+A. IgA.
+B. IgG.
+C. IgM.
+D. IgE.
+E. IgD.
+ANSWER: C
+EXPLANATION: IgM appears first.
+
+Q: The vasospasm following the injury of the blood vessel:
+NO: 51
+A. Is due to sympathetic stimulation.
+B. Is reduced by pain.
+C. Is due to substances released by platelets.
+D. Lasts up to 5 minutes.
+E. Is stronger in longitudinal than transverse injuries.
+ANSWER: C
+EXPLANATION: Local myogenic spasm plus TXA2/serotonin from platelets. Pain reflexes increase it; sharp transverse cuts spasm less than crush injuries.
+
+Q: Neutrophils:
+NO: 52
+A. Circulate in the blood for a few hours.
+B. Have blue granules.
+C. Are transformed into macrophages in the tissues.
+D. Have a kidney-shaped nucleus.
+E. Contain heparin.
+ANSWER: A
+EXPLANATION: Circulating half-life ≈ 6–10 h.
+
+Q: Passive Immunity:
+NO: 53
+A. Is due to antibodies produced by the body itself.
+B. Has a long duration.
+C. Forms the basis of vaccination against childhood diseases.
+D. Is due to memory cells.
+E. May be due to transplacental transfer of antibodies.
+ANSWER: E
+EXPLANATION: Passive = ready-made antibodies (placenta, milk, antiserum); short-lived, no memory.
+
+Q: The globin part of hemoglobin F consists of:
+NO: 54
+A. 2 alpha and 2 beta chains.
+B. 2 beta and 2 gamma chains.
+C. 2 gamma and 2 delta chains.
+D. 2 alpha and 2 delta chains.
+E. 2 alpha and 2 gamma chains.
+ANSWER: E
+EXPLANATION: α2γ2.
+
+Q: The following are natural anticoagulants except:
+NO: 55
+A. Thromboxane A2.
+B. Prostacyclin.
+C. Protein C.
+D. Antithrombin III.
+E. Plasminogen.
+ANSWER: A
+EXPLANATION: TXA2 is pro-thrombotic.
+
+Q: The main constituent of a blood clot is:
+NO: 56
+A. Thrombin.
+B. Fibrin.
+C. Plasminogen.
+D. Thrombinogen.
+E. Thromboplastin.
+ANSWER: B
+EXPLANATION: Fibrin mesh with trapped cells.
+
+Q: Endothelium produces all of the following except:
+NO: 57
+A. Prostacyclin.
+B. Thromboxane A2.
+C. Plasminogen.
+D. Protein C.
+E. Factor X.
+ANSWER: B
+EXPLANATION: Source key: thromboxane A2 (platelet product).
+NOTE: Plasminogen, protein C and factor X are made by the liver, not endothelium — the question is loosely worded.
+
+Q: Cellular immunity is due to:
+NO: 58
+A. T lymphocytes.
+B. B lymphocytes.
+C. Monocytes.
+D. Neutrophils.
+E. Mast cells.
+ANSWER: A
+EXPLANATION: T cells mediate cell-mediated immunity.
+
+Q: Action of plasmin is:
+NO: 59
+A. Calcium chelation.
+B. Degradation of fibrin.
+C. Anti-thrombin.
+D. Stimulation of heparin.
+E. Release of tissue plasminogen activator.
+ANSWER: B
+EXPLANATION: Plasmin digests fibrin (fibrinolysis).
+
+Q: Oncotic pressure of plasma is mainly maintained by:
+NO: 60
+A. Fibrinogen.
+B. Albumin.
+C. Alpha-globulin.
+D. Beta-globulin.
+E. Gamma-globulin.
+ANSWER: B
+EXPLANATION: Albumin: highest concentration and small size.
+
+Q: Hematocrit of 45% means that in the sample of blood analyzed:
+NO: 61
+A. 45% Hb is in the plasma.
+B. 45% of total blood volume is made up of plasma.
+C. 45% of Hb is in the RBC.
+D. 45% of the total blood volume is made up of cells.
+E. 45% of the red blood cell is made of hemoglobin.
+ANSWER: D
+EXPLANATION: Haematocrit = fraction of blood volume occupied by cells.
+
+Q: Iron is absorbed in the:
+NO: 62
+A. Stomach.
+B. Duodenum.
+C. Upper ileum.
+D. Terminal ileum.
+E. Colon.
+ANSWER: B
+EXPLANATION: Duodenum (and upper jejunum).
+
+Q: Which of the following statements concerning the monocyte is incorrect?
+NO: 63
+A. More common in blood than eosinophils.
+B. Produced in the adult by the bone marrow.
+C. Does not leave the circulation.
+D. Not classified as a granulocyte.
+E. Has a kidney-shaped nucleus.
+ANSWER: C
+EXPLANATION: Monocytes leave blood and become tissue macrophages.
+
+Q: Concerning Vitamin B12:
+NO: 64
+A. Is a fat-soluble vitamin.
+B. Is found in green vegetables.
+C. Is absorbed in the duodenum.
+D. Antagonizes folic acid.
+E. Is required for myelin formation.
+ANSWER: E
+EXPLANATION: B12 is needed for myelin.
+
+Q: Physiological Jaundice:
+NO: 65
+A. Is due to rhesus compatibility.
+B. Appears in the first 24 hours after birth.
+C. Is treated by exchange transfusion.
+D. Is due to excessive RBC breakdown.
+E. Is less common in pre-term babies.
+ANSWER: D
+EXPLANATION: Fetal RBC breakdown + immature conjugation. It appears after 24–48 h and is more common in preterms.
+
+Q: Vitamin K deficiency leads to the decreased production of the following factor:
+NO: 66
+A. I.
+B. VII.
+C. VIII.
+D. XI.
+E. XII.
+ANSWER: B
+EXPLANATION: Factor VII is vitamin K-dependent.
+
+Q: In a 30-year-old man, red bone marrow will be found at all these sites except:
+NO: 67
+A. Skull.
+B. Ribs.
+C. Pelvic bones.
+D. Shaft of femur.
+E. Sternum.
+ANSWER: D
+EXPLANATION: Femoral shaft = yellow marrow in adults.
+
+Q: Reticulocyte count in normal blood is:
+NO: 68
+A. Zero.
+B. 1%.
+C. 3%.
+D. 5%.
+E. 10%.
+ANSWER: B
+EXPLANATION: ~1%.
+
+Q: In obstructive jaundice:
+NO: 69
+A. Bilirubin is excreted in the urine.
+B. Stool color is dark.
+C. Urobilinogen in urine is increased.
+D. Reticulocyte count is increased.
+E. Van Den Berg test is indirect.
+ANSWER: A
+EXPLANATION: Conjugated bilirubin reaches urine; stool is pale.
+
+Q: Reticulocytes:
+NO: 70
+A. Are found in the blood from a normal person.
+B. Contain a nucleus.
+C. Contain 30 picograms of hemoglobin.
+D. Are produced at a higher rate in a person with folic acid deficiency.
+E. Take one week to mature into a RBC.
+ANSWER: A
+EXPLANATION: ~1% of circulating RBCs; they are anucleate and mature in 1–2 days. Folate deficiency causes ineffective erythropoiesis (low count).
+
+Q: Causes of hypochromic anemia include:
+NO: 71
+A. Removal of the ileum.
+B. Iron deficiency.
+C. Folic acid deficiency.
+D. Sickle cell anemia.
+E. Vitamin B12 deficiency.
+ANSWER: B
+EXPLANATION: Iron deficiency → microcytic hypochromic.
+
+Q: The following factors help in keeping the blood in the fluid state inside the circulation:
+NO: 72
+A. The collagen lining of the endothelium.
+B. Thromboxane A2.
+C. Thrombomodulin.
+D. Flow of the blood.
+E. Factor XII.
+ANSWER: C, D
+EXPLANATION: Smooth endothelium, thrombomodulin (→ protein C) and continuous flow keep blood fluid. Collagen, TXA2 and XII promote clotting.
+NOTE: C and D are both correct.
+
+Q: Antibodies against the Rhesus Factor (anti-D):
+NO: 73
+A. Are naturally occurring antibodies.
+B. Follow Landsteiner's law.
+C. Are immunoglobulin D (IgD).
+D. Can cross the placenta.
+E. Are found in the plasma of all Rhesus-negative subjects.
+ANSWER: D
+EXPLANATION: Anti-D is an acquired IgG, so it crosses the placenta (haemolytic disease of the newborn).
+
+Q: Most of the iron content in the body is found in:
+NO: 74
+A. The skeletal muscles.
+B. The liver.
+C. The bone marrow.
+D. The red blood cells.
+E. The plasma.
+ANSWER: D
+EXPLANATION: ~65% is in haemoglobin.
+
+Q: Vitamin B12 deficiency:
+NO: 75
+A. Is common among vegetarians.
+B. Causes microcytic anemia.
+C. May result from diseases of the duodenum and jejunum.
+D. Causes a defect in myelination.
+E. Leads to neural tube developmental abnormalities.
+ANSWER: D
+EXPLANATION: B12 deficiency → macrocytic anaemia and demyelination (subacute combined degeneration). Absorption is in the terminal ileum; neural tube defects relate to folate.
+NOTE: A is true mainly for strict vegans.
+
+Q: Hemoglobin A1C:
+NO: 76
+A. Has a half-life of a few days.
+B. Has iron in the ferric form.
+C. Is low in folic acid deficiency.
+D. Is an indicator of diabetes mellitus control.
+E. Is not found in normal subjects.
+ANSWER: D
+EXPLANATION: Glycated Hb reflects average glucose over ~2–3 months.
+
+Q: Conjugated Bilirubin:
+NO: 77
+A. Is filtered by the kidneys.
+B. Its level is high in obstructive jaundice.
+C. Is formed in the small intestine.
+D. Circulates in the blood bound to albumin.
+E. Gives an indirect Van Den Berg test.
+ANSWER: A, B
+EXPLANATION: Conjugated bilirubin is water-soluble (filtered, direct Van den Bergh), rises in obstruction, and is formed in the liver. Albumin-bound = unconjugated.
+NOTE: A and B are both true.
+
+Q: Opsonization:
+NO: 78
+A. Helps the phagocytes recognize foreign antigens.
+B. Is the process of engulfing foreign bodies.
+C. Is the process by which neutrophils pass through the capillary membrane.
+D. Is the opposite of chemotaxis.
+E. Is due to the perforins secreted by T-lymphocytes.
+ANSWER: A
+EXPLANATION: Opsonins (IgG, C3b) coat microbes to enhance phagocytosis.
+
+Q: Antibodies:
+NO: 79
+A. Are essential for activation of both complement pathways.
+B. Are secreted by helper T lymphocytes.
+C. Circulate in the albumin fraction of plasma proteins.
+D. Provide cellular immunity.
+E. Are important in opsonization.
+ANSWER: E
+EXPLANATION: The alternative complement pathway is antibody-independent; antibodies are from plasma cells and travel in the γ-globulin fraction.
+
+Q: Concerning Plasma:
+NO: 80
+A. Forms 40% of the blood volume.
+B. Forms 8% of the body weight.
+C. Has the same composition as serum.
+D. Fibrinogen is the main plasma protein.
+E. 90% of its weight is water.
+ANSWER: E
+EXPLANATION: Plasma is ~90–92% water (≈55% of blood volume; albumin is the main protein).
+
+Q: Hemoglobin F consists of:
+NO: 81
+A. Four alpha chains.
+B. Four beta chains.
+C. 2 alpha and 2 beta chains.
+D. 2 alpha and 2 gamma chains.
+E. 2 alpha and 2 delta chains.
+ANSWER: D
+EXPLANATION: α2γ2.
+
+Q: The shafts of long bones do not contain red bone marrow after:
+NO: 82
+A. Birth.
+B. One year.
+C. 10 years.
+D. Immediately after puberty.
+E. 20 years.
+ANSWER: E
+EXPLANATION: Long-bone shafts turn to fatty marrow by about age 20.
+
+Q: Monocytes:
+NO: 83
+A. Form 2% of white blood cells.
+B. Are antigen-presenting cells.
+C. Have a lobulated nucleus.
+D. Contain blue granules.
+E. Cannot leave the circulation.
+ANSWER: B
+EXPLANATION: Monocytes/macrophages are APCs (normal 2–8%; they have a kidney-shaped nucleus).
+
+Q: Anemia with an MCV of about 70 femtoliters is caused by:
+NO: 84
+A. Removal of ileum.
+B. Iron deficiency.
+C. Folic acid deficiency.
+D. Sickle cell anemia.
+E. Vitamin B12 deficiency.
+ANSWER: B
+EXPLANATION: MCV 70 fL = microcytic → iron deficiency.
+
+Q: Eosinophils:
+NO: 85
+A. Have a kidney-shaped nucleus.
+B. Are characterized by blue cytoplasmic granules.
+C. Form 0.4% of white blood cells.
+D. Count is typically high in bacterial infection.
+E. Count may reach 8% in parasitic infection.
+ANSWER: E
+EXPLANATION: Eosinophils have bilobed nuclei and red-orange granules, normally 1–4%, and rise in parasitic/allergic states.
+
+Q: Regarding iron absorption:
+NO: 86
+A. Is reduced by increased secretion of HCl.
+B. Is reduced by absence of intrinsic factor.
+C. Is reduced by tetracycline administration.
+D. Iron from meat is better absorbed than iron from plants.
+E. Absorption takes place mainly in the ileum.
+ANSWER: C, D
+EXPLANATION: Tetracycline chelates iron; haem iron is better absorbed. Acid helps; IF is for B12; site is the duodenum.
+NOTE: C and D are both correct.
+
+Q: Hemoglobin A:
+NO: 87
+A. Forms 90% of hemoglobin in the adult.
+B. Consists of 2 alpha and 2 gamma chains.
+C. Has less affinity for oxygen than hemoglobin.
+D. Contains iron in the ferric form.
+E. Its amount in each cell is about 20 picograms.
+ANSWER: A, C
+EXPLANATION: HbA is ~90–97% of adult Hb, α2β2, has lower O2 affinity than HbF, ferrous iron, ~30 pg/cell.
+NOTE: Option C is garbled in the source (presumably 'than HbF').
+
+Q: A person who is group B negative:
+NO: 88
+A. Has antigen B and antibody B.
+B. His children may develop Rhesus incompatibility if his wife is Rhesus positive.
+C. He cannot be a father of a child whose group is AB.
+D. He cannot be a father of a child whose group is O.
+E. He cannot be a father of a child whose group is A.
+ANSWER: B
+EXPLANATION: Group B has antigen B and anti-A. Rh incompatibility needs an Rh-NEGATIVE mother.
+NOTE: As printed, no option is strictly correct — B is presumably intended with 'wife Rhesus negative'.
+
+Q: All of the following may cause anemia except:
+NO: 89
+A. Folic acid deficiency.
+B. Removal of the stomach.
+C. Vitamin D deficiency.
+D. Diseases of the terminal ileum.
+E. Chronic renal failure.
+ANSWER: C
+EXPLANATION: Gastrectomy → IF loss (B12) and iron malabsorption; ileal disease → B12; CRF → low EPO.
+
+Q: Bilirubin:
+NO: 90
+A. Is a product of globin breakdown.
+B. Normal plasma level is 10 mg/100 mL.
+C. Is excreted mainly in urine.
+D. Gives the urine its characteristic colour.
+E. Excretion in feces is increased in hemolytic anemia.
+ANSWER: E
+EXPLANATION: Bilirubin comes from haem; normal is <1 mg/dL; excreted mainly in bile/faeces; more is produced in haemolysis.
+
+Q: Iron:
+NO: 91
+A. Is found in high amounts in mother's milk.
+B. Is absorbed mainly in the lower intestine.
+C. Is transported in plasma with plasma transferrin.
+D. Is stored in the liver mainly as haemosiderin.
+E. Deficiency causes anemia with red cell volume typically about 105 femtoliters.
+ANSWER: C
+EXPLANATION: Transferrin carries iron in plasma. Milk is iron-poor; absorption is duodenal; storage is mainly ferritin; iron deficiency gives a LOW MCV.
+
+Q: The normal range of blood volume in a 60-kg male is:
+NO: 92
+A. 3.5–4.0 liters.
+B. 4.0–4.5 liters.
+C. 4.5–5.0 liters.
+D. 5.0–5.5 liters.
+E. 5.5–6.0 liters.
+ANSWER: B
+EXPLANATION: ~70 mL/kg × 60 kg ≈ 4.2 L.
+
+Q: Which of the following might trigger erythropoiesis?
+NO: 93
+A. Decreased tissue demand for oxygen.
+B. Increased tissue demand for oxygen.
+C. An increased number of RBCs.
+D. Moving from a higher altitude to a lower altitude.
+E. Taking large amounts of iron.
+ANSWER: B
+EXPLANATION: Tissue hypoxia stimulates EPO release.
+
+Q: All of the following can be expected with polycythemia except:
+NO: 94
+A. Low blood viscosity.
+B. High hematocrit.
+C. Increased blood volume.
+D. High blood pressure.
+E. Increased resistance to flow.
+ANSWER: A
+EXPLANATION: Polycythaemia raises viscosity.
+
+Q: The process of WBCs slipping out of the capillaries into tissues is called:
+NO: 95
+A. Thrombocytopenia.
+B. Diapedesis.
+C. Leukopenia.
+D. Leukocytosis.
+E. Opsonization.
+ANSWER: B
+EXPLANATION: Diapedesis.
+
+Q: Which of the following is a characteristic of all leukocytes?
+NO: 96
+A. They are phagocytic.
+B. They have cytoplasmic granules.
+C. They are nucleated.
+D. They are the most numerous of formed elements of blood.
+E. They are important in innate immunity.
+ANSWER: C
+EXPLANATION: All leukocytes have a nucleus (unlike RBCs/platelets).
+
+Q: Mr. Ali's blood was determined to be AB positive. What does this mean?
+NO: 97
+A. Antibodies to A and B are present in plasma.
+B. There are no antibodies to A, B or Rh antigens in the plasma.
+C. His blood lacks the Rh factor.
+D. All of the above are correct.
+E. He has antigen A and B but not antigen D on his RBCs.
+ANSWER: B
+EXPLANATION: AB+ has A, B and D antigens on RBCs and no anti-A, anti-B or anti-D in plasma.
+
+Q: B lymphocytes:
+NO: 98
+A. Have phagocytic functions.
+B. Produce helper cells.
+C. Their maturation is completed in the bone marrow.
+D. Are characterized by a horseshoe-shaped nucleus.
+E. Constitute the majority of the lymphocytes.
+ANSWER: C
+EXPLANATION: B cells mature in bone marrow; T cells (the majority) mature in the thymus.
+
+Q: The red blood cells in males compared to females:
+NO: 99
+A. Have higher count.
+B. Live longer in circulation.
+C. Have more hemoglobin per cell (MCH).
+D. Have larger volume (MCV).
+E. Are less fragile.
+ANSWER: A
+EXPLANATION: Androgens → higher RBC count (~5.2 vs 4.7 million/µL).
+
+Q: Rhesus incompatibility of the newborn occurs only if:
+NO: 100
+A. The mother is Rh-, and the baby is Rh+.
+B. The father is Rh+, and the baby is Rh+.
+C. The newborn is Rh+, and the father is Rh-.
+D. Cells in the fetus enter the mother's circulation.
+E. The mother and fetus are ABO incompatible.
+ANSWER: A, D
+EXPLANATION: Needs an Rh-negative mother with an Rh-positive fetus whose cells reach the mother’s circulation to sensitise her.
+NOTE: A is the standard answer; D is the mechanism.
+
+Q: The first factor to be activated in the extrinsic pathway is factor:
+NO: 101
+A. II.
+B. V.
+C. VII.
+D. X.
+E. XII.
+ANSWER: C
+EXPLANATION: Tissue factor activates VII.
+
+Q: Platelets:
+NO: 102
+A. Have a lifespan of 7 days.
+B. Count is 120,000 per mm³.
+C. Produce prostacyclin.
+D. Are controlled by erythropoietin.
+E. Deficiency causes hemophilia.
+ANSWER: A
+EXPLANATION: Lifespan ≈ 7–10 days. Normal count 150–400k; prostacyclin is endothelial; thrombopoietin controls platelets.
+
+Q: Plasma is different from serum in that it contains:
+NO: 103
+A. More sodium.
+B. Less calcium.
+C. More albumin.
+D. More fibrinogen.
+E. Less neutrophils.
+ANSWER: D
+EXPLANATION: Serum = plasma minus fibrinogen and clotting factors.
+
+Q: The type of white blood cells most likely to increase in parasitic infection are:
+NO: 104
+A. Neutrophils.
+B. Eosinophils.
+C. Basophils.
+D. Monocytes.
+E. Lymphocytes.
+ANSWER: B
+EXPLANATION: Eosinophils.
+
+Q: T lymphocytes:
+NO: 105
+A. Are called T lymphocytes because they mature in the tonsils.
+B. Are more effective against intracellular antigens.
+C. Are essential for humoral immunity.
+D. Can produce antibodies.
+E. Are important in passive immunization of the fetus.
+ANSWER: B
+EXPLANATION: T cells mature in the thymus and handle intracellular pathogens and infected cells (cell-mediated immunity).
+
+Q: Normal blood contains:
+NO: 106
+A. 3 million RBCs per mm³.
+B. 15,000 WBCs per mm³.
+C. 300,000 platelets per mm³.
+D. 10 grams Hb per 100 mL.
+E. 3 grams protein per 100 mL.
+ANSWER: C
+EXPLANATION: Normal platelets 150–400k/mm³.
+
+Q: Methemoglobin:
+NO: 107
+A. Is formed by the reaction of hemoglobin to glucose.
+B. Is due to CO toxicity.
+C. Is due to reducing agents.
+D. Contains ferric ion instead of ferrous.
+E. Has higher affinity to O₂ than normal Hb.
+ANSWER: D
+EXPLANATION: Fe²⁺ → Fe³⁺ (oxidising agents); can’t carry O2.
+
+Q: Vitamin B12:
+NO: 108
+A. Is a fat-soluble vitamin.
+B. Is not found in green vegetables.
+C. Is absorbed from the stomach.
+D. Deficiency causes microcytic anemia.
+E. Deficiency causes neural tube defect.
+ANSWER: B
+EXPLANATION: B12 comes from animal sources; absorbed in the terminal ileum; deficiency is macrocytic.
+
+Q: The following cell produces antibodies:
+NO: 109
+A. Helper-T lymphocytes.
+B. Cytotoxic-T lymphocytes.
+C. Monocytes.
+D. Plasma cells.
+E. Eosinophils.
+ANSWER: D
+EXPLANATION: Plasma cells (differentiated B cells).
+
+Q: The antibody found in highest concentration in mother's milk is:
+NO: 110
+A. IgG.
+B. IgA.
+C. IgM.
+D. IgE.
+E. IgD.
+ANSWER: B
+EXPLANATION: Secretory IgA.
+
+Q: The alternative pathway for complement activation is activated by:
+NO: 111
+A. T-helper cells.
+B. Antigen-antibody complex.
+C. Circulating factors in the plasma.
+D. Histamine.
+E. Factor XII.
+ANSWER: C
+EXPLANATION: Spontaneous C3 hydrolysis with factors B, D and properdin — antibody-independent.
+
+Q: Eosinophil count of 6% is most likely found in:
+NO: 112
+A. Normal subjects.
+B. Bacterial infection.
+C. Parasitic infection.
+D. Viral infection.
+E. Fungal infection.
+ANSWER: C
+EXPLANATION: Normal is 1–4%; parasitic infection raises it.
+
+Q: The extrinsic pathway of blood coagulation:
+NO: 113
+A. Is triggered by contact of factor VII with collagen.
+B. Is slower than the intrinsic pathway.
+C. Requires factor III.
+D. Requires factor IX.
+E. Utilizes all the clotting factors in the blood.
+ANSWER: C
+EXPLANATION: Needs tissue factor (III). It is faster than the intrinsic pathway.
+
+Q: The following factor favors blood coagulation:
+NO: 114
+A. Smoothness of the endothelium.
+B. Thromboxane A2.
+C. Prostacyclin.
+D. Calcium chelating agents.
+E. Vitamin K.
+ANSWER: B, E
+EXPLANATION: TXA2 promotes platelet aggregation; vitamin K is needed for II, VII, IX, X synthesis.
+NOTE: B and E are both correct.
+
+Q: Blood stored for transfusion:
+NO: 115
+A. Is stored at -20°C.
+B. Plasma K⁺ concentration rises.
+C. Concentration of 2,3-DPG increases.
+D. Warfarin can be used as anticoagulant.
+E. Its affinity for oxygen decreases.
+ANSWER: B
+EXPLANATION: K⁺ leaks from stored cells. 2,3-DPG falls (so O2 affinity rises); storage is at 4°C; warfarin is not used in vitro.
+
+Q: Reticulocyte count of 4% is most likely found in:
+NO: 116
+A. Normal subjects.
+B. Vitamin B12 deficiency.
+C. Folic acid deficiency.
+D. Lack of erythropoietin.
+E. Hemolytic anemia.
+ANSWER: E
+EXPLANATION: Haemolysis → compensatory reticulocytosis.
+
+Q: Packed cell volume in a blood sample was found to be 41%; that means:
+NO: 117
+A. 41% of hemoglobin is in the plasma.
+B. 41% of the total blood volume is made of plasma.
+C. 41% of the hemoglobin is in the red blood cells.
+D. 41% of the total blood volume is made up of all blood cells.
+E. 41% of the blood cells are made up of red blood cells.
+ANSWER: D
+EXPLANATION: PCV = cell volume as % of blood volume.
+
+Q: Tissue plasminogen activator is stimulated by:
+NO: 118
+A. Factor X.
+B. Protein C.
+C. Thrombin.
+D. Thrombomodulin.
+E. Factor XIII.
+ANSWER: C
+EXPLANATION: Thrombin (and venous occlusion, stress) stimulates endothelial tPA release.
+
+Q: Vitamin B12:
+NO: 119
+A. Is a fat-soluble vitamin.
+B. Is needed for closure of the neural tube.
+C. Is absorbed in the stomach.
+D. Deficiency typically causes anemia of MCV more than 100 femtoliters.
+E. Is not stored in the body.
+ANSWER: D
+EXPLANATION: B12 deficiency → macrocytic anaemia. Neural tube closure needs folate; B12 is stored in the liver (years’ supply).
+
+Q: The following is true about iron:
+NO: 120
+A. Milk is a rich source.
+B. Absorption needs intrinsic factor secreted by the stomach.
+C. Is found in hemoglobin in the reduced form.
+D. Deficiency is more common in males than in females.
+E. Is stored in the body mainly as hemosiderin.
+ANSWER: C
+EXPLANATION: Haemoglobin iron is ferrous (Fe²⁺, reduced). Milk is poor in iron; IF is for B12; deficiency is commoner in women.
+NOTE: E is debatable — storage is mainly as ferritin.
+
+Q: Bilirubin:
+NO: 121
+A. Level in blood is 10 mg/100 mL.
+B. Is produced by the breakdown of the globin part of hemoglobin.
+C. Is excreted mainly in the urine.
+D. Excretion in urine is increased in hemolytic jaundice.
+E. Is converted in the intestine to stercobilinogen.
+ANSWER: E
+EXPLANATION: Gut bacteria convert bilirubin to urobilinogen/stercobilinogen. In haemolytic jaundice the bilirubin is unconjugated and does not appear in urine.
+
+Q: Platelets:
+NO: 122
+A. Normal count is about 40,000/mm³.
+B. Have a lifespan of 30 days.
+C. Contain clotting factors.
+D. Secrete prostacyclin.
+E. Have receptors for protein C.
+ANSWER: C
+EXPLANATION: Platelets store factors V, fibrinogen, vWF etc.
+
+Q: The role of platelets in hemostasis does not include:
+NO: 123
+A. Release of vasoconstrictor substances.
+B. Adhesion to injured areas.
+C. Causing clot retraction.
+D. Activating the fibrinolytic system.
+E. Providing phospholipids to the clotting reactions.
+ANSWER: D
+EXPLANATION: Platelets’ roles: vasoconstrictors, adhesion/plug, retraction, phospholipid surface — not activation of fibrinolysis.
+
+Q: Platelets:
+NO: 124
+A. Normal count in the blood is 75,000–120,000/uL.
+B. Produced in the yellow marrow of long bones.
+C. Need to be activated in the spleen.
+D. Can be stored in the refrigerator of the blood bank for 13 days.
+E. Do not have a nucleus.
+ANSWER: E
+EXPLANATION: Platelets are anucleate fragments of megakaryocytes.
+
+Q: The principal cells that mediate the specific immune response include the:
+NO: 125
+A. Neutrophil granulocyte.
+B. Natural killer cells.
+C. Mast cells.
+D. Tissue macrophages.
+E. Oligodendroglial cells.
+ANSWER: B
+EXPLANATION: None of these is strictly a T or B cell; NK cells (large granular lymphocytes) are the closest.
+NOTE: The question appears flawed — the specific response is mediated by T and B lymphocytes.
+
+Q: The following is not one of the plasma globulins:
+NO: 126
+A. Angiotensinogen.
+B. Prothrombin.
+C. IgM.
+D. Elastin.
+E. Proteins of the complement system.
+ANSWER: D
+EXPLANATION: Elastin is a structural protein of tissues, not a plasma globulin.
+
+Q: The following is a characteristic complication of massive blood transfusion:
+NO: 127
+A. Transmission of the HIV virus.
+B. Transmission of the malaria parasite.
+C. Hypocalcemia.
+D. Massive intravascular hemolysis.
+E. Myoglobinuria.
+ANSWER: C
+EXPLANATION: Citrate in stored blood chelates calcium.
+
+Q: Salah's blood group is AB while the blood group of his wife Anna is B. Their children will NOT have the following blood group genotype:
+NO: 128
+A. AB.
+B. OO.
+C. AO.
+D. BO.
+E. BB.
+ANSWER: B
+EXPLANATION: AB × B: no child can be OO (father has no O allele).
+
+Q: A bleeding tendency is NOT usually expected in individuals suffering from:
+NO: 129
+A. Obstructive jaundice.
+B. Liver cirrhosis.
+C. Vitamin K deficiency.
+D. Vitamin C deficiency.
+E. Vitamin A deficiency.
+ANSWER: E
+EXPLANATION: Vitamin A isn’t involved in coagulation; C deficiency weakens vessels, K deficiency lowers II/VII/IX/X.
+
+Q: The following is true about red blood cells:
+NO: 130
+A. Their count ranges between 6–8 million/mm³.
+B. Polycythemia means a decrease in red blood cell count.
+C. Red cell production occurs in the spleen.
+D. The red cells are biconvex discs.
+E. The red cells carry myoglobin.
+ANSWER: D
+EXPLANATION: Intended answer: shape (they are biconCAVE discs — 'biconvex' is presumably a typo). Count is 4.5–5.5 million; polycythaemia is an increase.
+NOTE: Wording flaw in source.
+
+Q: The following is true about Hemoglobin A:
+NO: 131
+A. Its concentration in males is about 19 g/dL.
+B. Is made of two alpha chains and two gamma chains.
+C. Has four binding sites for combining with O₂.
+D. Does not transport CO₂.
+E. The heme component contains ferrous iron.
+ANSWER: C, E
+EXPLANATION: Each Hb carries 4 O2 (one per haem), iron is ferrous. HbA is α2β2; Hb also carries CO2 as carbamino compounds; males ≈ 14–17 g/dL.
+NOTE: C and E are both correct.
