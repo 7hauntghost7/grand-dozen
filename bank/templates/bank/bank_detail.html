@@ -5,17 +5,21 @@
   <a href="{% url 'bank:home' %}">Subjects</a>
   {% if bank.subject %}› <a href="{{ bank.subject.get_absolute_url }}">{{ bank.subject.name }}</a> › Semester {{ bank.semester }}{% endif %}
 </p>
-<div class="card">
-  <h2 style="margin-top:0">{{ bank.title }}</h2>
-  <p class="mute">{{ count }} question{{ count|pluralize }}{% if bank.description %} · {{ bank.description }}{% endif %}</p>
-  <form method="get" action="{% url 'bank:quiz' bank.slug %}" class="row" style="justify-content:flex-start">
-    <label><input type="checkbox" name="shuffle" value="1"> Shuffle order</label>
+<div class="card deck-card">
+  <div class="deck-header">
+    <h2 class="deck-title">{{ bank.title }}</h2>
+    <p class="deck-meta">{{ count }} question{{ count|pluralize }}{% if bank.description %} · {{ bank.description }}{% endif %}</p>
+  </div>
+
+  <form method="get" action="{% url 'bank:quiz' bank.slug %}" class="deck-toolbar">
     <button class="btn pri" {% if not count %}disabled{% endif %}>Start quiz</button>
+    <label class="shuffle-toggle"><input type="checkbox" name="shuffle" value="1"> Shuffle order</label>
   </form>
-  <p class="mute" style="margin-top:14px">
+
+  <div class="deck-links">
     <a href="{% url 'bank:export' bank.slug %}">Download as text</a>
-    {% if perms.bank.change_question %} · <a href="{% url 'bank:manage_deck' bank.slug %}">Manage / edit questions</a>{% endif %}
-    {% if perms.bank.add_question %} · <a href="{% url 'bank:import' %}?subject={{ bank.subject_id|default_if_none:"" }}&semester={{ bank.semester }}&deck_title={{ bank.title|urlencode }}">Bulk import into this deck</a>{% endif %}
-  </p>
+    {% if perms.bank.change_question %}<a href="{% url 'bank:manage_deck' bank.slug %}">Manage questions</a>{% endif %}
+    {% if perms.bank.add_question %}<a href="{% url 'bank:import' %}?subject={{ bank.subject_id|default_if_none:"" }}&semester={{ bank.semester }}&deck_title={{ bank.title|urlencode }}">Bulk import</a>{% endif %}
+  </div>
 </div>
 {% endblock %}

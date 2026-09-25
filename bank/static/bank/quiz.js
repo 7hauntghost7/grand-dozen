@@ -19,7 +19,7 @@
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
   let Q = [], byId = {}, list = [], pos = 0, view = "quiz", busy = false, navOpen = true, blockNavOpen = true;
-  let resultBlock = 0;
+  let resultBlock = 0, showUnanswered = false;
   const tfPending = {};
   const cm = {};
   const notice = {};
@@ -90,6 +90,7 @@
     const activeBlock = view === "results" ? resultBlock : currentBlock();
     const toggle = `<button class="btn nav-toggle" data-act="toggle-block-nav" aria-expanded="${blockNavOpen}" title="${blockNavOpen ? "Hide block list" : "Show block list"}">${blockNavOpen ? "▾" : "▸"}</button>`;
     const summary = `<button class="btn ${activeBlock === currentBlock() ? "pri" : ""}" data-act="block" data-block="${activeBlock}">Block ${activeBlock + 1}</button>`;
+    const resetBlock = `<button class="btn" data-act="reset-block" title="Reset this block progress">Reset block</button>`;
     const buttons = Array.from({length: blockCount()}, (_, b) => {
       const ids = blockList(b), t = tally(ids), active = b === activeBlock;
       const done = blockComplete(b);
@@ -98,7 +99,7 @@
         <span class="mute"> (${t.ok}/${ids.length})</span></button>`;
     }).join(" ");
     return `<div class="row" style="margin:0 0 10px;justify-content:flex-start;gap:6px;flex-wrap:wrap">
-      <span class="mute">Blocks:</span>${toggle}${blockNavOpen ? buttons : summary}</div>`;
+      <span class="mute">Blocks:</span>${toggle}${blockNavOpen ? buttons : summary}${resetBlock}</div>`;
   }
 
   function render() {
@@ -127,8 +128,9 @@
 
   function commentBox(id) {
     const c = cm[id] || {};
+    const finish = `<button class="btn" data-act="finish" title="See your results for this block now">End block</button>`;
     const btn = `<button class="btn" data-act="cmtoggle">💬 Comment${c.open ? " ▴" : ""}</button>`;
-    if (!c.open) return btn;
+    if (!c.open) return `${finish} ${btn}`;
     let inner;
     if (!AUTH) {
       inner = `<p class="mute"><a href="${esc(D.login)}">Log in</a> to send a comment to the admins.</p>`;
@@ -138,7 +140,7 @@
         <button class="btn pri" data-act="cmsend">Send to admins</button></div>
         ${c.err ? `<div class="fb bad">${esc(c.err)}</div>` : ""}${c.msg ? `<div class="fb ok">${esc(c.msg)}</div>` : ""}`;
     }
-    return btn + `<div class="cmtbox">${inner}</div>`;
+    return `${finish} ${btn}<div class="cmtbox">${inner}</div>`;
   }
 
   function question() {
@@ -215,13 +217,18 @@
     const pct = ids.length ? Math.round(t.ok / ids.length * 100) : 0;
     const li = (arr, title) => arr.length ? `<h3 style="margin:16px 0 0">${title} (${arr.length})</h3><ul class="w">` +
       arr.map(i => `<li><a href="#" data-act="jump" data-id="${i}">Q${esc(byId[i].number)}</a><span>${esc(byId[i].stem.slice(0, 120))}</span></li>`).join("") + "</ul>" : "";
+    const leftList = left.length ? `<div class="row" style="margin-top:12px;justify-content:space-between;gap:8px;align-items:center">
+        <h3 style="margin:0">Unanswered or revealed (${left.length})</h3>
+        <button class="btn" data-act="toggle-results-list">${showUnanswered ? "Hide unanswered / revealed" : "Show unanswered / revealed"}</button>
+      </div>
+      ${showUnanswered ? `<ul class="w">` + left.map(i => `<li><a href="#" data-act="jump" data-id="${i}">Q${esc(byId[i].number)}</a><span>${esc(byId[i].stem.slice(0, 120))}</span></li>`).join("") + "</ul>" : ""}` : "";
     const nextBlock = resultBlock < blockCount() - 1
       ? `<button class="btn pri" data-act="block" data-block="${resultBlock + 1}">Next block →</button>` : "";
     return `${blockNav()}<div class="card"><div class="big">${pct}%</div>
       <h2 style="margin:0 0 6px">Block ${resultBlock + 1} report</h2>
       <div class="mute">${t.ok} correct · ${t.bad} wrong · ${left.length} unanswered / revealed</div>
       <div class="bar" style="margin-top:10px"><i class="g" style="width:${t.ok / ids.length * 100}%"></i><i class="r" style="width:${t.bad / ids.length * 100}%"></i></div>
-      ${li(wrong, "Missed")}${li(left, "Unanswered or revealed")}
+      ${li(wrong, "Missed")}${leftList}
       <div class="ctl"><button class="btn" data-act="back">← Back to block</button>
       <span>${wrong.length + left.length ? '<button class="btn pri" data-act="retry">Retry missed &amp; unanswered</button> ' : ""}
       ${nextBlock} <button class="btn" data-act="reset">Reset progress</button></span></div></div>`;
@@ -243,6 +250,18 @@
       }
       case "toggle-nav": navOpen = !navOpen; render(); break;
       case "toggle-block-nav": blockNavOpen = !blockNavOpen; render(); break;
+      case "toggle-results-list": showUnanswered = !showUnanswered; render(); break;
+      case "reset-block": {
+        const target = view === "results" ? resultBlock : currentBlock();
+        if (confirm("Clear progress for this block?")) {
+          blockList(target).forEach(i => { delete S.a[i]; delete tfPending[i]; });
+          save();
+          pos = blockStart(target);
+          view = "quiz";
+          render();
+        }
+        break;
+      }
       case "pick": check(id, {selected: +d.id}); break;
       case "tf": (tfPending[id] = tfPending[id] || {})[d.id] = d.v === "true"; render(); break;
       case "tfcheck": check(id, {answers: tfPending[id]}); break;

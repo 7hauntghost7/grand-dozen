@@ -1,12 +1,19 @@
 {% extends "bank/base.html" %}
 {% block title %}Log in{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block wrap_class %}auth-page-wrap{% endblock %}
+{% block header %}
+  <header class="auth-header">
+    <h1 class="auth-brand"><a href="{% url 'bank:home' %}"><span class="mark">12</span> {{ SITE_NAME }}</a></h1>
+  </header>
+{% endblock %}
 {% block content %}
-<form method="post" class="card narrow">
-  <h2 style="margin-top:0">Log in</h2>
+<form method="post" class="card narrow login-form">
+  <h2 class="login-title">Log in</h2>
   {% csrf_token %}
   <input type="hidden" name="next" value="{{ next }}">
   {{ form.non_field_errors }}
   {% for f in form %}<div class="field">{{ f.label_tag }}{{ f }}{{ f.errors }}</div>{% endfor %}
-  <button class="btn pri">Log in</button>
+  <div class="login-actions"><button class="btn pri">Log in</button></div>
 </form>
 {% endblock %}

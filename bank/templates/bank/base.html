@@ -4,14 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}{{ SITE_NAME }}{% endblock %} · {{ SITE_NAME }}</title>
-<link rel="stylesheet" href="{% static 'bank/style.css' %}">
+<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20260925-2">
 </head>
-<body>
-<div class="wrap">
-  <header>
-    <h1><a href="{% url 'bank:home' %}"><span class="mark">12</span> {{ SITE_NAME }}</a></h1>
-    <nav>
-      <a href="{% url 'bank:home' %}">Subjects</a>
+<body class="{% block body_class %}{% endblock %}">
+<div class="wrap {% block wrap_class %}{% endblock %}">
+  {% block header %}
+  <header class="site-header">
+    <div class="header-row">
+      <h1><a href="{% url 'bank:home' %}"><span class="mark">12</span> {{ SITE_NAME }}</a></h1>
+      <button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open navigation">☰</button>
+    </div>
+    <nav id="site-nav" class="site-nav">
       {% if user.is_authenticated %}<a href="{% url 'bank:saved_home' %}">★ Saved</a>{% endif %}
       {% if perms.bank.add_question %}<a href="{% url 'bank:import' %}">Import</a>{% endif %}
       {% if perms.bank.change_question %}<a href="{% url 'bank:comments' %}">Comments{% if open_comments %}<span class="badge">{{ open_comments }}</span>{% endif %}</a>{% endif %}
@@ -23,9 +26,40 @@
       {% endif %}
     </nav>
   </header>
+  {% endblock %}
   {% for m in messages %}<div class="fb {{ m.tags }}">{{ m }}</div>{% endfor %}
   {% block content %}{% endblock %}
 </div>
+<script>
+  (() => {
+    const toggle = document.querySelector('.mobile-nav-toggle');
+    const nav = document.querySelector('.site-nav');
+    if (!toggle || !nav) return;
+
+    const closeMenu = () => {
+      nav.classList.remove('open');
+      toggle.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+      document.body.classList.remove('nav-open');
+    };
+
+    toggle.addEventListener('click', () => {
+      const open = !nav.classList.contains('open');
+      nav.classList.toggle('open', open);
+      toggle.classList.toggle('open', open);
+      toggle.setAttribute('aria-expanded', String(open));
+      document.body.classList.toggle('nav-open', open);
+    });
+
+    document.addEventListener('click', (event) => {
+      const clickedToggle = event.target.closest('.mobile-nav-toggle');
+      const clickedNav = event.target.closest('.site-nav');
+      if (!clickedToggle && !clickedNav && nav.classList.contains('open')) {
+        closeMenu();
+      }
+    });
+  })();
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

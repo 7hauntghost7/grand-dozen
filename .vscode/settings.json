@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^python -c \"import urllib\\.request; html=urllib\\.request\\.urlopen\\('http://localhost:8000/deck/excitable-tissue/quiz/', timeout=10\\)\\.read\\(\\)\\.decode\\('utf-8'\\); print\\('quiz\\.js' in html\\); p=html\\.find\\('quiz\\.js'\\); print\\(p\\); print\\(html\\[p-200:p\\+300\\] if p!=-1 else 'no quiz\\.js'\\);\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
