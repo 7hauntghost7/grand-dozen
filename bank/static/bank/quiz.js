@@ -1,13 +1,13 @@
 /* Quiz runner. Questions come from the API WITHOUT answers; each answer is checked
    by the server. Progress is kept in localStorage. Large decks are split into
-   blocks of 100 questions, each with its own report. */
+   blocks of 50 questions, each with its own report. */
 (() => {
   const root = document.getElementById("quiz");
   if (!root) return;
   const D = root.dataset;
   const KEY = "gd:" + D.key;
   const AUTH = D.auth === "1";
-  const BLOCK_SIZE = 100;
+  const BLOCK_SIZE = 50;
   const esc = s => String(s).replace(/[&<>\"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
   const csrf = () => (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || "";
   const url = (tpl, id) => tpl.replace("/0/", "/" + id + "/");
