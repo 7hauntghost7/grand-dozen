@@ -10,7 +10,7 @@ from django.db import transaction
 from django.db.models import Count, Q
 from django.core.cache import cache
 from django.contrib.sessions.models import Session
-from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import FileResponse, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -44,6 +44,21 @@ def safe_next(request, default):
     return nxt if nxt and ok else default
 
 
+def app_manifest(request):
+    path = settings.BASE_DIR / "bank" / "static" / "bank" / "manifest.webmanifest"
+    response = FileResponse(path.open("rb"), content_type="application/manifest+json")
+    response["Cache-Control"] = "no-cache"
+    return response
+
+
+def service_worker(request):
+    path = settings.BASE_DIR / "bank" / "static" / "bank" / "service-worker.js"
+    response = FileResponse(path.open("rb"), content_type="application/javascript")
+    response["Service-Worker-Allowed"] = "/"
+    response["Cache-Control"] = "no-cache"
+    return response
+
+
 def serialize(questions, user):
     qs = list(questions)
     saved = set()
@@ -70,6 +85,7 @@ def json_body(request):
 
 
 # ---------------------------------------------------------------- browsing
+@login_required
 def home(request):
     subjects = Subject.objects.annotate(
         n_decks=Count("decks", distinct=True), n_q=Count("decks__questions", distinct=True))
@@ -77,15 +93,22 @@ def home(request):
     return render(request, "bank/home.html", {"subjects": subjects, "unfiled": unfiled})
 
 
+@login_required
 def subject_detail(request, slug):
     subject = get_object_or_404(Subject, slug=slug)
     decks = subject.decks.annotate(n=Count("questions")).order_by("semester", "title")
     return render(request, "bank/subject_detail.html", {"subject": subject, "decks": decks})
 
 
+@login_required
 def bank_detail(request, slug):
     bank = get_object_or_404(QuestionBank.objects.select_related("subject"), slug=slug)
-    return render(request, "bank/bank_detail.html", {"bank": bank, "count": bank.questions.count()})
+    return render(request, "bank/bank_detail.html", {
+        "bank": bank,
+        "count": bank.questions.count(),
+        "mcq_tf_count": bank.questions.filter(kind__in=[Question.MCQ, Question.TF]).count(),
+        "descriptive_count": bank.questions.filter(kind=Question.DESC).count(),
+    })
 
 
 def _quiz_context(request, **kw):
@@ -94,12 +117,15 @@ def _quiz_context(request, **kw):
     return ctx
 
 
+@login_required
 @ensure_csrf_cookie
 def quiz(request, slug):
     bank = get_object_or_404(QuestionBank, slug=slug)
+    quiz_type = "descriptive" if request.GET.get("type") == "descriptive" else "mcq_tf"
+    api = reverse("bank:api_questions", args=[bank.slug]) + f"?type={quiz_type}"
     return render(request, "bank/quiz.html", _quiz_context(
-        request, title=bank.title, key=f"deck:{bank.slug}",
-        api=reverse("bank:api_questions", args=[bank.slug]), back=bank.get_absolute_url()))
+        request, title=bank.title, key=f"deck:{bank.slug}" + (":descriptive" if quiz_type == "descriptive" else ""),
+        api=api, back=bank.get_absolute_url()))
 
 
 @login_required
@@ -112,6 +138,7 @@ def saved_quiz(request, slug):
         back=reverse("bank:saved_deck", args=[bank.slug])))
 
 
+@login_required
 def export_bank(request, slug):
     bank = get_object_or_404(QuestionBank.objects.select_related("subject"), slug=slug)
     text = parser.to_text(bank.title, services.bank_as_dicts(bank),
@@ -122,10 +149,17 @@ def export_bank(request, slug):
 
 
 # ---------------------------------------------------------------- JSON API
+@login_required
 def api_questions(request, slug):
     """Questions WITHOUT answers; correctness is checked server-side per question."""
     bank = get_object_or_404(QuestionBank, slug=slug)
-    qs = bank.questions.prefetch_related("options")
+    qs = bank.questions.all()
+    quiz_type = request.GET.get("type")
+    if quiz_type == "descriptive":
+        qs = qs.filter(kind=Question.DESC)
+    elif quiz_type == "mcq_tf":
+        qs = qs.filter(kind__in=[Question.MCQ, Question.TF])
+    qs = qs.prefetch_related("options")
     return JsonResponse({"title": bank.title, "questions": serialize(qs, request.user)})
 
 
@@ -137,6 +171,7 @@ def api_saved_questions(request, slug):
     return JsonResponse({"title": bank.title, "questions": serialize(qs, request.user)})
 
 
+@login_required
 @require_POST
 def api_check(request, pk):
     q = get_object_or_404(Question.objects.prefetch_related("options"), pk=pk)
@@ -146,7 +181,11 @@ def api_check(request, pk):
     opts = list(q.options.all())
     out = {"explanation": q.explanation, "note": q.note, "correct": None}
     reveal = bool(data.get("reveal"))
-    if q.kind == Question.TF:
+    if q.kind == Question.DESC:
+        if not reveal:
+            return JsonResponse({"error": "Descriptive answers can only be requested with reveal."}, status=400)
+        out["answer"] = q.answer
+    elif q.kind == Question.TF:
         key = {str(o.id): o.is_correct for o in opts}
         out["key"] = key
         if not reveal:
@@ -245,16 +284,22 @@ def _edit_question(request, question, bank=None, is_new=False):
     form = QuestionForm(request.POST or None, instance=question)
     formset = Formset(request.POST or None, instance=question)
     if request.method == "POST":
-        v1, v2 = form.is_valid(), formset.is_valid()
+        v1 = form.is_valid()
+        if v1:
+            formset.instance.kind = form.cleaned_data["kind"]
+        v2 = formset.is_valid()
         if v1 and v2:
             with transaction.atomic():
                 q = form.save()
                 formset.instance = q
-                formset.save()
-                for i, o in enumerate(q.options.all()):   # keep options in a tidy 0..n-1 order
-                    if o.order != i:
-                        o.order = i
-                        o.save(update_fields=["order"])
+                if q.kind == Question.DESC:
+                    q.options.all().delete()
+                else:
+                    formset.save()
+                    for i, o in enumerate(q.options.all()):   # keep options in a tidy 0..n-1 order
+                        if o.order != i:
+                            o.order = i
+                            o.save(update_fields=["order"])
                 ids = [int(x) for x in request.POST.getlist("resolve") if x.isdigit()]
                 if ids and not is_new:
                     Comment.objects.filter(question=q, pk__in=ids, resolved=False).update(
@@ -364,7 +409,9 @@ def import_questions(request):
 
     rows = []
     for q in result.questions:
-        if q.kind == parser.TF:
+        if q.kind == parser.DESC:
+            ans = q.answer_raw
+        elif q.kind == parser.TF:
             ans = "".join("T" if c else "F" for c in q.correct)
         else:
             ans = ", ".join(chr(65 + i) for i, c in enumerate(q.correct) if c)

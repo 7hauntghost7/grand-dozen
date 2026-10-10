@@ -70,18 +70,20 @@ class QuestionBank(models.Model):
 
 
 class Question(models.Model):
-    MCQ, TF = "mcq", "tf"
+    MCQ, TF, DESC = "mcq", "tf", "desc"
     KIND_CHOICES = [
         (MCQ, "Multiple choice (pick one; any option marked correct is accepted)"),
         (TF, "True / False (each option is a statement)"),
+        (DESC, "Descriptive question (flashcard)"),
     ]
 
     bank = models.ForeignKey(QuestionBank, on_delete=models.CASCADE, related_name="questions",
                              verbose_name="deck")
     number = models.CharField("source number", max_length=20, blank=True,
                               help_text="Label from the original paper, e.g. 17. Optional.")
-    kind = models.CharField(max_length=3, choices=KIND_CHOICES, default=MCQ)
+    kind = models.CharField(max_length=4, choices=KIND_CHOICES, default=MCQ)
     stem = models.TextField("question")
+    answer = models.TextField(blank=True)
     explanation = models.TextField(blank=True)
     note = models.TextField(blank=True, help_text="Warning shown to students (ambiguous / flawed source).")
     created_at = models.DateTimeField(auto_now_add=True)

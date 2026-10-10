@@ -8,11 +8,18 @@
 <div class="card deck-card">
   <div class="deck-header">
     <h2 class="deck-title">{{ bank.title }}</h2>
-    <p class="deck-meta">{{ count }} question{{ count|pluralize }}{% if bank.description %} · {{ bank.description }}{% endif %}</p>
+    <p class="deck-meta">MCQs &amp; True / False: {{ mcq_tf_count }} · Descriptive questions: {{ descriptive_count }}{% if bank.description %} · {{ bank.description }}{% endif %}</p>
   </div>
 
   <form method="get" action="{% url 'bank:quiz' bank.slug %}" class="deck-toolbar">
-    <button class="btn pri" {% if not count %}disabled{% endif %}>Start quiz</button>
+    <div class="deck-choices">
+      <button class="btn pri" name="type" value="mcq_tf" {% if not mcq_tf_count %}disabled{% endif %}>
+        MCQs &amp; True / False <span>{{ mcq_tf_count }}</span>
+      </button>
+      <button class="btn" name="type" value="descriptive" {% if not descriptive_count %}disabled{% endif %}>
+        Descriptive questions <span>{{ descriptive_count }}</span>
+      </button>
+    </div>
     <label class="shuffle-toggle"><input type="checkbox" name="shuffle" value="1"> Shuffle order</label>
   </form>
 

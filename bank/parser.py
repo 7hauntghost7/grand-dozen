@@ -10,13 +10,17 @@ Format (one question per block; blocks start with "Q:"):
     DECK: Haematology                  <- the lesson / deck title ("BANK:" is accepted as an alias)
     Q: The globin part of haemoglobin F consists of:
     NO: 17                             <- optional label (the number in your source)
-    TYPE: MCQ                          <- optional: MCQ (default) or TF
+    TYPE: MCQ                          <- optional: MCQ (default), TF, or DESC
     A. 2 alpha and 2 beta chains
     B. 2 alpha and 2 gamma chains
     C. 2 beta and 2 gamma chains
     ANSWER: B                          <- MCQ: letter(s) "B" or "A, C"; TF: "TFFTF"
     EXPLANATION: HbF = alpha2 gamma2.  <- optional
     NOTE: optional warning shown to the student (ambiguous / incomplete source)
+
+    Q: Explain the resting membrane potential.
+    TYPE: DESC
+    ANSWER: The voltage difference across a cell membrane at rest.
 
 Lines can wrap: text that follows a label line (Q, option, EXPLANATION, NOTE)
 without a new label is treated as a continuation of it.
@@ -30,10 +34,12 @@ FIELD_RE = re.compile(
 OPT_RE = re.compile(r"^\s*\(?([A-Ha-h])[\.\)](?:\s+(.*))?$")
 RULE_RE = re.compile(r"^\s*(-{3,}|={3,}|\*{3,})\s*$")
 
-MCQ, TF = "mcq", "tf"
+MCQ, TF, DESC = "mcq", "tf", "desc"
 KIND_ALIASES = {
     "": MCQ, "mcq": MCQ, "sba": MCQ, "mc": MCQ, "single": MCQ, "multi": MCQ,
     "tf": TF, "t/f": TF, "truefalse": TF, "true/false": TF, "true-false": TF,
+    "desc": DESC, "descriptive": DESC, "descriptivequestion": DESC,
+    "flashcard": DESC, "shortanswer": DESC,
 }
 
 
@@ -60,7 +66,8 @@ class ParsedQuestion:
 
     @property
     def key(self):
-        return question_key(self.kind, self.stem, self.options)
+        return question_key(self.kind, self.stem, self.options,
+                            answer=self.answer_raw if self.kind == DESC else "")
 
 
 @dataclass
@@ -76,9 +83,9 @@ def norm(s):
     return re.sub(r"\W+", " ", (s or "").lower()).strip()
 
 
-def question_key(kind, stem, options):
+def question_key(kind, stem, options, answer=""):
     """Order-insensitive fingerprint used for duplicate detection."""
-    return kind + "|" + norm(stem) + "|" + "|".join(sorted(norm(o) for o in options))
+    return kind + "|" + norm(stem) + "|" + "|".join(sorted(norm(o) for o in options)) + "|" + norm(answer)
 
 
 def parse(text):
@@ -164,6 +171,13 @@ def _validate(q):
         kind = MCQ
     q.kind = kind
 
+    if kind == DESC:
+        if q.options:
+            q.errors.append("Descriptive questions must not have options.")
+        if not q.answer_raw.strip():
+            q.errors.append("ANSWER is missing.")
+        return
+
     expected = [chr(65 + i) for i in range(len(q.options))]
     if q.option_letters != expected:
         q.errors.append(
@@ -231,7 +245,7 @@ def mark_duplicates(questions, existing_keys=None):
 
 
 def to_text(deck_title, questions, subject=None, semester=None):
-    """questions: iterable of dicts {number, kind, stem, options:[(text,is_correct)], explanation, note}"""
+    """questions: iterable of dicts with question type, answer/options, explanation, and note."""
     out = []
     if subject:
         out.append(f"SUBJECT: {subject}")
@@ -242,14 +256,17 @@ def to_text(deck_title, questions, subject=None, semester=None):
         out.append(f"Q: {q['stem']}")
         if q.get("number"):
             out.append(f"NO: {q['number']}")
-        if q["kind"] == TF:
+        if q["kind"] == DESC:
+            out += ["TYPE: DESC", f"ANSWER: {q['answer']}"]
+        elif q["kind"] == TF:
             out.append("TYPE: TF")
-        for i, (t, _) in enumerate(q["options"]):
-            out.append(f"{chr(65 + i)}. {t}")
-        if q["kind"] == TF:
-            out.append("ANSWER: " + "".join("T" if c else "F" for _, c in q["options"]))
-        else:
-            out.append("ANSWER: " + ", ".join(chr(65 + i) for i, (_, c) in enumerate(q["options"]) if c))
+        if q["kind"] != DESC:
+            for i, (t, _) in enumerate(q["options"]):
+                out.append(f"{chr(65 + i)}. {t}")
+            if q["kind"] == TF:
+                out.append("ANSWER: " + "".join("T" if c else "F" for _, c in q["options"]))
+            else:
+                out.append("ANSWER: " + ", ".join(chr(65 + i) for i, (_, c) in enumerate(q["options"]) if c))
         if q.get("explanation"):
             out.append(f"EXPLANATION: {q['explanation']}")
         if q.get("note"):
@@ -266,6 +283,7 @@ Rules:
 - Options go on their own lines as "A. text", "B. text", … in order (max 8).
 - Put "ANSWER:" after the options. Multiple choice: the correct letter(s), e.g. "ANSWER: B" or "ANSWER: A, C".
 - True/False questions (each option is a statement): add "TYPE: TF" under the Q line and give one T or F per statement, e.g. "ANSWER: TFFTF".
+- Descriptive questions: add "TYPE: DESC", omit options, and put the written answer after "ANSWER:".
 - If I gave an answer key use it. If not, work out the answer yourself.
 - Add "EXPLANATION:" with one or two sentences on why the answer is right.
 - If the source is incomplete, ambiguous, or has a typo, add "NOTE:" describing the problem. Never invent missing options.
@@ -287,6 +305,10 @@ A. They contain carbonic anhydrase.
 B. They have mitochondria.
 ANSWER: TF
 EXPLANATION: Mature RBCs have no mitochondria.
+
+Q: Describe the resting membrane potential.
+TYPE: DESC
+ANSWER: The voltage difference across a cell membrane at rest.
 
 Here are my questions:
 """

@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth import logout
 from django.contrib.auth.views import redirect_to_login
+from django.contrib.sessions.models import Session
 from django.core.cache import cache
 
 
@@ -16,21 +17,27 @@ class SingleSessionMiddleware:
         path = request.path
         login_path = settings.LOGIN_URL
         static_prefix = "/" + settings.STATIC_URL.lstrip("/")
+        public_pwa_paths = {"/manifest.webmanifest", "/service-worker.js"}
 
         # The login page and static assets must remain reachable anonymously.
-        if not request.user.is_authenticated and path != login_path and not path.startswith(static_prefix):
+        if (not request.user.is_authenticated and path != login_path
+            and path not in public_pwa_paths and not path.startswith(static_prefix)):
             return redirect_to_login(request.get_full_path(), login_path)
 
         if request.user.is_authenticated:
-            active_key = cache.get(self.CACHE_PREFIX + str(request.user.pk))
+            cache_key = self.CACHE_PREFIX + str(request.user.pk)
+            active_key = cache.get(cache_key)
             current_key = request.session.session_key
 
-            if active_key and current_key and active_key != current_key:
-                logout(request)
-                return redirect_to_login(request.get_full_path(), login_path)
+            if active_key and active_key != current_key:
+                if not Session.objects.filter(session_key=active_key).exists():
+                    cache.set(cache_key, current_key, None)
+                else:
+                    logout(request)
+                    return redirect_to_login(request.get_full_path(), login_path)
 
             # If the cache was restarted/cleared, adopt the current session.
             if current_key and not active_key:
-                cache.set(self.CACHE_PREFIX + str(request.user.pk), current_key, None)
+                cache.set(cache_key, current_key, None)
 
         return self.get_response(request)

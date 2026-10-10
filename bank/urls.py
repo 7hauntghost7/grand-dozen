@@ -5,6 +5,8 @@ from . import views
 app_name = "bank"
 
 urlpatterns = [
+    path("manifest.webmanifest", views.app_manifest, name="manifest"),
+    path("service-worker.js", views.service_worker, name="service_worker"),
     path("", views.home, name="home"),
     path("subject/<slug:slug>/", views.subject_detail, name="subject_detail"),
     path("deck/<slug:slug>/", views.bank_detail, name="bank_detail"),

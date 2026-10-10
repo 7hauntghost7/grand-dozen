@@ -12,14 +12,15 @@
   const csrf = () => (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || "";
   const url = (tpl, id) => tpl.replace("/0/", "/" + id + "/");
 
-  let S = {a: {}, order: null};
+  let S = {a: {}, order: null, retry: null, retryBlock: 0};
   try { S = JSON.parse(localStorage.getItem(KEY)) || S; } catch (e) {}
   if (!S.a) S.a = {};
   if (!S.order) S.order = null;
+  if (!Array.isArray(S.retry)) S.retry = null;
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
-  let Q = [], byId = {}, list = [], pos = 0, view = "quiz", busy = false, navOpen = true, blockNavOpen = true;
-  let resultBlock = 0, showUnanswered = false;
+  let Q = [], byId = {}, list = [], pos = 0, view = "quiz", busy = false, navOpen = false, blockNavOpen = false;
+  let resultBlock = 0, showUnanswered = false, retryMode = false;
   const tfPending = {};
   const cm = {};
   const notice = {};
@@ -112,6 +113,13 @@
 
   function feedback(q, a) {
     const r = a.res;
+    if (q.kind === "desc") {
+      if (a.revealed) return "";
+      const result = r.correct ? "✓ Marked as known." : "✗ Marked to review.";
+      return `<div class="fb ${r.correct ? "ok" : "bad"}"><b>${result}</b>` +
+        (r.explanation ? `<p>${esc(r.explanation)}</p>` : "") +
+        (r.note ? `<p class="note">⚠ ${esc(r.note)}</p>` : "") + "</div>";
+    }
     let head;
     if (a.revealed) head = '<div class="fb info"><b>Answer shown.</b>';
     else if (r.correct) head = '<div class="fb ok"><b>✓ Correct.</b>';
@@ -160,7 +168,7 @@
         }
         return `<button class="opt ${cl}" ${a ? "disabled" : ""} data-act="pick" data-id="${o.id}"><b>${o.letter}</b><span>${esc(o.text)}</span></button>`;
       }).join("");
-    } else {
+    } else if (q.kind === "tf") {
       const pend = tfPending[id] || {};
       body = q.options.map(o => {
         const chosen = a && !a.revealed ? a.payload.answers[o.id] : pend[o.id];
@@ -176,11 +184,19 @@
         return `<div class="tf"><div class="t"><b>${o.letter}</b>${esc(o.text)}<span class="mute">${mark}</span></div>
                 <div class="tfb">${btn(true, "True")}${btn(false, "False")}</div></div>`;
       }).join("");
+    } else {
+      body = a && a.res.answer !== undefined
+        ? `<div class="flash-answer"><b>Answer</b><div>${esc(a.res.answer)}</div></div>` : "";
     }
     const allSet = q.kind === "tf" && q.options.every(o => (tfPending[id] || {})[o.id] !== undefined);
     const extra = st === "new"
       ? (q.kind === "tf" ? `<button class="btn pri" ${allSet ? "" : "disabled"} data-act="tfcheck">Check answers</button> ` : "") +
-        '<button class="btn" data-act="reveal">Show answer</button> ' : "";
+        (q.kind === "desc"
+          ? '<button class="btn pri" data-act="reveal">Show answer</button> <button class="btn" data-act="skip">Skip</button> '
+          : '<button class="btn" data-act="reveal">Show answer</button> ')
+      : (q.kind === "desc" && a && a.revealed
+          ? '<button class="btn pri" data-act="grade" data-grade="known">I knew it</button> <button class="btn" data-act="grade" data-grade="missed">I missed it</button> '
+        : "");
     const firstInBlock = localPos === 0;
     const lastInBlock = localPos === ids.length - 1;
     const star = `<button class="star ${q.saved ? "on" : ""}" data-act="save" title="Save this question">${q.saved ? "★ Saved" : "☆ Save"}</button>`;
@@ -188,25 +204,30 @@
     const loginNote = notice[id] === "login"
       ? `<div class="fb info"><a href="${esc(D.login)}">Log in</a> to save questions and send comments.</div>` : "";
     const finishLabel = lastInBlock ? (b === blockCount() - 1 ? "Finish block" : "Finish block") : "";
-    const next = lastInBlock
+    const next = q.kind === "desc" ? "" : lastInBlock
       ? `<button class="btn pri" data-act="finish">${finishLabel} →</button>`
       : `<button class="btn pri" data-act="go" data-p="${pos + 1}">Next →</button>`;
     const prev = firstInBlock && b > 0
       ? `<button class="btn" data-act="block" data-block="${b - 1}">← Previous block</button>`
       : `<button class="btn" ${pos === 0 ? "disabled" : ""} data-act="go" data-p="${pos - 1}">← Prev</button>`;
+    const retryBanner = retryMode
+      ? `<div class="retry-mode"><div class="retry-mode-copy"><strong>Retry mode</strong><span>${list.length} questions from your missed or unanswered set</span></div><button class="btn" data-act="all-blocks">Return to full quiz</button></div>`
+      : "";
+    const scopeLabel = retryMode ? "" : ` · Block ${b + 1}/${blockCount()}`;
     return `${blockNav()}
+      ${retryBanner}
       <div class="row" style="margin:0 0 6px"><a class="btn" href="${esc(D.back)}">← Back</a>
-      <span class="mute">${esc(D.title)} · Block ${b + 1}/${blockCount()} · ${t.ok} ✓ · ${t.bad} ✗ · ${t.new + t.rev} left</span></div>
+      <span class="mute">${esc(D.title)}${scopeLabel} · ${t.ok} ✓ · ${t.bad} ✗ · ${t.new + t.rev} left</span></div>
       <div class="bar"><i class="g" style="width:${t.ok / ids.length * 100}%"></i><i class="r" style="width:${t.bad / ids.length * 100}%"></i></div>
       <div class="nav-wrap">${navToggle}<div class="nav ${navOpen ? "" : "closed"}">${navOpen ? nav : ""}</div></div>
-      <div class="card"><div class="qh"><span class="qn">Q${esc(q.number)}</span>
+      <div class="card${q.kind === "desc" ? " flashcard" : ""}"><div class="qh"><span class="qn">Q${esc(q.number)}</span>
         <span class="mute">${localPos + 1} of ${ids.length}</span>
         ${q.multi ? '<span class="tag">more than one defensible</span>' : ""}
         ${q.kind === "tf" ? '<span class="tag">True / False</span>' : ""}
         <span class="grow"></span>${edit}${star}</div>
         ${loginNote}
         <div class="stem">${esc(q.stem)}</div>${body}${a ? feedback(q, a) : ""}
-        <div class="ctl">${prev}<span>${extra}${next}</span></div>
+          <div class="ctl${q.kind === "desc" ? " flash-controls" : ""}">${prev}<span class="${q.kind === "desc" ? "flash-actions" : ""}">${extra}${next}</span></div>
         <div class="cmtwrap">${commentBox(id)}</div></div>`;
   }
 
@@ -224,14 +245,16 @@
       ${showUnanswered ? `<ul class="w">` + left.map(i => `<li><a href="#" data-act="jump" data-id="${i}">Q${esc(byId[i].number)}</a><span>${esc(byId[i].stem.slice(0, 120))}</span></li>`).join("") + "</ul>" : ""}` : "";
     const nextBlock = resultBlock < blockCount() - 1
       ? `<button class="btn pri" data-act="block" data-block="${resultBlock + 1}">Next block →</button>` : "";
+    const allBlocks = retryMode
+      ? '<button class="btn" data-act="all-blocks">Return to full quiz</button>' : "";
     return `${blockNav()}<div class="card"><div class="big">${pct}%</div>
-      <h2 style="margin:0 0 6px">Block ${resultBlock + 1} report</h2>
+      <h2 style="margin:0 0 6px">${retryMode ? "Retry set report" : `Block ${resultBlock + 1} report`}</h2>
       <div class="mute">${t.ok} correct · ${t.bad} wrong · ${left.length} unanswered / revealed</div>
       <div class="bar" style="margin-top:10px"><i class="g" style="width:${t.ok / ids.length * 100}%"></i><i class="r" style="width:${t.bad / ids.length * 100}%"></i></div>
       ${li(wrong, "Missed")}${leftList}
-      <div class="ctl"><button class="btn" data-act="back">← Back to block</button>
-      <span>${wrong.length + left.length ? '<button class="btn pri" data-act="retry">Retry missed &amp; unanswered</button> ' : ""}
-      ${nextBlock} <button class="btn" data-act="reset">Reset progress</button></span></div></div>`;
+      <div class="result-actions"><button class="btn" data-act="back">← Back to block</button>
+      <div class="result-action-group">${wrong.length + left.length ? '<button class="btn pri" data-act="retry">Retry missed &amp; unanswered</button>' : ""}
+      ${nextBlock} ${allBlocks} <button class="btn" data-act="reset">Reset progress</button></div></div></div>`;
   }
 
   root.addEventListener("click", e => {
@@ -266,6 +289,18 @@
       case "tf": (tfPending[id] = tfPending[id] || {})[d.id] = d.v === "true"; render(); break;
       case "tfcheck": check(id, {answers: tfPending[id]}); break;
       case "reveal": check(id, {reveal: true}); break;
+      case "grade": {
+        const answer = S.a[id].res.answer;
+        S.a[id] = {payload: {}, res: {answer, correct: d.grade === "known", explanation: S.a[id].res.explanation, note: S.a[id].res.note}, revealed: false};
+        save();
+        if (pos < blockEnd(currentBlock()) - 1) pos++;
+        else { resultBlock = currentBlock(); view = "results"; }
+        render(); window.scrollTo(0, 0); break;
+      }
+      case "skip":
+        if (pos < blockEnd(currentBlock()) - 1) pos++;
+        else { resultBlock = currentBlock(); view = "results"; }
+        render(); window.scrollTo(0, 0); break;
       case "save": toggleSave(id); break;
       case "cmtoggle": (cm[id] = cm[id] || {}).open = !(cm[id] || {}).open; if (cm[id].open) cm[id].msg = ""; render(); break;
       case "cmsend": sendComment(id); break;
@@ -273,14 +308,34 @@
       case "back": view = "quiz"; pos = blockStart(resultBlock) + Math.max(0, blockList(resultBlock).findIndex(i => status(i) === "new")); render(); break;
       case "jump": pos = list.indexOf(+d.id); view = "quiz"; render(); window.scrollTo(0, 0); break;
       case "retry": {
-        const ids = blockList(resultBlock);
-        ids.filter(i => status(i) !== "ok").forEach(i => { delete S.a[i]; delete tfPending[i]; });
+        const retryIds = blockList(resultBlock).filter(i => status(i) !== "ok");
+        if (!retryIds.length) break;
+        retryIds.forEach(i => { delete S.a[i]; delete tfPending[i]; });
+        if (!retryMode) S.retryBlock = resultBlock;
+        S.retry = retryIds;
+        retryMode = true;
+        list = retryIds.slice();
         save();
-        pos = blockStart(resultBlock) + 0;
+        pos = 0;
+        resultBlock = 0;
         view = "quiz"; render(); break;
       }
+      case "all-blocks": {
+        const currentId = list[pos];
+        retryMode = false;
+        S.retry = null;
+        list = S.order.slice();
+        const fullPosition = list.indexOf(currentId);
+        resultBlock = fullPosition >= 0
+          ? Math.floor(fullPosition / BLOCK_SIZE)
+          : Math.min(S.retryBlock || 0, blockCount() - 1);
+        const first = blockList(resultBlock).findIndex(i => status(i) === "new");
+        pos = fullPosition >= 0 ? fullPosition : blockStart(resultBlock) + (first < 0 ? 0 : first);
+        save();
+        view = "quiz"; render(); window.scrollTo(0, 0); break;
+      }
       case "reset":
-        if (confirm("Clear your progress for this quiz?")) { S = {a: {}, order: null}; save(); location.reload(); }
+        if (confirm("Clear your progress for this quiz?")) { S = {a: {}, order: null, retry: null, retryBlock: 0}; save(); location.reload(); }
         break;
     }
   });
@@ -306,11 +361,18 @@
         [S.order[i], S.order[j]] = [S.order[j], S.order[i]];
       }
       S.a = {};
-      save();
+      S.retry = null;
+      S.retryBlock = 0;
     }
-    list = S.order.slice();
+    retryMode = Array.isArray(S.retry) && S.retry.length > 0 && S.retry.every(i => byId[i]);
+    if (S.retry && !retryMode) {
+      S.retry = null;
+      S.retryBlock = 0;
+    }
+    list = retryMode ? S.retry.slice() : S.order.slice();
     const first = list.findIndex(i => status(i) === "new");
     pos = first < 0 ? 0 : first;
+    save();
     render();
   }).catch(() => { root.innerHTML = '<div class="fb error">Could not load questions.</div>'; });
 })();

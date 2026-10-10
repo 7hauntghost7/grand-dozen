@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .forms import OptionFormSet
+from .forms import OptionFormSet, QuestionForm
 from .models import Comment, Option, Question, QuestionBank, Subject
 
 
@@ -29,14 +29,21 @@ class QuestionBankAdmin(admin.ModelAdmin):
 
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
+    form = QuestionForm
     list_display = ("__str__", "bank", "kind")
     list_filter = ("bank__subject", "bank", "kind")
     search_fields = ("stem", "number")
     inlines = [OptionInline]
     fieldsets = (
         (None, {"fields": ("bank", "number", "kind", "stem")}),
+        ("Descriptive answer", {"fields": ("answer",)}),
         ("Feedback shown after answering", {"fields": ("explanation", "note")}),
     )
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        if form.instance.kind == Question.DESC:
+            form.instance.options.all().delete()
 
 
 @admin.register(Comment)

@@ -3,15 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#173e3b">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>{% block title %}{{ SITE_NAME }}{% endblock %} · {{ SITE_NAME }}</title>
-<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20260925-2">
+<link rel="manifest" href="{% url 'bank:manifest' %}">
+<link rel="icon" type="image/svg+xml" href="{% static 'bank/icons/app-101.svg' %}">
+<link rel="apple-touch-icon" href="{% static 'bank/icons/app-101-192.png' %}">
+<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20261010-5">
 </head>
 <body class="{% block body_class %}{% endblock %}">
 <div class="wrap {% block wrap_class %}{% endblock %}">
   {% block header %}
   <header class="site-header">
     <div class="header-row">
-      <h1><a href="{% url 'bank:home' %}"><span class="mark">12</span> {{ SITE_NAME }}</a></h1>
+      <h1><a href="{% url 'bank:home' %}"><span class="mark">101</span> {{ SITE_NAME }}</a></h1>
       <button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open navigation">☰</button>
     </div>
     <nav id="site-nav" class="site-nav">
@@ -28,6 +33,19 @@
     </nav>
   </header>
   {% endblock %}
+  {% if user.is_authenticated and request.resolver_match.url_name == "home" %}
+  <aside class="pwa-install" id="pwa-install" hidden>
+    <div class="pwa-install-copy">
+      <strong>Install The Grand Dozen</strong>
+      <span>Keep your question bank one tap away.</span>
+    </div>
+    <div class="pwa-install-actions">
+      <button class="btn pri" id="pwa-install-button" type="button">Install app</button>
+      <button class="btn" id="pwa-install-dismiss" type="button">Not now</button>
+    </div>
+    <p class="mute" id="pwa-install-help" role="status" hidden></p>
+  </aside>
+  {% endif %}
   {% for m in messages %}<div class="fb {{ m.tags }}">{{ m }}</div>{% endfor %}
   {% block content %}{% endblock %}
 </div>
@@ -58,6 +76,49 @@
       if (!clickedToggle && !clickedNav && nav.classList.contains('open')) {
         closeMenu();
       }
+    });
+  })();
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("{% url 'bank:service_worker' %}", {scope: "/"}).catch(() => {});
+  }
+
+  (() => {
+    const banner = document.getElementById("pwa-install");
+    if (!banner) return;
+
+    const button = document.getElementById("pwa-install-button");
+    const dismiss = document.getElementById("pwa-install-dismiss");
+    const help = document.getElementById("pwa-install-help");
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+    const dismissed = sessionStorage.getItem("gd:pwa-install-dismissed") === "1";
+    let installPrompt = null;
+
+    if (!standalone && !dismissed) banner.hidden = false;
+    window.addEventListener("beforeinstallprompt", event => {
+      event.preventDefault();
+      installPrompt = event;
+      if (!dismissed && !standalone) banner.hidden = false;
+    });
+    window.addEventListener("appinstalled", () => { banner.hidden = true; });
+
+    button.addEventListener("click", async () => {
+      if (!installPrompt) {
+        const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        help.textContent = ios
+          ? "Tap Share in your browser, then choose Add to Home Screen."
+          : "Open your browser menu and choose Install app or Add to Home Screen.";
+        help.hidden = false;
+        return;
+      }
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      installPrompt = null;
+      if (choice.outcome === "accepted") banner.hidden = true;
+    });
+    dismiss.addEventListener("click", () => {
+      banner.hidden = true;
+      sessionStorage.setItem("gd:pwa-install-dismissed", "1");
     });
   })();
 </script>

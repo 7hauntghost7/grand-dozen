@@ -2,7 +2,7 @@
 import unittest
 from pathlib import Path
 
-from bank.parser import MCQ, TF, parse, to_text
+from bank.parser import DESC, MCQ, TF, parse, to_text
 
 GOOD = """BANK: Demo
 Q: Which is correct?
@@ -24,6 +24,20 @@ ANSWER: F, T
 
 
 class ParserTests(unittest.TestCase):
+    def test_descriptive_flashcard_round_trip(self):
+        text = "Q: Explain the resting membrane potential.\nTYPE: DESC\nANSWER: It is the voltage difference across the resting cell membrane.\n"
+        question = parse(text).questions[0]
+        self.assertTrue(question.ok, question.errors)
+        self.assertEqual((question.kind, question.answer_raw), (DESC, "It is the voltage difference across the resting cell membrane."))
+        exported = to_text("Neurophysiology", [{
+            "number": "1", "kind": DESC, "stem": question.stem, "answer": question.answer_raw,
+            "options": [], "explanation": "", "note": "",
+        }])
+        restored = parse(exported).questions[0]
+        self.assertTrue(restored.ok, restored.errors)
+        self.assertEqual((restored.kind, restored.stem, restored.answer_raw),
+                         (DESC, question.stem, question.answer_raw))
+
     def test_basic_mcq_and_tf(self):
         r = parse(GOOD)
         self.assertEqual(r.bank_title, "Demo")

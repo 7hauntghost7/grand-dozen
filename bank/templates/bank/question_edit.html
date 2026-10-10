@@ -22,30 +22,32 @@
   <input type="hidden" name="next" value="{{ next }}">
   {{ form.non_field_errors }}
   {% for f in form %}
-  <div class="field">{{ f.label_tag }}{{ f }}{{ f.errors }}{% if f.help_text %}<span class="mute">{{ f.help_text }}</span>{% endif %}</div>
+  <div class="field" data-field="{{ f.name }}">{{ f.label_tag }}{{ f }}{{ f.errors }}{% if f.help_text %}<span class="mute">{{ f.help_text }}</span>{% endif %}</div>
   {% endfor %}
 
-  <h3>Options</h3>
-  <p class="mute">Multiple choice: tick the correct option(s). True/False: each option is a statement — tick it if the statement is <b>true</b>.</p>
-  {{ formset.management_form }}
-  {{ formset.non_form_errors }}
-  <div id="opts">
-    {% for f in formset %}
-    <div class="optrow">
-      {% for h in f.hidden_fields %}{{ h }}{% endfor %}
-      {{ f.text }}
-      <label class="nowrap">{{ f.is_correct }} correct</label>
-      {% if f.instance.pk %}<label class="nowrap badc">{{ f.DELETE }} delete</label>{% endif %}
-      {{ f.text.errors }}
+  <div id="options-section">
+    <h3>Options</h3>
+    <p class="mute">Multiple choice: tick the correct option(s). True/False: each option is a statement — tick it if the statement is <b>true</b>.</p>
+    {{ formset.management_form }}
+    {{ formset.non_form_errors }}
+    <div id="opts">
+      {% for f in formset %}
+      <div class="optrow">
+        {% for h in f.hidden_fields %}{{ h }}{% endfor %}
+        {{ f.text }}
+        <label class="nowrap">{{ f.is_correct }} correct</label>
+        {% if f.instance.pk %}<label class="nowrap badc">{{ f.DELETE }} delete</label>{% endif %}
+        {{ f.text.errors }}
+      </div>
+      {% endfor %}
     </div>
-    {% endfor %}
+    <template id="empty-form">
+      {% for h in formset.empty_form.hidden_fields %}{{ h }}{% endfor %}
+      {{ formset.empty_form.text }}
+      <label class="nowrap">{{ formset.empty_form.is_correct }} correct</label>
+    </template>
+    <p><button type="button" class="btn" id="add-opt">+ Add option</button></p>
   </div>
-  <template id="empty-form">
-    {% for h in formset.empty_form.hidden_fields %}{{ h }}{% endfor %}
-    {{ formset.empty_form.text }}
-    <label class="nowrap">{{ formset.empty_form.is_correct }} correct</label>
-  </template>
-  <p><button type="button" class="btn" id="add-opt">+ Add option</button></p>
 
   <div class="ctl">
     <a class="btn" href="{% url 'bank:manage_deck' question.bank.slug %}">Cancel</a>
@@ -64,6 +66,16 @@
 <script>
 (() => {
   const total = document.querySelector('[name$="-TOTAL_FORMS"]');
+  const kind = document.getElementById('id_kind');
+  const answer = document.querySelector('[data-field="answer"]');
+  const options = document.getElementById('options-section');
+  const updateKind = () => {
+    const descriptive = kind.value === 'desc';
+    answer.hidden = !descriptive;
+    options.hidden = descriptive;
+  };
+  kind.addEventListener('change', updateKind);
+  updateKind();
   document.getElementById('add-opt').onclick = () => {
     const n = +total.value;
     if (n >= 8) return;

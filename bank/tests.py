@@ -19,6 +19,10 @@ A. yes
 B. no
 ANSWER: TF
 """
+DESCRIPTIVE_SAMPLE = """Q: Explain the resting membrane potential.
+TYPE: DESC
+ANSWER: The voltage difference across a cell membrane at rest.
+"""
 
 
 def give(user, *codenames):
@@ -43,6 +47,36 @@ class Base(TestCase):
 
     def post_json(self, url, body):
         return self.client.post(url, json.dumps(body), content_type="application/json")
+
+
+class PwaTests(TestCase):
+    def test_manifest_and_service_worker_are_public(self):
+        manifest_response = self.client.get(reverse("bank:manifest"))
+        self.assertEqual(manifest_response.status_code, 200)
+        self.assertEqual(manifest_response["Content-Type"], "application/manifest+json")
+        manifest = json.loads(b"".join(manifest_response.streaming_content))
+        self.assertEqual(manifest["display"], "standalone")
+        self.assertEqual({icon["sizes"] for icon in manifest["icons"]}, {"192x192", "512x512"})
+
+        worker_response = self.client.get(reverse("bank:service_worker"))
+        self.assertEqual(worker_response.status_code, 200)
+        self.assertEqual(worker_response["Service-Worker-Allowed"], "/")
+        worker = b"".join(worker_response.streaming_content)
+        self.assertIn(b"/static/", worker)
+        self.assertNotIn(b"/api/", worker)
+
+    def test_install_banner_only_renders_for_authenticated_users(self):
+        login_page = self.client.get(reverse("bank:login"))
+        self.assertNotContains(login_page, 'id="pwa-install"')
+        user = User.objects.create_user("pwa-user", password="pw")
+        self.client.force_login(user)
+        home = self.client.get(reverse("bank:home"))
+        self.assertContains(home, 'id="pwa-install"')
+        self.assertContains(home, "Install app")
+        self.assertContains(home, '<span class="mark">101</span>')
+        bank = QuestionBank.objects.create(subject=Subject.objects.create(name="PWA"), title="Install test")
+        deck = self.client.get(bank.get_absolute_url())
+        self.assertNotContains(deck, 'id="pwa-install"')
 
 
 class BrowseAndImportTests(Base):
@@ -75,6 +109,7 @@ class BrowseAndImportTests(Base):
 
     def test_home_subject_and_deck_pages(self):
         deck = self.import_sample()
+        self.client.force_login(self.editor)
         home = self.client.get(reverse("bank:home"))
         self.assertContains(home, "Physiology")
         page = self.client.get(self.subject.get_absolute_url())
@@ -88,10 +123,45 @@ class BrowseAndImportTests(Base):
         deck = QuestionBank.objects.get()
         self.assertEqual((deck.subject, deck.semester, deck.title), (self.subject, 3, "Renal"))
 
+    def test_descriptive_import_and_export(self):
+        deck = self.import_sample(title="Neurophysiology")
+        self.client.force_login(self.editor)
+        self.client.post(reverse("bank:import"), {
+            "action": "commit", "text": DESCRIPTIVE_SAMPLE, "subject": self.subject.pk,
+            "semester": 1, "deck_title": deck.title, "skip_dupes": "1"})
+        question = Question.objects.get(kind=Question.DESC)
+        self.assertEqual(question.answer, "The voltage difference across a cell membrane at rest.")
+        self.assertEqual(question.number, "1")
+        exported = self.client.get(reverse("bank:export", args=[question.bank.slug])).content.decode()
+        self.assertIn("TYPE: DESC", exported)
+        self.assertIn("ANSWER: " + question.answer, exported)
+
+    def test_deck_page_shows_separate_quiz_modes_and_counts(self):
+        deck = self.import_sample()
+        Question.objects.create(bank=deck, kind=Question.DESC, stem="Describe a membrane.", answer="A lipid bilayer.")
+        self.client.force_login(self.editor)
+        page = self.client.get(deck.get_absolute_url())
+        self.assertContains(page, "MCQs &amp; True / False: 2")
+        self.assertContains(page, "Descriptive questions: 1")
+        self.assertContains(page, "value=\"descriptive\"")
+
 
 class QuizApiTests(Base):
+    def test_anonymous_users_are_redirected_to_login(self):
+        deck = self.import_sample()
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("bank:home")).status_code, 302)
+        self.assertEqual(self.client.get(reverse("bank:api_questions", args=[deck.slug])).status_code, 302)
+
+    def test_stale_session_cache_does_not_lock_out_current_user(self):
+        self.client.force_login(self.editor)
+        from django.core.cache import cache
+        cache.set(f"bank:active-session:{self.editor.pk}", "stale-session-key", None)
+        self.assertEqual(self.client.get(reverse("bank:home")).status_code, 200)
+
     def test_api_hides_answers_and_checks(self):
         deck = self.import_sample()
+        self.client.force_login(self.editor)
         data = self.client.get(reverse("bank:api_questions", args=[deck.slug])).json()
         self.assertNotIn("is_correct", json.dumps(data))
         mcq, tf = data["questions"]
@@ -102,6 +172,21 @@ class QuizApiTests(Base):
         a, b = (o["id"] for o in tf["options"])
         self.assertTrue(chk(tf["id"], {"answers": {str(a): True, str(b): False}})["correct"])
         self.assertFalse(chk(tf["id"], {"answers": {str(a): True, str(b): True}})["correct"])
+
+    def test_descriptive_api_filters_and_reveals_answer_on_request(self):
+        deck = self.import_sample()
+        question = Question.objects.create(
+            bank=deck, kind=Question.DESC, stem="Describe resting potential.", answer="A voltage difference at rest.")
+        self.client.force_login(self.editor)
+        descriptive = self.client.get(reverse("bank:api_questions", args=[deck.slug]) + "?type=descriptive").json()
+        self.assertEqual([q["id"] for q in descriptive["questions"]], [question.pk])
+        self.assertNotIn(question.answer, json.dumps(descriptive))
+        mcq_tf = self.client.get(reverse("bank:api_questions", args=[deck.slug]) + "?type=mcq_tf").json()
+        self.assertEqual({q["kind"] for q in mcq_tf["questions"]}, {Question.MCQ, Question.TF})
+        check_url = reverse("bank:api_check", args=[question.pk])
+        self.assertEqual(self.post_json(check_url, {}).status_code, 400)
+        revealed = self.post_json(check_url, {"reveal": True}).json()
+        self.assertEqual(revealed["answer"], question.answer)
 
 
 class SavedTests(Base):
@@ -132,6 +217,21 @@ class SavedTests(Base):
 
 
 class CommentAndEditTests(Base):
+    def test_add_descriptive_question_without_options(self):
+        deck = self.import_sample()
+        self.client.force_login(self.editor)
+        response = self.client.post(reverse("bank:question_add", args=[deck.slug]), {
+            "bank": deck.pk, "number": "", "kind": Question.DESC,
+            "stem": "Describe a membrane.", "answer": "A lipid bilayer.",
+            "explanation": "", "note": "",
+            "options-TOTAL_FORMS": "4", "options-INITIAL_FORMS": "0",
+            "options-MIN_NUM_FORMS": "0", "options-MAX_NUM_FORMS": "1000",
+        })
+        self.assertEqual(response.status_code, 302)
+        question = Question.objects.get(kind=Question.DESC)
+        self.assertEqual(question.answer, "A lipid bilayer.")
+        self.assertEqual(question.options.count(), 0)
+
     def test_comment_flow_and_editor_resolves(self):
         deck = self.import_sample()
         q = deck.questions.filter(kind="mcq").first()

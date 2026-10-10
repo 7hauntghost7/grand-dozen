@@ -7,9 +7,10 @@ from .models import Option, Question, QuestionBank
 class QuestionForm(forms.ModelForm):
     class Meta:
         model = Question
-        fields = ["bank", "number", "kind", "stem", "explanation", "note"]
+        fields = ["bank", "number", "kind", "stem", "answer", "explanation", "note"]
         widgets = {
             "stem": forms.Textarea(attrs={"rows": 3}),
+            "answer": forms.Textarea(attrs={"rows": 3}),
             "explanation": forms.Textarea(attrs={"rows": 3}),
             "note": forms.Textarea(attrs={"rows": 2}),
         }
@@ -22,6 +23,12 @@ class QuestionForm(forms.ModelForm):
         f.label_from_instance = lambda d: d.path
         f.label = "Deck (subject › semester › title)"
 
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("kind") == Question.DESC and not (cleaned.get("answer") or "").strip():
+            self.add_error("answer", "Enter the answer shown on the descriptive flashcard.")
+        return cleaned
+
 
 class OptionFormSet(BaseInlineFormSet):
     """Shared by the editor page and the Django admin."""
@@ -30,9 +37,12 @@ class OptionFormSet(BaseInlineFormSet):
         super().clean()
         if any(self.errors):
             return
+        kind = self.data.get("kind", self.instance.kind)
+        if kind == Question.DESC:
+            return
         opts = [f.cleaned_data for f in self.forms
                 if f.cleaned_data and not f.cleaned_data.get("DELETE")]
-        is_tf = self.instance.kind == Question.TF
+        is_tf = kind == Question.TF
         need = 1 if is_tf else 2
         if len(opts) < need:
             raise forms.ValidationError(f"Add at least {need} option(s).")
