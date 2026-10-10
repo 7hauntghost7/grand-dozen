@@ -91,10 +91,10 @@
     const dismiss = document.getElementById("pwa-install-dismiss");
     const help = document.getElementById("pwa-install-help");
     const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-    const dismissed = sessionStorage.getItem("gd:pwa-install-dismissed") === "1";
+    let dismissed = false;
     let installPrompt = null;
 
-    if (!standalone && !dismissed) banner.hidden = false;
+    if (!standalone) banner.hidden = false;
     window.addEventListener("beforeinstallprompt", event => {
       event.preventDefault();
       installPrompt = event;
@@ -117,8 +117,8 @@
       if (choice.outcome === "accepted") banner.hidden = true;
     });
     dismiss.addEventListener("click", () => {
+      dismissed = true;
       banner.hidden = true;
-      sessionStorage.setItem("gd:pwa-install-dismissed", "1");
     });
   })();
 </script>

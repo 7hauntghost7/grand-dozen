@@ -1,13 +1,25 @@
 import os
 from pathlib import Path
 
+import dj_database_url
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Override these with environment variables in production.
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-insecure-key-change-me")
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
-ALLOWED_HOSTS = ['Devcooltibia.pythonanywhere.com', 'localhost', '127.0.0.1']
-CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("DJANGO_CSRF_ORIGINS", "").split(",") if o]
+
+render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
+allowed_hosts = os.environ.get("DJANGO_ALLOWED_HOSTS", "")
+default_hosts = ["localhost", "127.0.0.1", "Devcooltibia.pythonanywhere.com"]
+ALLOWED_HOSTS = [host.strip() for host in allowed_hosts.split(",") if host.strip()] or default_hosts
+if render_hostname and render_hostname not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(render_hostname)
+
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.environ.get(
+    "DJANGO_CSRF_ORIGINS", "").split(",") if origin.strip()]
+if render_hostname and not CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS = [f"https://{render_hostname}"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -21,6 +33,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -47,7 +60,12 @@ TEMPLATES = [{
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if DATABASE_URL:
+    DATABASES = {"default": dj_database_url.parse(
+        DATABASE_URL, conn_max_age=60, conn_health_checks=True)}
+else:
+    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -60,6 +78,12 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "/accounts/login/"

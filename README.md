@@ -33,6 +33,32 @@ Open http://127.0.0.1:8000/
 
 After signing in, choose **Install app** to add The Grand Dozen to your device. Installation prompts require HTTPS in production (localhost works for development); on unsupported browsers, use the browser menu’s **Install app** or **Add to Home Screen** option.
 
+## PostgreSQL
+
+SQLite remains the default unless `DATABASE_URL` is set. For a fresh local PostgreSQL database in pgAdmin:
+
+1. Under **Login/Group Roles**, create a login role such as `granddozen_app`; allow login, but do not make it a superuser.
+2. Under **Databases**, create `grand_dozen` and set its owner to `granddozen_app`.
+3. In the project PowerShell terminal, set the connection URL and initialize the empty schema:
+
+```powershell
+$env:DATABASE_URL = "postgresql://granddozen_app:URL_ENCODED_PASSWORD@127.0.0.1:5432/grand_dozen"
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py seed_subjects
+```
+
+Use a different `DATABASE_URL` for PythonAnywhere, with a PostgreSQL host reachable from PythonAnywhere; `127.0.0.1` there would mean the PythonAnywhere machine, not your PC. Keep credentials in environment/WSGI configuration, never in Git. The current `db.sqlite3` remains untouched when PostgreSQL is selected.
+
+## Deploying to Render
+
+1. Push the deployable code to GitHub, then create a Render **PostgreSQL** database and a **Web Service** from that repository. Keep both in the same region.
+2. Set the Web Service build command to `bash build.sh` and the start command to `gunicorn config.wsgi:application`.
+3. In the Web Service environment, add `DATABASE_URL` by linking the database's **Internal Database URL**. Also set `DJANGO_SECRET_KEY` to a generated secret, `DJANGO_DEBUG` to `0`, and `DJANGO_ALLOWED_HOSTS` to the Render hostname (for example, `grand-dozen.onrender.com`). Set `DJANGO_CSRF_ORIGINS` to the matching HTTPS origin (for example, `https://grand-dozen.onrender.com`).
+4. Deploy. `build.sh` installs dependencies, collects static files, and applies migrations. Then open the Render Shell and run `python manage.py createsuperuser` to create the first account in Render's fresh database. Import real question data when ready; local SQLite users/questions and demo cards are not uploaded.
+
+Do not use the PostgreSQL URL from your local pgAdmin server: Render must use its own hosted database URL. Keep all secrets in Render's environment settings, not in Git.
+
 > Migrations aren't shipped with the zip (it was written without a Django install to generate them). Run `makemigrations bank` once and commit the folder.
 >
 > **Upgrading a database from the previous version:** `makemigrations` will create a new migration. Existing decks get no subject, so they appear under **Not filed yet** on the home page; open **/admin/ → Decks**, and set Subject and Semester right in the list (they're editable inline). If you had no real data yet, simply delete `db.sqlite3` and `bank/migrations/` and start again.
@@ -113,7 +139,7 @@ python manage.py test                   # everything
 ```
 
 ## Deploying
-Set `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=0`, `DJANGO_ALLOWED_HOSTS=yourdomain`, `DJANGO_CSRF_ORIGINS=https://yourdomain`; run `collectstatic`; serve with gunicorn behind nginx (or WhiteNoise / a PaaS). The PWA manifest and root-scoped service worker require HTTPS in production. Use Postgres if many editors work at once. Consider email verification or a CAPTCHA on sign-up if the site is public, since anyone can register and comment.
+Set `DJANGO_SECRET_KEY`, `DATABASE_URL`, `DJANGO_DEBUG=0`, `DJANGO_ALLOWED_HOSTS=yourdomain`, `DJANGO_CSRF_ORIGINS=https://yourdomain`; run `migrate` and `collectstatic`; serve with gunicorn behind nginx (or WhiteNoise / a PaaS). The PWA manifest and root-scoped service worker require HTTPS in production. Consider email verification or a CAPTCHA on sign-up if the site is public, since anyone can register and comment.
 
 ## Ideas for next steps
 Attempt history and weak-deck stats per user · spaced repetition on saved questions · timed exam mode · images in questions · comment notifications by email · a public "report this question" count shown to editors.
