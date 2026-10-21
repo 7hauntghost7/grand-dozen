@@ -1,0 +1,26 @@
+{% extends "bank/base.html" %}
+{% block title %}Upload image · {{ bank.title }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{{ bank.get_absolute_url }}">← {{ bank.title }}</a></p>
+<h2 class="pagetitle">Upload an image for {{ bank.title }}</h2>
+<p class="mute">Upload an image, diagram, slide, or table screenshot once. You can then create several separate questions that reuse it.</p>
+{% if local_image_uploads %}
+  <div class="fb info">Development mode: uploads are saved only on this computer in the local <code>media</code> folder. They are not included in deployment.</div>
+{% elif not image_uploads_enabled %}
+  <div class="fb warning">Image hosting is not configured yet. Set <code>CLOUDINARY_URL</code> in the server environment before uploading.</div>
+{% endif %}
+<form method="post" enctype="multipart/form-data" class="card image-upload-form">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <div class="field">
+    {{ form.image.label_tag }}
+    {{ form.image }}
+    {{ form.image.errors }}
+    {% if form.image.help_text %}<span class="mute">{{ form.image.help_text }}</span>{% endif %}
+  </div>
+  <div class="ctl">
+    <a class="btn" href="{{ bank.get_absolute_url }}">Cancel</a>
+    <button class="btn pri" {% if not image_uploads_enabled %}disabled{% endif %}>Upload image</button>
+  </div>
+</form>
+{% endblock %}

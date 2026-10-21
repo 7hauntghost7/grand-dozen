@@ -5,7 +5,15 @@
 <div id="quiz"
      data-key="{{ key }}" data-title="{{ title }}" data-back="{{ back }}" data-api="{{ api }}"
      data-shuffle="{{ shuffle }}"
+     data-review="{% if review %}1{% else %}0{% endif %}"
+     data-start-question="{{ start_question|default:'' }}"
+     data-edit-api="{{ edit_api }}"
+     data-can-sort="{% if can_sort %}1{% else %}0{% endif %}"
+     data-sort-api="{{ sort_api }}"
+     data-review-bin-api="{{ review_bin_api }}"
+     data-question-type="{{ question_type|default:'' }}"
      data-check="{% url 'bank:api_check' 0 %}"
+     data-image-target="{% url 'bank:api_image_target' 0 0 %}"
      data-save="{% url 'bank:api_save' 0 %}"
      data-comment="{% url 'bank:api_comment' 0 %}"
      data-edit="{% if perms.bank.change_question %}{% url 'bank:question_edit' 0 %}?next={{ request.get_full_path|urlencode }}{% endif %}"
@@ -14,4 +22,4 @@
   <p class="mute">Loading…</p>
 </div>
 {% endblock %}
-{% block scripts %}<script src="{% static 'bank/quiz.js' %}?v=20261010-8"></script>{% endblock %}
+{% block scripts %}<script src="{% static 'bank/quiz.js' %}?v=20261021-19"></script>{% endblock %}

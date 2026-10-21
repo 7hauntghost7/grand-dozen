@@ -78,6 +78,8 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
@@ -89,4 +91,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
-DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # allow big pasted question dumps
+DATA_UPLOAD_MAX_MEMORY_SIZE = 22 * 1024 * 1024  # allow image question uploads
+FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
+CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL", "")

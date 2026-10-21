@@ -1,17 +1,23 @@
 {% extends "bank/base.html" %}
 {% block content %}
+<section class="home-poem" aria-label="Rawasi poem">
+  <span class="poem-ornament" aria-hidden="true"></span>
+  <blockquote lang="ar" dir="rtl">
+    <span>سُمُّوا رَوَاسِيَ بِالْجِبَالِ تَيَمُّناً</span>
+    <span>لَا كَالسَّفِينِ الرَّاسِيَاتِ رُكُودَا</span>
+  </blockquote>
+</section>
 {% if not subjects %}
 <div class="card">
   <p>No subjects yet.</p>
   <p class="mute">Run <code>python manage.py seed_subjects</code> (or add them in <a href="{% url 'admin:bank_subject_add' %}">Admin</a>), then import some questions.</p>
 </div>
 {% endif %}
+{% if subjects %}<h2 class="section-title">Subjects</h2>{% endif %}
 <div class="blocks">
   {% for s in subjects %}
   <a class="block" href="{{ s.get_absolute_url }}">
     <div class="bname">{{ s.name }}</div>
-    {% if s.description %}<div class="bdesc">{{ s.description }}</div>{% endif %}
-    <div class="bmeta">{{ s.n_decks }} deck{{ s.n_decks|pluralize }} · {{ s.n_q }} question{{ s.n_q|pluralize }}</div>
   </a>
   {% endfor %}
 </div>

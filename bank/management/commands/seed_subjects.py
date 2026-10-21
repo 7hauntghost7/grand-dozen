@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from bank.models import Subject
+from bank.models import Subject, SubjectSection
 
 DEFAULTS = ["Physiology", "Anatomy", "Biochemistry", "Pathology"]
 
@@ -15,3 +15,9 @@ class Command(BaseCommand):
         for i, name in enumerate(o["names"] or DEFAULTS):
             s, created = Subject.objects.get_or_create(name=name, defaults={"order": i})
             self.stdout.write(f"{'created' if created else 'exists '} {s.name}")
+            if s.slug == "anatomy":
+                for order, section_name in enumerate(("Embryology", "Histology", "Gross Anatomy")):
+                    SubjectSection.objects.get_or_create(
+                        subject=s, name=section_name,
+                        defaults={"order": order},
+                    )

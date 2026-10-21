@@ -1,32 +1,116 @@
 {% extends "bank/base.html" %}
 {% block title %}{{ bank.title }}{% endblock %}
 {% block content %}
-<p class="crumbs">
-  <a href="{% url 'bank:home' %}">Subjects</a>
-  {% if bank.subject %}› <a href="{{ bank.subject.get_absolute_url }}">{{ bank.subject.name }}</a> › Semester {{ bank.semester }}{% endif %}
-</p>
-<div class="card deck-card">
-  <div class="deck-header">
-    <h2 class="deck-title">{{ bank.title }}</h2>
-    <p class="deck-meta">MCQs &amp; True / False: {{ mcq_tf_count }} · Descriptive questions: {{ descriptive_count }}{% if bank.description %} · {{ bank.description }}{% endif %}</p>
-  </div>
+<main class="study-page">
+  <nav class="study-breadcrumbs" aria-label="Breadcrumb">
+    <a href="{% url 'bank:home' %}">Subjects</a>
+    {% if bank.subject %}<span aria-hidden="true">/</span><a href="{{ bank.subject.get_absolute_url }}">{{ bank.subject.name }}</a>{% endif %}
+    <span aria-hidden="true">/</span><span>Semester {{ bank.semester|stringformat:"02d" }}</span>
+  </nav>
 
-  <form method="get" action="{% url 'bank:quiz' bank.slug %}" class="deck-toolbar">
-    <div class="deck-choices">
-      <button class="btn pri" name="type" value="mcq_tf" {% if not mcq_tf_count %}disabled{% endif %}>
-        MCQs &amp; True / False <span>{{ mcq_tf_count }}</span>
-      </button>
-      <button class="btn" name="type" value="descriptive" {% if not descriptive_count %}disabled{% endif %}>
-        Descriptive questions <span>{{ descriptive_count }}</span>
-      </button>
+  <header class="study-heading">
+    <div class="study-heading-copy">
+      <p class="study-context"><span class="study-context-dot"></span>{{ bank.subject.name|default:"Rawasi 101" }}<span class="study-context-divider">/</span>Semester {{ bank.semester|stringformat:"02d" }}</p>
+      <h2>{{ bank.title }}</h2>
+      {% if bank.description %}<p class="study-description">{{ bank.description }}</p>{% endif %}
     </div>
-    <label class="shuffle-toggle"><input type="checkbox" name="shuffle" value="1"> Shuffle order</label>
-  </form>
+    <div class="study-edition" aria-label="Rawasi Batch 101">
+      <span>RAWASI</span>
+      <strong>101</strong>
+      <span>KHARTOUM MEDICINE</span>
+    </div>
+  </header>
 
-  <div class="deck-links">
-    <a href="{% url 'bank:export' bank.slug %}">Download as text</a>
+  <section class="study-sessions" aria-labelledby="study-sessions-title">
+    <div class="study-section-heading">
+      <div>
+        <p>QUESTION TYPES</p>
+        <h2 id="study-sessions-title">Choose a question type</h2>
+      </div>
+      <span class="study-total">{{ mcq_tf_count|add:descriptive_count|add:image_count }} questions in this deck</span>
+    </div>
+
+    <form method="get" action="{% url 'bank:quiz' bank.slug %}" class="study-form" id="study-form">
+      <div style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">
+        <label><input type="radio" name="type" value="mcq_tf" checked> MCQs &amp; True / False</label>
+        <label><input type="radio" name="type" value="descriptive"> Descriptive</label>
+        <label><input type="radio" name="type" value="image"> Images</label>
+      </div>
+      <div class="study-choices">
+        <div class="study-choice study-choice-quiz">
+          {% if mcq_tf_count %}<a class="study-choice-primary" href="{% url 'bank:quiz' bank.slug %}?type=mcq_tf" aria-label="Start MCQs and True / False quiz"></a>{% endif %}
+          <span class="study-choice-top"><span>01 <i>/ QUESTION TYPE</i></span><span class="study-choice-arrow" aria-hidden="true">↗</span></span>
+          <span class="study-choice-main"><strong>MCQs &amp; True / False</strong><span>Multiple-choice and true-or-false questions.</span></span>
+          <span class="study-choice-bottom"><span class="study-choice-count"><strong>{{ mcq_tf_count }}</strong> questions</span>
+            <span class="study-choice-actions">
+              <span class="study-choice-start-label">{% if mcq_tf_count %}Start MCQs &amp; True / False <span aria-hidden="true">→</span>{% else %}No questions yet{% endif %}</span>
+              {% if user.is_staff %}<a class="study-choice-review" href="{% url 'bank:review_deck' bank.slug %}?type=mcq_tf">Review &amp; edit</a>{% endif %}
+            </span>
+          </span>
+        </div>
+        <div class="study-choice study-choice-recall">
+          {% if descriptive_count %}<a class="study-choice-primary" href="{% url 'bank:quiz' bank.slug %}?type=descriptive" aria-label="Start Descriptive quiz"></a>{% endif %}
+          <span class="study-choice-top"><span>02 <i>/ QUESTION TYPE</i></span><span class="study-choice-arrow" aria-hidden="true">↗</span></span>
+          <span class="study-choice-main"><strong>Descriptive</strong><span>Descriptive questions and flashcards.</span></span>
+          <span class="study-choice-bottom"><span class="study-choice-count"><strong>{{ descriptive_count }}</strong> questions</span>
+            <span class="study-choice-actions">
+              <span class="study-choice-start-label">{% if descriptive_count %}Start Descriptive <span aria-hidden="true">→</span>{% else %}No questions yet{% endif %}</span>
+              {% if user.is_staff %}<a class="study-choice-review" href="{% url 'bank:review_deck' bank.slug %}?type=descriptive">Review &amp; edit</a>{% endif %}
+            </span>
+          </span>
+        </div>
+        <div class="study-choice study-choice-image">
+          {% if image_count %}<a class="study-choice-primary" href="{% url 'bank:quiz' bank.slug %}?type=image" aria-label="Start all image questions"></a>{% endif %}
+          <span class="study-choice-top"><span>03 <i>/ QUESTION TYPE</i></span><span class="study-choice-arrow" aria-hidden="true">↗</span></span>
+          <span class="study-choice-main"><strong>Images</strong><span>Image identification and image-based multiple-choice questions.</span></span>
+          <span class="study-choice-bottom"><span class="study-choice-count"><strong>{{ image_count }}</strong> questions · {{ image_identify_count }} identify · {{ image_mcq_count }} MCQ</span>
+            <span class="study-choice-actions">
+              <span class="image-quiz-links">
+                <a href="{% url 'bank:quiz' bank.slug %}?type=image">Start all</a>
+                {% if image_identify_count %}<a href="{% url 'bank:quiz' bank.slug %}?type=image&amp;image_mode=identify">Identification</a>{% endif %}
+                {% if image_mcq_count %}<a href="{% url 'bank:quiz' bank.slug %}?type=image&amp;image_mode=mcq">Image MCQs</a>{% endif %}
+              </span>
+              {% if user.is_staff %}
+                <span class="image-review-links">
+                  <a href="{% url 'bank:review_deck' bank.slug %}?type=image">Review all</a>
+                  {% if image_identify_count %}<a href="{% url 'bank:review_deck' bank.slug %}?type=image&amp;image_mode=identify">Review identification</a>{% endif %}
+                  {% if image_mcq_count %}<a href="{% url 'bank:review_deck' bank.slug %}?type=image&amp;image_mode=mcq">Review MCQs</a>{% endif %}
+                </span>
+              {% endif %}
+            </span>
+          </span>
+        </div>
+      </div>
+      <label class="study-shuffle"><input type="checkbox" name="shuffle" value="1"><span class="study-shuffle-box" aria-hidden="true"></span><span>Shuffle question order</span></label>
+    </form>
+  </section>
+
+  <footer class="study-tools" aria-label="Deck tools">
+    <span>RAWASI <i>·</i> BATCH 101</span>
+    <a href="{% url 'bank:export' bank.slug %}">Download deck</a>
     {% if perms.bank.change_question %}<a href="{% url 'bank:manage_deck' bank.slug %}">Manage questions</a>{% endif %}
-    {% if perms.bank.add_question %}<a href="{% url 'bank:import' %}?subject={{ bank.subject_id|default_if_none:"" }}&semester={{ bank.semester }}&deck_title={{ bank.title|urlencode }}">Bulk import</a>{% endif %}
-  </div>
-</div>
+    {% if perms.bank.add_question %}<a href="{% url 'bank:import' %}?subject={{ bank.subject_id|default_if_none:"" }}&semester={{ bank.semester }}&deck_title={{ bank.title|urlencode }}">Add questions</a>{% endif %}
+    {% if perms.bank.add_question %}<a href="{% url 'bank:image_question_upload' bank.slug %}">Add image question</a>{% endif %}
+  </footer>
+</main>
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const shuffle = document.querySelector('#study-form [name="shuffle"]');
+  if (!shuffle) return;
+  document.querySelectorAll(".study-choice-primary").forEach(link => {
+    const url = new URL(link.href);
+    shuffle.addEventListener("change", () => {
+      if (shuffle.checked) url.searchParams.set("shuffle", "1");
+      else url.searchParams.delete("shuffle");
+      link.href = url.toString();
+    });
+    if (shuffle.checked) {
+      url.searchParams.set("shuffle", "1");
+      link.href = url.toString();
+    }
+  });
+})();
+</script>
 {% endblock %}

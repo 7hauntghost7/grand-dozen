@@ -1,0 +1,34 @@
+{% extends "bank/base.html" %}
+{% block title %}{{ section.name }} · {{ subject.name }}{% endblock %}
+{% block content %}
+<p class="crumbs">
+  <a href="{% url 'bank:home' %}">Subjects</a> ›
+  <a href="{{ subject.get_absolute_url }}">{{ subject.name }}</a> ›
+  {{ section.name }}
+</p>
+<h2 class="pagetitle">{{ section.name }}</h2>
+{% regroup decks by semester as sems %}
+{% for sem in sems %}
+  <h3 class="semband">Semester {{ sem.grouper }}</h3>
+  <div class="grid decks">
+    {% for d in sem.list %}
+    <a class="set" href="{{ d.get_absolute_url }}">
+      <h3>{{ d.title }}</h3>
+      <p>{{ d.n }} question{{ d.n|pluralize }}</p>
+    </a>
+    {% endfor %}
+  </div>
+{% empty %}
+  <div class="card">
+    No decks in {{ section.name }} yet.
+    {% if perms.bank.add_question %}
+    <a href="{% url 'bank:import' %}?subject={{ subject.pk }}&amp;section={{ section.pk }}">Import questions</a>
+    {% endif %}
+  </div>
+{% endfor %}
+{% if decks and perms.bank.add_question %}
+<p class="mute section-import-link">
+  <a href="{% url 'bank:import' %}?subject={{ subject.pk }}&amp;section={{ section.pk }}">Add questions to {{ section.name }}</a>
+</p>
+{% endif %}
+{% endblock %}

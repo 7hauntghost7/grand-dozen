@@ -1,14 +1,14 @@
 {
   "id": "/",
-  "name": "The Grand Dozen",
-  "short_name": "Grand Dozen",
+  "name": "Rawasi 101",
+  "short_name": "Rawasi 101",
   "description": "A focused question bank for exam practice.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#f6f5f1",
-  "theme_color": "#173e3b",
+  "background_color": "#fffaec",
+  "theme_color": "#2d2d2d",
   "icons": [
     {
       "src": "/static/bank/icons/app-101-192.png",

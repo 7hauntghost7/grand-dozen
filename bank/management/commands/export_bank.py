@@ -12,9 +12,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **o):
         try:
-            bank = QuestionBank.objects.select_related("subject").get(slug=o["slug"])
+            bank = QuestionBank.objects.select_related("subject", "section").get(slug=o["slug"])
         except QuestionBank.DoesNotExist:
             raise CommandError("No such deck slug.")
         self.stdout.write(parser.to_text(
             bank.title, services.bank_as_dicts(bank),
-            subject=bank.subject.name if bank.subject else None, semester=bank.semester))
+            subject=bank.subject.name if bank.subject else None, semester=bank.semester,
+            section=bank.section.name if bank.section else None))

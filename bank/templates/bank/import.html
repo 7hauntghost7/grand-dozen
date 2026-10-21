@@ -5,7 +5,7 @@
   <h2 style="margin-top:0">Import questions</h2>
   <ol class="mute" style="margin-top:0">
     <li>Copy your raw questions and ask an AI to reformat them with the prompt below.</li>
-    <li>Choose <b>subject</b>, <b>semester</b> and the <b>deck title</b> (the lesson name), paste the AI’s output (or upload a .txt) and press <b>Preview</b>.</li>
+    <li>Choose a <b>subject</b> and, when available, a <b>sub-subject</b>, then choose the semester and deck title. Paste the AI’s output (or upload a .txt) and press <b>Preview</b>.</li>
     <li>Fix anything flagged, then press <b>Import</b>.</li>
   </ol>
   <details>
@@ -27,6 +27,11 @@
         <option value="">Select…</option>
         {% for s in subjects %}<option value="{{ s.pk }}" {% if s.pk|stringformat:"s" == subject_id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
       </select></label>
+    <label>Sub-subject (optional)<br>
+      <select name="section">
+        <option value="">None</option>
+        {% for section in sections %}<option value="{{ section.pk }}" data-subject="{{ section.subject_id }}" {% if section.pk|stringformat:"s" == section_id %}selected{% endif %}>{{ section.subject.name }} · {{ section.name }}</option>{% endfor %}
+      </select></label>
     <label>Semester<br>
       <select name="semester">
         <option value="">Select…</option>
@@ -36,8 +41,9 @@
       <input type="text" name="deck_title" list="deck-list" value="{{ deck_title }}" placeholder="e.g. Haematology" autocomplete="off">
       <datalist id="deck-list"></datalist></label>
   </div>
+  {% if section_error %}<div class="fb error">{{ section_error }}</div>{% endif %}
   <p class="mute" style="margin:4px 0 0">Typing the title of an existing deck adds to it; a new title creates a new deck.
-  You can also start the pasted text with <code>SUBJECT:</code> / <code>SEMESTER:</code> / <code>DECK:</code> lines to fill these in.</p>
+  You can also start the pasted text with <code>SUBJECT:</code> / <code>SECTION:</code> / <code>SEMESTER:</code> / <code>DECK:</code> lines to fill these in.</p>
   <p><textarea name="text" rows="16" placeholder="Q: …&#10;A. …&#10;B. …&#10;ANSWER: B">{{ text }}</textarea></p>
   <p class="row" style="justify-content:flex-start">
     <label>or upload .txt <input type="file" name="file" accept=".txt,text/plain"></label>
@@ -56,7 +62,7 @@
   {% if deck_exists %}
     <div class="fb info">Will add to the existing deck <b>{{ deck_exists.path }}</b>.</div>
   {% elif subject_id and semester and deck_title %}
-    <div class="fb info">Will create a new deck <b>{{ deck_title }}</b> (Semester {{ semester }}).</div>
+    <div class="fb info">Will create a new deck <b>{{ deck_title }}</b>{% if selected_section %} under {{ selected_section.name }}{% endif %} (Semester {{ semester }}).</div>
   {% else %}
     <div class="fb error">Choose a subject, semester and deck title before importing.</div>
   {% endif %}
@@ -102,14 +108,26 @@
 (() => {
   const decks = JSON.parse(document.getElementById('decks-data').textContent);
   const sub = document.querySelector('[name=subject]'), sem = document.querySelector('[name=semester]');
+  const section = document.querySelector('[name=section]');
   const dl = document.getElementById('deck-list');
   const fill = () => {
     dl.innerHTML = '';
-    decks.filter(d => String(d.s) === sub.value && String(d.m) === sem.value).forEach(d => {
+    decks.filter(d => String(d.s) === sub.value && String(d.m) === sem.value &&
+      (!section.value || String(d.c || '') === section.value)).forEach(d => {
       const o = document.createElement('option'); o.value = d.t; dl.appendChild(o);
     });
   };
-  sub.onchange = sem.onchange = fill; fill();
+  const filterSections = () => {
+    for (const option of section.options) {
+      if (!option.value) continue;
+      option.disabled = option.dataset.subject !== sub.value;
+    }
+    if (section.selectedOptions[0]?.disabled) section.value = '';
+    fill();
+  };
+  sub.onchange = filterSections;
+  sem.onchange = section.onchange = fill;
+  filterSections();
 })();
 </script>
 {% endblock %}

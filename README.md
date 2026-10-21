@@ -4,17 +4,17 @@ A Django site for hosting exam-question decks.
 
 ```
 Home: big subject blocks
- └─ Subject page: dark "Semester N" bands
+ └─ Subject page: optional sub-subject blocks, then semester bands
      └─ Deck cards (one per lesson, e.g. "Haematology")
          └─ Quiz  ·  ★ Save  ·  💬 Comment to admins  ·  ✎ Edit (editors)
 ```
 
-* **Subjects → semesters → decks.** The home page shows one large block per subject. A subject page groups its decks under dark semester bands. A deck is a lesson.
+* **Subjects → optional sub-subjects → semesters → decks.** Anatomy starts with ordered Embryology, Histology, and Gross Anatomy sections; any subject can use its own sections. A subject without sections keeps the existing semester-to-deck layout. A deck is a lesson.
 * **Quizzes** with instant feedback, explanations, progress saving, shuffle, retry-missed. Correct answers are checked **server-side**.
 * **★ Saved questions** – logged-in users can save any question. The **Saved** section mirrors the same layout (subject blocks → semester bands → decks) and lets you practise just the saved questions.
 * **💬 Comments** – logged-in users can send a private comment about a question. Editors get a **Comments inbox** (with an open-count badge in the nav), jump straight to the question's edit page, and can resolve comments.
 * **Editor pages** (not the Django admin) – manage a deck's questions, edit or add a question, delete it.
-* **Bulk import** with subject + semester + deck title, preview and validation, duplicate detection, and a copy-paste **AI formatting prompt**.
+* **Bulk import** with subject, optional sub-subject, semester, and deck title, preview and validation, duplicate detection, and a copy-paste **AI formatting prompt**.
 
 ## Run it
 
@@ -32,6 +32,16 @@ python manage.py runserver
 Open http://127.0.0.1:8000/
 
 After signing in, choose **Install app** to add The Grand Dozen to your device. Installation prompts require HTTPS in production (localhost works for development); on unsupported browsers, use the browser menu’s **Install app** or **Add to Home Screen** option.
+
+## Local question format converter
+
+To convert numbered MCQ/descriptive documents into the website import format, run this from the project folder on Windows:
+
+```powershell
+python tools\question_converter.py
+```
+
+Paste the source document, optionally enter a subject, semester, and deck title, then choose **Convert and validate**. The converter checks its output with the same parser used by the website importer. Copy the generated text into the website’s **Import** page; questions marked for manual review remain invalid until their answer is corrected.
 
 ## PostgreSQL
 
@@ -55,16 +65,15 @@ Use a different `DATABASE_URL` for PythonAnywhere, with a PostgreSQL host reacha
 1. Push the deployable code to GitHub, then create a Render **PostgreSQL** database and a **Web Service** from that repository. Keep both in the same region.
 2. Set the Web Service build command to `bash build.sh` and the start command to `gunicorn config.wsgi:application`.
 3. In the Web Service environment, add `DATABASE_URL` by linking the database's **Internal Database URL**. Also set `DJANGO_SECRET_KEY` to a generated secret, `DJANGO_DEBUG` to `0`, and `DJANGO_ALLOWED_HOSTS` to the Render hostname (for example, `grand-dozen.onrender.com`). Set `DJANGO_CSRF_ORIGINS` to the matching HTTPS origin (for example, `https://grand-dozen.onrender.com`).
-4. Deploy. `build.sh` installs dependencies, collects static files, and applies migrations. Then open the Render Shell and run `python manage.py createsuperuser` to create the first account in Render's fresh database. Import real question data when ready; local SQLite users/questions and demo cards are not uploaded.
+4. To enable image questions on Render, create a Cloudinary account and add its `CLOUDINARY_URL` as a secret environment variable on the Render Web Service. Production uploads use Cloudinary; local `DEBUG`-only file uploads are disabled when `DJANGO_DEBUG=0`. Do not store uploads on Render Free's local filesystem.
+5. Back up the production database before deploying schema migrations. `build.sh` installs dependencies, collects static files, and applies pending migrations. Then open the Render Shell and run `python manage.py createsuperuser` only for a fresh database that does not yet have an admin account. Import real question data when ready; local SQLite users/questions and demo cards are not uploaded.
 
 Do not use the PostgreSQL URL from your local pgAdmin server: Render must use its own hosted database URL. Keep all secrets in Render's environment settings, not in Git.
 
-> Migrations aren't shipped with the zip (it was written without a Django install to generate them). Run `makemigrations bank` once and commit the folder.
->
-> **Upgrading a database from the previous version:** `makemigrations` will create a new migration. Existing decks get no subject, so they appear under **Not filed yet** on the home page; open **/admin/ → Decks**, and set Subject and Semester right in the list (they're editable inline). If you had no real data yet, simply delete `db.sqlite3` and `bank/migrations/` and start again.
+> Keep the committed `bank/migrations/` files with each deployment; the build applies them automatically. Migrations add schema and do not delete existing question data. Still take a production database backup before deploying, especially when the database contains important question banks.
 
 ### Subjects
-Subjects are ordinary database rows: **/admin/ → Subjects**. Rename the placeholders, change `order`, or add more. The home page shows one block per subject.
+Subjects are ordinary database rows: **/admin/ → Subjects**. Rename the placeholders, change `order`, or add more. The home page shows one block per subject. Subject sub-subjects are managed at **/admin/ → Subject sections**; adding sections to a subject makes its subject page show them as numbered blocks. Their `order` determines the order shown.
 
 ### Who can do what
 | Person | Can |
@@ -80,17 +89,20 @@ To make an editor: `/admin/` → Users → add user → give permissions `bank |
 
 **Bulk (recommended):** *Import* in the top nav.
 1. Copy the **AI formatting prompt**, paste it with your raw questions into any AI chat.
-2. On the Import page choose **Subject**, **Semester**, type the **Deck title** (typing an existing title adds to that deck; a new title creates a deck), paste the AI's output, **Preview**, fix flagged items, **Import**.
+2. On the Import page choose **Subject**, an optional **Sub-subject**, **Semester**, and the **Deck title** (typing an existing title adds to that deck; a new title creates a deck), paste the AI's output, **Preview**, fix flagged items, **Import**.
 
 **One at a time:** open a deck → *Manage / edit questions* → *+ Add question*.
 
-Command line: `python manage.py import_questions file.txt --subject Physiology --semester 2 --deck "Haematology"`.
+**Image questions:** open a deck and choose *Add image question*. During local development (`DEBUG=1`), images upload to the ignored `media/` folder on this computer and are served by Django's development server; they are not bundled for deployment. Production (`DEBUG=0`) uses Cloudinary configured with `CLOUDINARY_URL`. Upload an image once, then create one image-dependent question at a time. Choose identification targets (with optional image markers) or image MCQ. After saving, choose *Save & add another question for this image* to reuse the upload. Deleting one question keeps an image still used by another question. Image questions are excluded from plain-text deck and bin exports because those formats cannot preserve the image or target markers.
+
+Command line: `python manage.py import_questions file.txt --subject Anatomy --section "Gross Anatomy" --semester 2 --deck "Thorax"`.
 `python manage.py export_bank <deck-slug> > backup.txt` writes a deck back in the same format (also on each deck page: *Download as text*).
 
 ## The text format
 
 ```
 SUBJECT: Physiology            (optional – or use the form fields)
+SECTION: Gross Anatomy         (optional – for subjects with sections)
 SEMESTER: 1                    (optional)
 DECK: Haematology              (optional)
 
@@ -120,12 +132,12 @@ Rules: each question starts with `Q:`; MCQ/TF options are `A.`–`H.` in order; 
 
 ```
 config/                  settings, urls
-bank/models.py           Subject → QuestionBank (deck) → Question → Option; SavedQuestion; Comment
+bank/models.py           Subject → SubjectSection → QuestionBank (deck) → Question → Option
 bank/parser.py           plain-text format <-> Python (no Django imports; has its own tests)
 bank/views.py            pages, JSON API, editor pages, import, signup
 bank/forms.py            question editor form + option formset, signup form
 bank/static/bank/        quiz.js, style.css
-bank/templates/bank/     home, subject_detail, bank_detail (deck), quiz, saved_*, manage_deck,
+bank/templates/bank/     home, subject_detail, section_detail, bank_detail (deck), quiz, saved_*, manage_deck,
                          question_edit, comments, import, login, signup
 bank/management/         import_questions, export_bank, seed_subjects
 data/*.txt               244 seed questions
