@@ -1,0 +1,174 @@
+{% extends "bank/base.html" %}
+{% load static %}
+{% block title %}{% if is_new %}Add image question{% else %}Edit image question{% endif %} · {{ bank.title }}{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{{ cancel_url }}">← {{ bank.title }}</a></p>
+<h2 class="pagetitle">{% if is_new %}Add a question for this image{% else %}Edit image question {{ question.number }}{% endif %}</h2>
+<p class="mute">This question is separate in the quiz. The image is shared and will not be uploaded again when you add another question.</p>
+
+<form method="post" class="card image-question-form" id="image-question-form"
+      data-targets="{{ initial_targets|escape }}" data-options="{{ initial_options|escape }}">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next_url }}">
+  {{ form.targets_json }}
+  {{ form.options_json }}
+  {{ form.non_field_errors }}
+
+  <figure class="image-author-figure">
+    <div class="image-stage image-author-stage{% if image.width and image.height %} is-calibrated{% endif %}" id="image-stage" aria-label="Uploaded question image"{% if image.width and image.height %} style="--image-aspect-ratio:{{ image.width }}/{{ image.height }};--image-max-width:{% widthratio image.width image.height 78 %}vh"{% endif %}>
+      <img src="{{ image.secure_url }}" alt="Image used for this question">
+      <div class="image-markers" id="image-markers" aria-hidden="true"></div>
+    </div>
+    <figcaption>{{ image.original_name }} · {{ image.width }} × {{ image.height }}
+      <a href="{{ image.secure_url }}" target="_blank" rel="noopener">Open original image</a>
+    </figcaption>
+  </figure>
+
+  <div class="field">
+    {{ form.stem.label_tag }}{{ form.stem }}{{ form.stem.errors }}
+  </div>
+  <div class="field">
+    {{ form.answer_mode.label_tag }}{{ form.answer_mode }}{{ form.answer_mode.errors }}
+  </div>
+
+  <section id="targets-section">
+    <h3>Identification targets</h3>
+    <p class="mute">Create one answer box per label. To place a numbered marker, choose “Place marker” beside a target, then click its location on the image. Leave coordinates empty for pre-labelled images.</p>
+    <div id="target-rows"></div>
+    <button class="btn" type="button" id="add-target">+ Add identification target</button>
+    {{ form.targets_json.errors }}
+  </section>
+
+  <section id="options-section">
+    <h3>Image MCQ choices</h3>
+    <p class="mute">Add 2–8 choices and mark every correct choice.</p>
+    <div id="image-option-rows"></div>
+    <button class="btn" type="button" id="add-image-option">+ Add choice</button>
+    {{ form.options_json.errors }}
+  </section>
+
+  <div class="field">
+    {{ form.explanation.label_tag }}{{ form.explanation }}{{ form.explanation.errors }}
+  </div>
+  <div class="field">
+    {{ form.note.label_tag }}{{ form.note }}{{ form.note.errors }}
+  </div>
+  <div class="ctl">
+    <a class="btn" href="{{ cancel_url }}">Cancel</a>
+    {% if is_new %}<button class="btn" name="add_another" value="1">Save &amp; add another question for this image</button>{% endif %}
+    <button class="btn pri">Save question</button>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const form = document.getElementById("image-question-form");
+  if (!form) return;
+  const mode = form.querySelector('[name="answer_mode"]');
+  const targetRows = document.getElementById("target-rows");
+  const optionRows = document.getElementById("image-option-rows");
+  const targetsInput = form.querySelector('[name="targets_json"]');
+  const optionsInput = form.querySelector('[name="options_json"]');
+  const markerLayer = document.getElementById("image-markers");
+  const imageStage = document.getElementById("image-stage");
+  let targets = [];
+  let options = [];
+  let selectedTarget = null;
+  const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[character]);
+  try { targets = JSON.parse(form.dataset.targets || "[]"); } catch (error) { targets = []; }
+  try { options = JSON.parse(form.dataset.options || "[]"); } catch (error) { options = []; }
+
+  function sync() {
+    targetsInput.value = JSON.stringify(targets);
+    optionsInput.value = JSON.stringify(options);
+    targetRows.innerHTML = targets.map((target, index) => `<div class="image-author-row">
+      <div class="image-author-row-fields">
+        <label>Label<input type="text" maxlength="40" data-target-field="label" data-index="${index}" value="${escapeHtml(target.label || "")}" required></label>
+        <label>Answer<textarea rows="2" data-target-field="answer" data-index="${index}" required>${escapeHtml(target.answer || "")}</textarea></label>
+      </div>
+      <div class="image-author-row-actions">
+        <button class="btn" type="button" data-marker="${index}">${target.x_percent == null ? "Place marker" : "Move marker"}</button>
+        <span class="mute">${target.x_percent == null ? "No marker" : `Marker ${Number(target.x_percent).toFixed(1)}%, ${Number(target.y_percent).toFixed(1)}%`}</span>
+        <button class="btn" type="button" data-remove-target="${index}">Remove</button>
+      </div>
+    </div>`).join("");
+    optionRows.innerHTML = options.map((option, index) => `<div class="image-author-option">
+      <label>Choice ${String.fromCharCode(65 + index)}<textarea rows="2" data-option-field="text" data-index="${index}" required>${escapeHtml(option.text || "")}</textarea></label>
+      <label><input type="checkbox" data-option-field="is_correct" data-index="${index}" ${option.is_correct ? "checked" : ""}> Correct</label>
+      <button class="btn" type="button" data-remove-option="${index}">Remove</button>
+    </div>`).join("");
+    markerLayer.innerHTML = targets.filter(target => target.x_percent != null && target.y_percent != null)
+      .map(target => `<span class="image-marker" style="left:${Number(target.x_percent)}%;top:${Number(target.y_percent)}%">${escapeHtml(target.label)}</span>`).join("");
+    document.getElementById("targets-section").hidden = mode.value !== "identify";
+    document.getElementById("options-section").hidden = mode.value !== "mcq";
+  }
+
+  document.getElementById("add-target").addEventListener("click", () => {
+    if (targets.length < 50) targets.push({label: "", answer: "", x_percent: null, y_percent: null});
+    sync();
+  });
+  document.getElementById("add-image-option").addEventListener("click", () => {
+    if (options.length < 8) options.push({text: "", is_correct: false});
+    sync();
+  });
+  form.addEventListener("input", event => {
+    const targetIndex = event.target.dataset.index;
+    if (event.target.dataset.targetField && targetIndex !== undefined) {
+      targets[Number(targetIndex)][event.target.dataset.targetField] = event.target.value;
+      syncMarkers();
+    }
+    if (event.target.dataset.optionField && targetIndex !== undefined) {
+      options[Number(targetIndex)][event.target.dataset.optionField] = event.target.value;
+      syncInputs();
+    }
+  });
+  form.addEventListener("change", event => {
+    if (event.target === mode) sync();
+    if (event.target.dataset.optionField === "is_correct") {
+      options[Number(event.target.dataset.index)].is_correct = event.target.checked;
+      syncInputs();
+    }
+  });
+  form.addEventListener("click", event => {
+    const markerButton = event.target.closest("[data-marker]");
+    const removeTarget = event.target.closest("[data-remove-target]");
+    const removeOption = event.target.closest("[data-remove-option]");
+    if (markerButton) {
+      selectedTarget = Number(markerButton.dataset.marker);
+      imageStage.classList.add("placing-marker");
+      markerButton.textContent = "Click the image…";
+    } else if (removeTarget) {
+      targets.splice(Number(removeTarget.dataset.removeTarget), 1);
+      selectedTarget = null;
+      sync();
+    } else if (removeOption) {
+      options.splice(Number(removeOption.dataset.removeOption), 1);
+      sync();
+    }
+  });
+  imageStage.addEventListener("click", event => {
+    if (selectedTarget === null) return;
+    const bounds = imageStage.getBoundingClientRect();
+    targets[selectedTarget].x_percent = Math.max(0, Math.min(100, ((event.clientX - bounds.left) / bounds.width) * 100)).toFixed(2);
+    targets[selectedTarget].y_percent = Math.max(0, Math.min(100, ((event.clientY - bounds.top) / bounds.height) * 100)).toFixed(2);
+    selectedTarget = null;
+    imageStage.classList.remove("placing-marker");
+    sync();
+  });
+  function syncInputs() {
+    targetsInput.value = JSON.stringify(targets);
+    optionsInput.value = JSON.stringify(options);
+  }
+  function syncMarkers() {
+    markerLayer.innerHTML = targets.filter(target => target.x_percent != null && target.y_percent != null)
+      .map(target => `<span class="image-marker" style="left:${Number(target.x_percent)}%;top:${Number(target.y_percent)}%">${escapeHtml(target.label)}</span>`).join("");
+    syncInputs();
+  }
+  form.addEventListener("submit", syncInputs);
+  sync();
+})();
+</script>
+{% endblock %}

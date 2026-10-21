@@ -1,0 +1,24 @@
+{% extends "bank/base.html" %}
+{% block title %}Refile sorting-bin questions{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{% url 'bank:sorting_bin' %}">Sorting bin</a> › Refile questions</p>
+<div class="card">
+  <h2 style="margin-top:0">Reorganize and reimport</h2>
+  <p>Export the sorting bin, ask an AI to assign each question a target chapter, then review every destination before applying changes. Stable IDs let the site update the original questions instead of creating duplicates.</p>
+  <details>
+    <summary><strong>AI reorganization prompt</strong></summary>
+    <pre id="sort-prompt" class="code">{{ prompt }}</pre>
+    <p><strong>Available subjects:</strong> {% for subject in subjects %}{{ subject.name }}{% if not forloop.last %}; {% endif %}{% empty %}None{% endfor %}</p>
+    <button type="button" class="btn" onclick="navigator.clipboard.writeText(document.getElementById('sort-prompt').textContent);this.textContent='Copied ✓'">Copy prompt</button>
+  </details>
+</div>
+<form method="post" enctype="multipart/form-data" class="card" style="margin-top:12px">
+  {% csrf_token %}
+  <p><textarea name="text" rows="18" placeholder="Paste the AI-reorganized sorting-bin text here.">{{ text }}</textarea></p>
+  <p><label>or upload reorganized .txt <input type="file" name="file" accept=".txt,text/plain"></label></p>
+  <p class="row" style="justify-content:flex-start">
+    <button class="btn pri" name="action" value="preview">Review destinations</button>
+    {% if text %}<button class="btn" name="action" value="cancel">Discard pending import</button>{% endif %}
+  </p>
+</form>
+{% endblock %}

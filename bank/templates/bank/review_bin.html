@@ -1,0 +1,33 @@
+{% extends "bank/base.html" %}
+{% block title %}Review bin{% endblock %}
+{% block content %}
+<div class="row">
+  <div>
+    <p class="crumbs"><a href="{% url 'bank:home' %}">Subjects</a> › Review bin</p>
+    <h2 class="pagetitle">Review bin</h2>
+    <p class="mute">Questions here need manual review before they are filed back into a chapter or moved elsewhere.</p>
+  </div>
+  <div class="row" style="justify-content:flex-end">
+    <a class="btn" href="{% url 'bank:review_bin_export' %}">Export as text</a>
+    {% if count %}<a class="btn pri" href="{% url 'bank:review_bin_review' %}">Review questions</a>{% endif %}
+  </div>
+</div>
+<div class="card">
+  <p><strong>{{ count }}</strong> question{{ count|pluralize }} in the review bin.</p>
+  <div class="scroll">
+    {% for group in groups %}
+      <h3>{{ group.path }} <span class="mute">· {{ group.questions|length }} question{{ group.questions|length|pluralize }}</span></h3>
+      <table>
+        <tr><th>Question</th><th>Type</th></tr>
+        {% for question in group.questions %}
+        <tr>
+          <td><a href="{% url 'bank:review_bin_review' %}?question={{ question.pk }}">Q{{ question.number|default:question.pk }} · {{ question.stem|truncatechars:120 }}</a></td>
+          <td>{{ question.kind|upper }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% empty %}<p>The review bin is empty. Move a question here from a deck review or while answering a quiz.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -3,7 +3,7 @@ from pathlib import Path
 from django.core.management.base import BaseCommand, CommandError
 
 from bank import parser, services
-from bank.models import Subject
+from bank.models import Subject, SubjectSection
 
 
 class Command(BaseCommand):
@@ -13,6 +13,7 @@ class Command(BaseCommand):
     def add_arguments(self, ap):
         ap.add_argument("files", nargs="+", help="One or more .txt files")
         ap.add_argument("--subject", help="Subject name (must already exist)")
+        ap.add_argument("--section", help="Sub-subject name (must belong to the selected subject)")
         ap.add_argument("--semester", type=int, help="Semester number, e.g. 1")
         ap.add_argument("--deck", help="Deck title (only with a single file). Default: DECK: line, else file name.")
         ap.add_argument("--allow-duplicates", action="store_true")
@@ -35,7 +36,19 @@ class Command(BaseCommand):
                 names = ", ".join(Subject.objects.values_list("name", flat=True)) or "none yet"
                 raise CommandError(f"Unknown subject “{subject_name}”. Existing subjects: {names}. "
                                    "Create it in /admin/ or run seed_subjects.")
+            section_name = o["section"] or res.section
+            section = None
+            if section_name:
+                section = SubjectSection.objects.filter(
+                    subject=subject, name__iexact=section_name,
+                ).first()
+                if not section:
+                    raise CommandError(
+                        f"{path.name}: unknown sub-subject “{section_name}” under {subject.name}."
+                    )
             deck = services.find_deck(subject, semester, title)
+            if deck and section and deck.section_id not in (None, section.pk):
+                raise CommandError(f"{path.name}: deck already belongs to another sub-subject.")
             if deck:
                 parser.mark_duplicates(res.questions, services.existing_keys(deck))
             errs = [q for q in res.questions if q.errors]
@@ -44,6 +57,6 @@ class Command(BaseCommand):
             if o["dry_run"]:
                 self.stdout.write(f"{path.name}: {len(res.questions)} parsed, {len(errs)} with errors (dry run)")
                 continue
-            deck = deck or services.get_or_create_deck(subject, semester, title)
+            deck = services.get_or_create_deck(subject, semester, title, section)
             c, b, d = services.save_questions(deck, res.questions, not o["allow_duplicates"])
             self.stdout.write(self.style.SUCCESS(f"{path.name} -> {deck.path}: {c} created, {b} invalid, {d} duplicates"))

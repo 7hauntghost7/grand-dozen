@@ -1,0 +1,63 @@
+{% extends "bank/base.html" %}
+{% block title %}Sorting bin{% endblock %}
+{% block content %}
+<div class="row">
+  <div>
+    <p class="crumbs"><a href="{% url 'bank:home' %}">Subjects</a> › Sorting bin</p>
+    <h2 class="pagetitle">Sorting bin</h2>
+    <p class="mute">Questions here are hidden from chapter quizzes until reviewed and filed back into a chapter.</p>
+  </div>
+  <div class="row" style="justify-content:flex-end">
+    <button class="btn" id="copy-sorting-prompt" type="button">Copy AI prompt</button>
+    <a class="btn" href="{% url 'bank:sorting_bin_export' %}">Export as text</a>
+    <a class="btn" href="{% url 'bank:sorting_bin_import' %}">Import reorganized text</a>
+    {% if count %}<a class="btn pri" href="{% url 'bank:sorting_bin_review' %}">Review questions</a>{% endif %}
+  </div>
+</div>
+<details class="sorting-bin-prompt">
+  <summary>View the AI reorganization prompt</summary>
+  <p>Copy this prompt, then give it to your AI together with the exported sorting-bin text.</p>
+  <pre class="code" id="sorting-bin-prompt" tabindex="0">{{ prompt }}</pre>
+  <p id="sorting-prompt-status" class="mute" role="status" aria-live="polite"></p>
+</details>
+<div class="card">
+  <p><strong>{{ count }}</strong> question{{ count|pluralize }} in the shared sorting bin.</p>
+  <div class="scroll">
+    {% for group in groups %}
+      <h3>{{ group.path }} <span class="mute">· {{ group.questions|length }} question{{ group.questions|length|pluralize }}</span></h3>
+      <table>
+        <tr><th>Question</th><th>Type</th></tr>
+        {% for question in group.questions %}
+        <tr>
+          <td><a href="{% url 'bank:sorting_bin_review' %}?question={{ question.pk }}">Q{{ question.number|default:question.pk }} · {{ question.stem|truncatechars:120 }}</a></td>
+          <td>{{ question.kind|upper }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% empty %}<p>The sorting bin is empty. Move questions here from a deck's review mode.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const button = document.getElementById("copy-sorting-prompt");
+  const prompt = document.getElementById("sorting-bin-prompt");
+  const details = document.querySelector(".sorting-bin-prompt");
+  const status = document.getElementById("sorting-prompt-status");
+  if (!button || !prompt || !details || !status) return;
+
+  button.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(prompt.textContent);
+      status.textContent = "Prompt copied. Paste it into your AI with the exported text.";
+    } catch (error) {
+      details.open = true;
+      status.textContent = "Could not copy automatically. Select and copy the prompt above.";
+      prompt.focus();
+    }
+  });
+})();
+</script>
+{% endblock %}

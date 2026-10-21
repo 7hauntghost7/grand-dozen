@@ -6,6 +6,7 @@ This module has NO Django imports, so it can be tested and reused on its own.
 Format (one question per block; blocks start with "Q:"):
 
     SUBJECT: Physiology                <- optional header lines (the import form can also set these)
+    SECTION: Gross Anatomy             <- optional sub-subject
     SEMESTER: 1
     DECK: Haematology                  <- the lesson / deck title ("BANK:" is accepted as an alias)
     Q: The globin part of haemoglobin F consists of:
@@ -29,7 +30,8 @@ import re
 from dataclasses import dataclass, field
 
 FIELD_RE = re.compile(
-    r"^\s*(SUBJECT|SEMESTER|DECK|BANK|Q|NO|TYPE|TOPIC|ANSWER|ANS|EXPLANATION|EXPL|NOTE)\s*:\s*(.*)$", re.I
+    r"^\s*(SUBJECT|SECTION|SEMESTER|DECK|BANK|Q|ID|SOURCE_SUBJECT|SOURCE_SEMESTER|SOURCE_DECK|"
+    r"TARGET_SUBJECT|TARGET_SEMESTER|TARGET_DECK|NO|TYPE|TOPIC|ANSWER|ANS|EXPLANATION|EXPL|NOTE)\s*:\s*(.*)$", re.I
 )
 OPT_RE = re.compile(r"^\s*\(?([A-Ha-h])[\.\)](?:\s+(.*))?$")
 RULE_RE = re.compile(r"^\s*(-{3,}|={3,}|\*{3,})\s*$")
@@ -52,6 +54,10 @@ class ParsedQuestion:
     answer_raw: str = ""
     explanation: str = ""
     note: str = ""
+    question_id: str = ""
+    target_subject: str = ""
+    target_semester: str = ""
+    target_deck: str = ""
     option_letters: list = field(default_factory=list)
     options: list = field(default_factory=list)      # option texts
     kind: str = MCQ
@@ -75,6 +81,7 @@ class ParseResult:
     questions: list = field(default_factory=list)
     bank_title: str = ""                              # the DECK title
     subject: str = ""
+    section: str = ""
     semester: object = None                           # int or None
     stray: list = field(default_factory=list)        # (line_no, text) before the first Q:
 
@@ -104,6 +111,8 @@ def parse(text):
                 fld = None
             elif key == "SUBJECT":
                 res.subject, fld = val, None
+            elif key == "SECTION":
+                res.section, fld = val, None
             elif key == "SEMESTER":
                 num = re.search(r"\d+", val)
                 res.semester, fld = (int(num.group()) if num else None), None
@@ -111,6 +120,16 @@ def parse(text):
                 cur = ParsedQuestion(line=n, stem=val)
                 res.questions.append(cur)
                 fld = "stem"
+            elif key == "ID" and cur is not None:
+                cur.question_id, fld = val, None
+            elif key == "TARGET_SUBJECT" and cur is not None:
+                cur.target_subject, fld = val, None
+            elif key == "TARGET_SEMESTER" and cur is not None:
+                cur.target_semester, fld = val, None
+            elif key == "TARGET_DECK" and cur is not None:
+                cur.target_deck, fld = val, None
+            elif key in ("SOURCE_SUBJECT", "SOURCE_SEMESTER", "SOURCE_DECK"):
+                fld = None
             elif cur is None:
                 res.stray.append((n, line))
             elif key == "NO":
@@ -244,11 +263,13 @@ def mark_duplicates(questions, existing_keys=None):
             seen[k] = q.number or q.line
 
 
-def to_text(deck_title, questions, subject=None, semester=None):
+def to_text(deck_title, questions, subject=None, semester=None, section=None):
     """questions: iterable of dicts with question type, answer/options, explanation, and note."""
     out = []
     if subject:
         out.append(f"SUBJECT: {subject}")
+    if section:
+        out.append(f"SECTION: {section}")
     if semester:
         out.append(f"SEMESTER: {semester}")
     out += [f"DECK: {deck_title}", ""]
@@ -279,6 +300,7 @@ AI_PROMPT = """Reformat the exam questions I paste below into EXACTLY this plain
 Output plain text only (no markdown, no code fences, no commentary).
 
 Rules:
+- Keep optional SUBJECT, SECTION, SEMESTER, and DECK header lines provided by me unchanged.
 - Every question starts with "Q:" followed by the question text.
 - Options go on their own lines as "A. text", "B. text", … in order (max 8).
 - Put "ANSWER:" after the options. Multiple choice: the correct letter(s), e.g. "ANSWER: B" or "ANSWER: A, C".
@@ -311,4 +333,42 @@ TYPE: DESC
 ANSWER: The voltage difference across a cell membrane at rest.
 
 Here are my questions:
+"""
+
+
+SORTING_BIN_AI_PROMPT = """Reorganize these questions into the exact same plain-text format.
+Output plain text only: no markdown, code fences, or commentary.
+
+This file contains questions from a sorting bin. Put each question into the chapter
+where it belongs by filling in TARGET_SUBJECT, TARGET_SEMESTER, and TARGET_DECK for
+EVERY question. Use the existing subject and chapter names provided by the user.
+
+Critical rules:
+- Preserve each question's ID exactly. It is how the website safely matches and updates it.
+- Do not invent, remove, or duplicate IDs. Keep all questions.
+- Keep SOURCE_SUBJECT, SOURCE_SEMESTER, and SOURCE_DECK unchanged.
+- Never move a question to a different subject. TARGET_SUBJECT must exactly match that
+  question's SOURCE_SUBJECT; you may only change its semester or deck within that subject.
+- Use only destination decks listed for the question's SOURCE_SUBJECT.
+- If SOURCE_SUBJECT is blank or Unfiled, do not guess a subject; leave target fields blank
+  and add a NOTE for staff to decide where it belongs.
+- You may correct wording, options, answer, explanation, note, and TYPE when necessary.
+- Retain the original question format and answer-key rules from the standard prompt.
+- Add TARGET_SUBJECT, TARGET_SEMESTER, TARGET_DECK after ID in each question.
+- If you cannot confidently classify an item, leave target fields blank and add a NOTE.
+- Each question starts with Q: and fields are per question, as in this example:
+
+Q: Which object politely asks the clouds to wait?
+ID: 123
+SOURCE_SUBJECT: Bureau of Imaginary Weather
+SOURCE_SEMESTER: 1
+SOURCE_DECK: Forecasts for Indoors
+TARGET_SUBJECT: Bureau of Imaginary Weather
+TARGET_SEMESTER: 1
+TARGET_DECK: Forecasts for Indoors
+TYPE: MCQ
+A. The velvet turnip
+B. A cloud-shaped spoon
+ANSWER: A
+EXPLANATION: The chapter assigns this task to the velvet turnip.
 """

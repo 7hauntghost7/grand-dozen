@@ -111,8 +111,9 @@ if __name__ == "__main__":
 
 class HeaderTests(unittest.TestCase):
     def test_subject_semester_deck_headers(self):
-        r = parse("SUBJECT: Physiology\nSEMESTER: Semester 2\nDECK: Haematology\n\nQ: x\nA. 1\nB. 2\nANSWER: A\n")
+        r = parse("SUBJECT: Physiology\nSECTION: Gross Anatomy\nSEMESTER: Semester 2\nDECK: Haematology\n\nQ: x\nA. 1\nB. 2\nANSWER: A\n")
         self.assertEqual((r.subject, r.semester, r.bank_title), ("Physiology", 2, "Haematology"))
+        self.assertEqual(r.section, "Gross Anatomy")
         self.assertTrue(r.questions[0].ok)
 
     def test_bank_alias_and_export_headers(self):
@@ -122,6 +123,31 @@ class HeaderTests(unittest.TestCase):
         self.assertTrue(out.startswith("SUBJECT: Anatomy\nSEMESTER: 3\nDECK: D"))
         r2 = parse(out)
         self.assertEqual((r2.subject, r2.semester, r2.bank_title), ("Anatomy", 3, "D"))
+        sectioned = to_text("D", [], subject="Anatomy", section="Histology", semester=3)
+        self.assertEqual(parse(sectioned).section, "Histology")
+
+
+class SortingBinMetadataTests(unittest.TestCase):
+    def test_question_id_and_target_chapter_fields_are_parsed_per_question(self):
+        text = """Q: Reorganized question
+ID: 204
+SOURCE_SUBJECT: Old subject
+SOURCE_SEMESTER: 1
+SOURCE_DECK: Old chapter
+TARGET_SUBJECT: New subject
+TARGET_SEMESTER: 3
+TARGET_DECK: New chapter
+A. First
+B. Second
+ANSWER: B
+"""
+        question = parse(text).questions[0]
+        self.assertTrue(question.ok, question.errors)
+        self.assertEqual(question.question_id, "204")
+        self.assertEqual(
+            (question.target_subject, question.target_semester, question.target_deck),
+            ("New subject", "3", "New chapter"),
+        )
 
 
 class TopicRemovedTests(unittest.TestCase):

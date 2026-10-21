@@ -3,6 +3,7 @@ from django.contrib.auth import logout
 from django.contrib.auth.views import redirect_to_login
 from django.contrib.sessions.models import Session
 from django.core.cache import cache
+from django.http import HttpResponseNotFound
 
 
 class SingleSessionMiddleware:
@@ -18,9 +19,19 @@ class SingleSessionMiddleware:
         login_path = settings.LOGIN_URL
         static_prefix = "/" + settings.STATIC_URL.lstrip("/")
         public_pwa_paths = {"/manifest.webmanifest", "/service-worker.js"}
+        allow_unauthenticated = (
+            path == "/accounts/login/"
+            or path == "/accounts/login"
+            or path.startswith("/accounts/signup")
+            or path.startswith("/api/question/") and (path.endswith("/save/") or path.endswith("/comment/"))
+        )
+
+        # Signup is disabled; keep the path out of the public site and return 404.
+        if path.startswith("/accounts/signup"):
+            return HttpResponseNotFound("Signup is disabled.")
 
         # The login page and static assets must remain reachable anonymously.
-        if (not request.user.is_authenticated and path != login_path
+        if (not request.user.is_authenticated and not allow_unauthenticated
             and path not in public_pwa_paths and not path.startswith(static_prefix)):
             return redirect_to_login(request.get_full_path(), login_path)
 

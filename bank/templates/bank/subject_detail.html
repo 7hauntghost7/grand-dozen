@@ -3,6 +3,34 @@
 {% block content %}
 <p class="crumbs"><a href="{% url 'bank:home' %}">Subjects</a> › {{ subject.name }}</p>
 <h2 class="pagetitle">{{ subject.name }}</h2>
+{% if sections %}
+  <div class="blocks section-blocks">
+    {% for section in sections %}
+    <a class="block section-block" href="{{ section.get_absolute_url }}">
+      <span class="block-index">{{ forloop.counter|stringformat:"02d" }}</span>
+      <div class="bname">{{ section.name }}</div>
+      <span class="section-block-count">{{ section.n_decks }} deck{{ section.n_decks|pluralize }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% regroup unsectioned_decks by semester as sems %}
+  {% for sem in sems %}
+    {% if forloop.first %}<h3 class="semband">Unassigned decks</h3>{% endif %}
+    {% ifchanged sem.grouper %}<h4 class="mute">Semester {{ sem.grouper }}</h4>{% endifchanged %}
+    <div class="grid decks">
+      {% for d in sem.list %}
+      <a class="set" href="{{ d.get_absolute_url }}">
+        <h3>{{ d.title }}</h3>
+        <p>{{ d.n }} question{{ d.n|pluralize }}</p>
+      </a>
+      {% endfor %}
+    </div>
+  {% empty %}
+    {% if perms.bank.add_question %}
+    <p class="mute section-import-link">Need to add a deck? <a href="{% url 'bank:import' %}?subject={{ subject.pk }}">Import questions</a> and assign it to a sub-subject.</p>
+    {% endif %}
+  {% endfor %}
+{% else %}
 {% regroup decks by semester as sems %}
 {% for sem in sems %}
   <h3 class="semband">Semester {{ sem.grouper }}</h3>
@@ -18,4 +46,5 @@
   <div class="card">No decks in this subject yet.
     {% if perms.bank.add_question %}<a href="{% url 'bank:import' %}?subject={{ subject.pk }}">Import questions</a>{% endif %}</div>
 {% endfor %}
+{% endif %}
 {% endblock %}

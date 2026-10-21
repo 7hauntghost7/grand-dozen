@@ -3,20 +3,50 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#173e3b">
+<meta name="theme-color" content="#fffaec">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<script>
+  (() => {
+    const root = document.documentElement;
+    const preference = window.matchMedia("(prefers-color-scheme: dark)");
+    let savedTheme = null;
+
+    try {
+      const saved = window.localStorage.getItem("rawasi-theme");
+      if (saved === "light" || saved === "dark") {
+        savedTheme = saved;
+        root.dataset.themePreference = saved;
+      }
+    } catch (error) {
+      console.warn("Unable to read the saved Rawasi theme preference.", error);
+    }
+
+    const applyTheme = theme => {
+      root.dataset.theme = theme;
+      root.style.colorScheme = theme;
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+      if (metaThemeColor) metaThemeColor.content = theme === "dark" ? "#2d2d2d" : "#fffaec";
+    };
+
+    applyTheme(savedTheme || (preference.matches ? "dark" : "light"));
+    preference.addEventListener("change", event => {
+      if (!root.dataset.themePreference) applyTheme(event.matches ? "dark" : "light");
+    });
+  })();
+</script>
 <title>{% block title %}{{ SITE_NAME }}{% endblock %} · {{ SITE_NAME }}</title>
 <link rel="manifest" href="{% url 'bank:manifest' %}">
 <link rel="icon" type="image/svg+xml" href="{% static 'bank/icons/app-101.svg' %}">
 <link rel="apple-touch-icon" href="{% static 'bank/icons/app-101-192.png' %}">
-<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20261010-5">
+<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20261021-29">
 </head>
 <body class="{% block body_class %}{% endblock %}">
 <div class="wrap {% block wrap_class %}{% endblock %}">
   {% block header %}
   <header class="site-header">
     <div class="header-row">
-      <h1><a href="{% url 'bank:home' %}"><span class="mark">101</span> {{ SITE_NAME }}</a></h1>
+      <h1><a href="{% url 'bank:home' %}"><img class="brand-logo brand-logo-light" src="{% static 'bank/rawasi-logo.png' %}" alt="Rawasi — Batch 101"><img class="brand-logo brand-logo-dark" src="{% static 'bank/rawasi-logo-dark.png' %}" alt="" aria-hidden="true"></a></h1>
+      <button class="theme-toggle" type="button" aria-label="Switch to light mode" aria-pressed="true"><span class="theme-icon" aria-hidden="true">☼</span><span class="theme-label">Light mode</span></button>
       <button class="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open navigation">☰</button>
     </div>
     <nav id="site-nav" class="site-nav">
@@ -25,7 +55,7 @@
       {% if perms.bank.add_question %}<a href="{% url 'bank:import' %}">Import</a>{% endif %}
       {% if user.is_staff %}<a href="{% url 'bank:subject_backup' %}">Backup</a>{% endif %}
       {% if perms.bank.change_question %}<a href="{% url 'bank:comments' %}">Comments{% if open_comments %}<span class="badge">{{ open_comments }}</span>{% endif %}</a>{% endif %}
-      {% if user.is_staff %}<a href="{% url 'admin:index' %}">Admin</a>{% endif %}
+      {% if user.is_staff %}<a href="{% url 'bank:sorting_bin' %}">Sorting bin{% if sorting_bin_count %}<span class="badge">{{ sorting_bin_count }}</span>{% endif %}</a><a href="{% url 'bank:review_bin' %}">Review bin{% if review_bin_count %}<span class="badge">{{ review_bin_count }}</span>{% endif %}</a><a href="{% url 'admin:index' %}">Admin</a>{% endif %}
       {% if user.is_authenticated %}
         <form method="post" action="{% url 'bank:logout' %}" class="inline">{% csrf_token %}<button class="linkbtn">Log out ({{ user.username }})</button></form>
       {% else %}
@@ -37,7 +67,7 @@
   {% if user.is_authenticated and request.resolver_match.url_name == "home" %}
   <aside class="pwa-install" id="pwa-install" hidden>
     <div class="pwa-install-copy">
-      <strong>Install The Grand Dozen</strong>
+      <strong>Install Rawasi 101</strong>
       <span>Keep your question bank one tap away.</span>
     </div>
     <div class="pwa-install-actions">
@@ -51,6 +81,39 @@
   {% block content %}{% endblock %}
 </div>
 <script>
+  (() => {
+    const root = document.documentElement;
+    const toggle = document.querySelector(".theme-toggle");
+    const label = toggle && toggle.querySelector(".theme-label");
+    const icon = toggle && toggle.querySelector(".theme-icon");
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (!toggle || !label || !icon) return;
+
+    const render = () => {
+      const isDark = root.dataset.theme === "dark";
+      const nextTheme = isDark ? "light" : "dark";
+      label.textContent = isDark ? "Light mode" : "Dark mode";
+      icon.textContent = isDark ? "☼" : "☾";
+      toggle.setAttribute("aria-label", `Switch to ${nextTheme} mode`);
+      toggle.setAttribute("aria-pressed", String(isDark));
+      if (metaThemeColor) metaThemeColor.content = isDark ? "#2d2d2d" : "#fffaec";
+    };
+
+    render();
+    toggle.addEventListener("click", () => {
+      const theme = root.dataset.theme === "dark" ? "light" : "dark";
+      root.dataset.themePreference = theme;
+      root.dataset.theme = theme;
+      root.style.colorScheme = theme;
+      try {
+        window.localStorage.setItem("rawasi-theme", theme);
+      } catch (error) {
+        console.warn("Unable to save the Rawasi theme preference.", error);
+      }
+      render();
+    });
+  })();
+
   (() => {
     const toggle = document.querySelector('.mobile-nav-toggle');
     const nav = document.querySelector('.site-nav');

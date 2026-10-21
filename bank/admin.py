@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from .forms import OptionFormSet, QuestionForm
-from .models import Comment, Option, Question, QuestionBank, Subject
+from .models import Comment, Option, Question, QuestionBank, Subject, SubjectSection
 
 
 class OptionInline(admin.TabularInline):
@@ -18,11 +18,19 @@ class SubjectAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
 
 
+@admin.register(SubjectSection)
+class SubjectSectionAdmin(admin.ModelAdmin):
+    list_display = ("name", "subject", "order", "slug")
+    list_editable = ("order",)
+    list_filter = ("subject",)
+    prepopulated_fields = {"slug": ("name",)}
+
+
 @admin.register(QuestionBank)
 class QuestionBankAdmin(admin.ModelAdmin):
-    list_display = ("title", "subject", "semester", "slug")
-    list_editable = ("subject", "semester")   # quick way to file decks
-    list_filter = ("subject", "semester")
+    list_display = ("title", "subject", "section", "semester", "slug")
+    list_editable = ("subject", "section", "semester")   # quick way to file decks
+    list_filter = ("subject", "section", "semester")
     search_fields = ("title",)
     prepopulated_fields = {"slug": ("title",)}
 

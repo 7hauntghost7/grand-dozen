@@ -1,0 +1,61 @@
+{% extends "bank/base.html" %}
+{% block title %}Review refile changes{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{% url 'bank:sorting_bin' %}">Sorting bin</a> › <a href="{% url 'bank:sorting_bin_import' %}?edit=1">Refile questions</a> › Review destinations</p>
+<div class="card sorting-import-summary">
+  <h2 style="margin-top:0">Review destination chapters</h2>
+  <p>{{ row_count }} question{{ row_count|pluralize }} · {{ valid_count }} ready · {{ error_count }} with errors.</p>
+  <p>No questions have been changed yet. Check each source and destination below. Apply only when the destinations are correct.</p>
+</div>
+
+{% for group in groups %}
+<section class="card sorting-import-group">
+  <h3>{{ group.path }}</h3>
+  <div class="scroll">
+    <table>
+      <tr><th>ID</th><th>Question and answer</th><th>Original chapter</th><th>Will be filed in</th><th>Review</th></tr>
+      {% for row in group.rows %}
+      <tr>
+        <td>{{ row.parsed.question_id|default:"—" }}</td>
+        <td>
+          <strong>{{ row.parsed.stem }}</strong>
+          <div class="mute">{{ row.parsed.kind|upper }} · Answer {{ row.answer|default:"—" }}</div>
+          {% if row.parsed.explanation %}<div class="mute">Explanation: {{ row.parsed.explanation }}</div>{% endif %}
+          {% if row.parsed.note %}<div class="mute">Note: {{ row.parsed.note }}</div>{% endif %}
+        </td>
+        <td>{{ row.source_path }}</td>
+        <td>
+          {{ row.target_path }}
+          {% if row.new_chapter %}<div class="mute">A new chapter will be created.</div>{% endif %}
+        </td>
+        <td>
+          {% if row.errors %}
+          <ul class="msgs">{% for error in row.errors %}<li class="badc">{{ error }}</li>{% endfor %}</ul>
+          {% else %}<span class="okc">Ready</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+</section>
+{% empty %}
+<div class="card"><p>No questions were found in the imported text. Nothing will be changed.</p></div>
+{% endfor %}
+
+<div class="row sorting-import-actions">
+  <form method="post" action="{% url 'bank:sorting_bin_import' %}">
+    {% csrf_token %}
+    <button class="btn" name="action" value="edit">Edit imported text</button>
+  </form>
+  <form method="post" action="{% url 'bank:sorting_bin_import' %}">
+    {% csrf_token %}
+    <button class="btn" name="action" value="cancel">Discard preview</button>
+  </form>
+  {% if row_count and not error_count %}
+  <form method="post" action="{% url 'bank:sorting_bin_import' %}">
+    {% csrf_token %}
+    <button class="btn pri" name="action" value="commit">Apply and refile {{ valid_count }} question{{ valid_count|pluralize }}</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

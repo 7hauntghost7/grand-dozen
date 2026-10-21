@@ -1,10 +1,11 @@
 {% extends "bank/base.html" %}
+{% load static %}
 {% block title %}Sign up{% endblock %}
 {% block body_class %}auth-page{% endblock %}
 {% block wrap_class %}auth-page-wrap{% endblock %}
 {% block header %}
   <header class="auth-header">
-    <h1 class="auth-brand"><a href="{% url 'bank:home' %}"><span class="mark">12</span> {{ SITE_NAME }}</a></h1>
+    <h1 class="auth-brand"><a href="{% url 'bank:home' %}"><img class="brand-logo brand-logo-light" src="{% static 'bank/rawasi-logo.png' %}" alt="Rawasi — Batch 101"><img class="brand-logo brand-logo-dark" src="{% static 'bank/rawasi-logo-dark.png' %}" alt="" aria-hidden="true"></a></h1>
   </header>
 {% endblock %}
 {% block content %}
