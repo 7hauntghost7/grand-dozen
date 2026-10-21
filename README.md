@@ -15,6 +15,7 @@ Home: big subject blocks
 * **💬 Comments** – logged-in users can send a private comment about a question. Editors get a **Comments inbox** (with an open-count badge in the nav), jump straight to the question's edit page, and can resolve comments.
 * **Editor pages** (not the Django admin) – manage a deck's questions, edit or add a question, delete it.
 * **Bulk import** with subject + semester + deck title, preview and validation, duplicate detection, and a copy-paste **AI formatting prompt**.
+* **Subject backup** – staff can download a readable JSON backup of every subject, deck, question, answer, and option (up to 100 MB) and safely restore it later. Restore validates the whole file first, adds only missing rows, and refuses conflicts instead of replacing content.
 
 ## Run it
 
@@ -86,6 +87,8 @@ To make an editor: `/admin/` → Users → add user → give permissions `bank |
 
 Command line: `python manage.py import_questions file.txt --subject Physiology --semester 2 --deck "Haematology"`.
 `python manage.py export_bank <deck-slug> > backup.txt` writes a deck back in the same format (also on each deck page: *Download as text*).
+
+Before deploying a code update that might affect question data, use the staff-only **Backup** tab to download and keep `grand-dozen-subject-backup.json` somewhere private; it contains answer keys. The file can be uploaded from the same tab to restore missing rows. Imports are limited to 100 MB, preserve database IDs, and never overwrite or delete existing records. A conflicting ID or subject/deck name aborts the complete import.
 
 ## The text format
 

@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, redirect_to_login
+from django.contrib.admin.views.decorators import staff_member_required
 from django.db import transaction
 from django.db.models import Count, Q
 from django.core.cache import cache
@@ -21,6 +22,7 @@ from django.views.decorators.http import require_POST
 from . import parser, services
 from .forms import QuestionForm, option_formset
 from .models import Comment, Question, QuestionBank, SavedQuestion, Subject, SEMESTER_CHOICES
+from .subject_backup import BackupError, MAX_BACKUP_BYTES, encode_backup, restore_backup
 
 
 # ---------------------------------------------------------------- helpers
@@ -146,6 +148,59 @@ def export_bank(request, slug):
     resp = HttpResponse(text, content_type="text/plain; charset=utf-8")
     resp["Content-Disposition"] = f'attachment; filename="{bank.slug}.txt"'
     return resp
+
+
+@staff_member_required
+def subject_backup(request):
+    return render(request, "bank/subject_backup.html", {
+        "max_backup_mb": MAX_BACKUP_BYTES // (1024 * 1024),
+    })
+
+
+@staff_member_required
+def export_subject_backup(request):
+    try:
+        raw = encode_backup()
+    except BackupError as error:
+        return HttpResponse(str(error), status=413, content_type="text/plain; charset=utf-8")
+    response = HttpResponse(raw, content_type="application/json; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="grand-dozen-subject-backup.json"'
+    return response
+
+
+@staff_member_required
+@require_POST
+def import_subject_backup(request):
+    backup_file = request.FILES.get("backup")
+    if backup_file is None:
+        messages.error(request, "Choose a backup file to import.")
+        return redirect("bank:subject_backup")
+    if backup_file.size > MAX_BACKUP_BYTES:
+        messages.error(request, "The backup file exceeds the 100 MB limit.")
+        return redirect("bank:subject_backup")
+    try:
+        result = restore_backup(backup_file.read())
+    except BackupError as error:
+        messages.error(request, str(error))
+        return redirect("bank:subject_backup")
+
+    added = result["added"]
+    skipped = result["skipped"]
+    def count_label(count, noun):
+        return f"{count} {noun}{'' if count == 1 else 's'}"
+
+    messages.success(
+        request,
+        "Backup restored without replacing existing content. "
+        "Added " + ", ".join((
+            count_label(added["subjects"], "subject"),
+            count_label(added["decks"], "deck"),
+            count_label(added["questions"], "question"),
+            count_label(added["options"], "option"),
+        )) + "; "
+        f"skipped {sum(skipped.values())} matching existing records.",
+    )
+    return redirect("bank:subject_backup")
 
 
 # ---------------------------------------------------------------- JSON API

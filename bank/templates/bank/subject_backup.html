@@ -1,0 +1,22 @@
+{% extends "bank/base.html" %}
+{% block title %}Subject backup{% endblock %}
+{% block content %}
+<section class="card">
+  <h2 style="margin-top:0">Subject backup</h2>
+  <p>Export all subjects, their decks, and every MCQ, true/false, and descriptive question with answers and options as a readable JSON text file.</p>
+  <p class="fb warning">This file contains the full question bank and answer keys. Store it somewhere private. The maximum file size is {{ max_backup_mb }} MB.</p>
+  <a class="btn pri" href="{% url 'bank:export_subject_backup' %}">Download backup</a>
+</section>
+
+<section class="card" style="margin-top:12px">
+  <h3 style="margin-top:0">Restore a backup</h3>
+  <p>Import validates the complete file before saving. It only adds missing records; it never edits or deletes existing content. If an ID or unique subject/deck name conflicts with different existing content, the entire import is rejected.</p>
+  <form method="post" action="{% url 'bank:import_subject_backup' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <label>Backup JSON file<br>
+      <input type="file" name="backup" accept=".json,application/json" required>
+    </label>
+    <p><button class="btn pri" type="submit">Validate and restore</button></p>
+  </form>
+</section>
+{% endblock %}

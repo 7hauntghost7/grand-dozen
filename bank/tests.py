@@ -1,9 +1,11 @@
 """Django tests:  python manage.py test"""
 import json
+from unittest.mock import patch
 
 from django.contrib.auth.models import Permission, User
 from django.test import TestCase
 from django.urls import reverse
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from .models import Comment, Option, Question, QuestionBank, SavedQuestion, Subject
 
@@ -47,6 +49,132 @@ class Base(TestCase):
 
     def post_json(self, url, body):
         return self.client.post(url, json.dumps(body), content_type="application/json")
+
+
+class SubjectBackupTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.admin = User.objects.create_superuser("backup-admin", "admin@example.com", "secret")
+
+    def test_backup_page_and_download_are_staff_only_and_include_answer_content(self):
+        deck = self.import_sample()
+        descriptive = Question.objects.create(
+            bank=deck, kind=Question.DESC, stem="Describe resting potential.",
+            answer="A voltage difference at rest.", explanation="Explanation text.", note="Source note.",
+        )
+        second_subject = Subject.objects.create(name="Anatomy")
+        second_deck = QuestionBank.objects.create(
+            subject=second_subject, semester=2, title="Anatomy basics",
+        )
+        Question.objects.create(
+            bank=second_deck, kind=Question.DESC,
+            stem="Name the body system.", answer="The skeletal system.",
+        )
+        anonymous = self.client.get(reverse("bank:subject_backup"))
+        self.assertEqual(anonymous.status_code, 302)
+        self.client.force_login(self.student)
+        self.assertEqual(self.client.get(reverse("bank:subject_backup")).status_code, 302)
+
+        self.client.force_login(self.admin)
+        page = self.client.get(reverse("bank:subject_backup"))
+        self.assertContains(page, "Download backup")
+        self.assertContains(page, "never edits or deletes existing content")
+        self.assertContains(page, "Backup")
+        response = self.client.get(reverse("bank:export_subject_backup"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/json; charset=utf-8")
+        self.assertIn("grand-dozen-subject-backup.json", response["Content-Disposition"])
+        payload = json.loads(response.content)
+        self.assertEqual(
+            {subject["name"] for subject in payload["subjects"]},
+            {"Physiology", "Anatomy"},
+        )
+        subject_data = next(item for item in payload["subjects"] if item["name"] == "Physiology")
+        deck_data = subject_data["decks"][0]
+        self.assertEqual(subject_data["name"], self.subject.name)
+        self.assertEqual(deck_data["title"], deck.title)
+        self.assertIn(descriptive.answer, json.dumps(payload))
+        self.assertEqual(
+            {question["kind"] for question in deck_data["questions"]},
+            {Question.MCQ, Question.TF, Question.DESC},
+        )
+        mcq = next(q for q in deck_data["questions"] if q["kind"] == Question.MCQ)
+        self.assertEqual(len(mcq["options"]), 2)
+        self.assertTrue(any(option["is_correct"] for option in mcq["options"]))
+
+    def test_restore_adds_deleted_content_and_skips_matching_records(self):
+        deck = self.import_sample()
+        self.client.force_login(self.admin)
+        backup = self.client.get(reverse("bank:export_subject_backup"))
+        payload = json.loads(backup.content)
+        original_questions = list(deck.questions.order_by("pk"))
+        removed_question = original_questions[0]
+        untouched_question = original_questions[1]
+        original_max_pk = max(question.pk for question in original_questions)
+        untouched_stem = untouched_question.stem
+        removed_id = removed_question.pk
+        removed_question.delete()
+
+        upload = SimpleUploadedFile("backup.json", backup.content, content_type="application/json")
+        response = self.client.post(
+            reverse("bank:import_subject_backup"), {"backup": upload}, follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        restored_question = Question.objects.get(pk=removed_id)
+        self.assertEqual(restored_question.stem, payload["subjects"][0]["decks"][0]["questions"][0]["stem"])
+        self.assertEqual(restored_question.options.count(), 2)
+        new_question = Question.objects.create(bank=deck, stem="Created after restore")
+        self.assertGreater(new_question.pk, original_max_pk)
+        untouched_question.refresh_from_db()
+        self.assertEqual(untouched_question.stem, untouched_stem)
+        self.assertContains(response, "Added 0 subjects, 0 decks, 1 question, 2 options")
+        self.assertContains(response, "skipped")
+
+    def test_conflict_rejects_entire_import_without_overwriting_or_partial_restore(self):
+        deck = self.import_sample()
+        self.client.force_login(self.admin)
+        backup = self.client.get(reverse("bank:export_subject_backup"))
+        questions = list(deck.questions.order_by("pk"))
+        missing_question_id = questions[1].pk
+        questions[1].delete()
+        questions[0].stem = "Changed after the backup"
+        questions[0].save(update_fields=["stem"])
+
+        upload = SimpleUploadedFile("backup.json", backup.content, content_type="application/json")
+        response = self.client.post(
+            reverse("bank:import_subject_backup"), {"backup": upload}, follow=True,
+        )
+        self.assertContains(response, "already exists with different content")
+        self.assertFalse(Question.objects.filter(pk=missing_question_id).exists())
+        self.assertEqual(Question.objects.count(), 1)
+        self.assertEqual(Question.objects.get(pk=questions[0].pk).stem, "Changed after the backup")
+
+    def test_invalid_backup_does_not_write_and_import_is_staff_only(self):
+        self.client.force_login(self.student)
+        denied = self.client.post(reverse("bank:import_subject_backup"), {})
+        self.assertEqual(denied.status_code, 302)
+
+        self.client.force_login(self.admin)
+        upload = SimpleUploadedFile("backup.json", b"not JSON", content_type="application/json")
+        response = self.client.post(
+            reverse("bank:import_subject_backup"), {"backup": upload}, follow=True,
+        )
+        self.assertContains(response, "not valid UTF-8 JSON")
+        self.assertEqual(Subject.objects.count(), 1)
+        self.assertEqual(QuestionBank.objects.count(), 0)
+
+    def test_upload_size_limit_is_enforced(self):
+        self.client.force_login(self.admin)
+        upload = SimpleUploadedFile("backup.json", b"{}", content_type="application/json")
+        with patch("bank.views.MAX_BACKUP_BYTES", 1):
+            response = self.client.post(
+                reverse("bank:import_subject_backup"), {"backup": upload}, follow=True,
+            )
+        self.assertContains(response, "exceeds the 100 MB limit")
+        self.assertEqual(Subject.objects.count(), 1)
+        with patch("bank.subject_backup.MAX_BACKUP_BYTES", 1):
+            response = self.client.get(reverse("bank:export_subject_backup"))
+        self.assertEqual(response.status_code, 413)
 
 
 class PwaTests(TestCase):

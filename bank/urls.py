@@ -14,6 +14,9 @@ urlpatterns = [
     path("deck/<slug:slug>/export/", views.export_bank, name="export"),
     path("deck/<slug:slug>/manage/", views.manage_deck, name="manage_deck"),
     path("deck/<slug:slug>/add/", views.question_add, name="question_add"),
+    path("backup/", views.subject_backup, name="subject_backup"),
+    path("backup/export/", views.export_subject_backup, name="export_subject_backup"),
+    path("backup/import/", views.import_subject_backup, name="import_subject_backup"),
 
     path("edit/question/<int:pk>/", views.question_edit, name="question_edit"),
     path("edit/question/<int:pk>/delete/", views.question_delete, name="question_delete"),
