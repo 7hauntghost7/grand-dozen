@@ -16,6 +16,7 @@ from .models import (
     Comment, ImageTarget, Option, Question, QuestionBank, QuestionImage,
     SavedQuestion, Subject, SubjectSection,
 )
+from .subject_backup import validate_backup
 
 SAMPLE = """Q: Pick B
 A. one
@@ -135,7 +136,10 @@ class SubjectBackupTests(Base):
         self.assertGreater(new_question.pk, original_max_pk)
         untouched_question.refresh_from_db()
         self.assertEqual(untouched_question.stem, untouched_stem)
-        self.assertContains(response, "Added 0 subjects, 0 decks, 1 question, 2 options")
+        self.assertContains(
+            response,
+            "Added 0 subjects, 0 sections, 0 decks, 1 question, 2 options",
+        )
         self.assertContains(response, "skipped")
 
     def test_conflict_rejects_entire_import_without_overwriting_or_partial_restore(self):
@@ -183,6 +187,95 @@ class SubjectBackupTests(Base):
         with patch("bank.subject_backup.MAX_BACKUP_BYTES", 1):
             response = self.client.get(reverse("bank:export_subject_backup"))
         self.assertEqual(response.status_code, 413)
+
+    def test_backup_restores_sections_and_image_question_metadata(self):
+        subject = Subject.objects.create(name="Anatomy")
+        section = SubjectSection.objects.create(
+            subject=subject, name="Gross Anatomy", slug="gross-anatomy", order=2,
+        )
+        deck = QuestionBank.objects.create(
+            subject=subject, section=section, semester=2, title="Thorax",
+        )
+        image = QuestionImage.objects.create(
+            bank=deck, public_id="supabase:diagram.png",
+            secure_url="https://example.supabase.co/storage/v1/object/public/"
+            "rawasi-question-images/diagram.png",
+            original_name="diagram.png", width=1200, height=800,
+        )
+        question = Question.objects.create(
+            bank=deck, kind=Question.IMAGE, image_asset=image,
+            image_answer_mode=Question.IMAGE_IDENTIFY, stem="Identify the image.",
+        )
+        target = ImageTarget.objects.create(
+            question=question, label="A", answer="Test structure",
+            x_percent=25, y_percent=60, order=0,
+        )
+        self.client.force_login(self.admin)
+        backup = self.client.get(reverse("bank:export_subject_backup"))
+
+        payload = validate_backup(backup.content)
+        exported_subject = next(item for item in payload["subjects"] if item["id"] == subject.pk)
+        exported_deck = exported_subject["decks"][0]
+        exported_question = exported_deck["questions"][0]
+        self.assertEqual(exported_deck["section_id"], section.pk)
+        self.assertEqual(exported_question["kind"], Question.IMAGE)
+        self.assertEqual(exported_question["image_asset_id"], image.pk)
+        self.assertEqual(exported_question["image_targets"][0]["id"], target.pk)
+        subject_id, section_id, deck_id = subject.pk, section.pk, deck.pk
+        image_id, question_id, target_id = image.pk, question.pk, target.pk
+
+        question.delete()
+        image.delete()
+        deck.delete()
+        section.delete()
+        subject.delete()
+
+        upload = SimpleUploadedFile("backup.json", backup.content, content_type="application/json")
+        response = self.client.post(
+            reverse("bank:import_subject_backup"), {"backup": upload}, follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Backup restored without replacing existing content")
+        restored_subject = Subject.objects.get(pk=subject_id)
+        restored_deck = QuestionBank.objects.get(pk=deck_id)
+        restored_question = Question.objects.get(pk=question_id)
+        self.assertEqual(restored_subject.sections.get(pk=section_id).name, "Gross Anatomy")
+        self.assertEqual(restored_deck.section_id, section_id)
+        self.assertEqual(restored_question.image_asset_id, image_id)
+        restored_target = restored_question.image_targets.get(pk=target_id)
+        self.assertEqual(restored_target.answer, "Test structure")
+        self.assertEqual(float(restored_target.x_percent), 25)
+
+    def test_old_backup_with_image_questions_is_rejected_before_writing(self):
+        deck = self.import_sample()
+        image = QuestionImage.objects.create(
+            bank=deck, public_id="supabase:old.png",
+            secure_url="https://example.supabase.co/old.png",
+            original_name="old.png", width=1, height=1,
+        )
+        Question.objects.create(bank=deck, kind=Question.IMAGE, image_asset=image, stem="Old image.")
+        self.client.force_login(self.admin)
+        backup = json.loads(self.client.get(reverse("bank:export_subject_backup")).content)
+        backup["version"] = 1
+        for subject in backup["subjects"]:
+            subject.pop("sections", None)
+            for item in subject["decks"]:
+                item.pop("section_id", None)
+                item.pop("images", None)
+                for item_question in item["questions"]:
+                    item_question.pop("image_asset_id", None)
+                    item_question.pop("image_answer_mode", None)
+                    item_question.pop("image_targets", None)
+
+        upload = SimpleUploadedFile(
+            "old-backup.json", json.dumps(backup).encode(),
+            content_type="application/json",
+        )
+        response = self.client.post(
+            reverse("bank:import_subject_backup"), {"backup": upload}, follow=True,
+        )
+        self.assertContains(response, "version 1 backup contains image questions")
+        self.assertEqual(Question.objects.count(), 3)
 
 
 class PwaTests(TestCase):

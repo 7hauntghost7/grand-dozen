@@ -332,9 +332,12 @@ def import_subject_backup(request):
         "Backup restored without replacing existing content. "
         "Added " + ", ".join((
             count_label(added["subjects"], "subject"),
+            count_label(added["sections"], "section"),
             count_label(added["decks"], "deck"),
             count_label(added["questions"], "question"),
             count_label(added["options"], "option"),
+            count_label(added["images"], "image asset"),
+            count_label(added["image_targets"], "image target"),
         )) + "; "
         f"skipped {sum(skipped.values())} matching existing records.",
     )
