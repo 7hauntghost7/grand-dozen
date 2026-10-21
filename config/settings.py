@@ -93,4 +93,8 @@ LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 22 * 1024 * 1024  # allow image question uploads
 FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
-CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL", "")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+SUPABASE_STORAGE_BUCKET = os.environ.get(
+    "SUPABASE_STORAGE_BUCKET", "rawasi-question-images",
+)

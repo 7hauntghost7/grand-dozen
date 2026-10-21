@@ -11,6 +11,7 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from .image_storage import delete_question_image, upload_question_image
 from .models import (
     Comment, ImageTarget, Option, Question, QuestionBank, QuestionImage,
     SavedQuestion, Subject, SubjectSection,
@@ -881,8 +882,8 @@ class ImageQuestionTests(Base):
     def make_image(self):
         return QuestionImage.objects.create(
             bank=self.deck,
-            public_id="rawasi-question-images/diagram",
-            secure_url="https://res.cloudinary.com/example/image/upload/diagram.png",
+            public_id="supabase:diagram.png",
+            secure_url="https://example.supabase.co/storage/v1/object/public/rawasi-question-images/diagram.png",
             original_name="diagram.png",
             width=1600,
             height=1200,
@@ -953,8 +954,8 @@ class ImageQuestionTests(Base):
         self.client.force_login(self.editor)
         upload_url = reverse("bank:image_question_upload", args=[self.deck.slug])
         with patch("bank.views.upload_question_image", return_value={
-            "public_id": "rawasi-question-images/diagram",
-            "secure_url": "https://res.cloudinary.com/example/image/upload/diagram.png",
+            "public_id": "supabase:diagram.png",
+            "secure_url": "https://example.supabase.co/storage/v1/object/public/rawasi-question-images/diagram.png",
             "width": 1600,
             "height": 1200,
         }) as upload:
@@ -1001,7 +1002,7 @@ class ImageQuestionTests(Base):
     def test_debug_upload_saves_locally_and_removes_file_after_last_question(self):
         self.client.force_login(self.editor)
         with tempfile.TemporaryDirectory() as media_root:
-            with override_settings(DEBUG=True, CLOUDINARY_URL="", MEDIA_ROOT=media_root):
+            with override_settings(DEBUG=True, SUPABASE_URL="", SUPABASE_SERVICE_ROLE_KEY="", MEDIA_ROOT=media_root):
                 response = self.client.post(
                     reverse("bank:image_question_upload", args=[self.deck.slug]),
                     {"image": self.image_file()},
@@ -1019,16 +1020,56 @@ class ImageQuestionTests(Base):
                 self.assertFalse(local_file.exists())
                 self.assertFalse(QuestionImage.objects.filter(pk=image.pk).exists())
 
-    @override_settings(DEBUG=False, CLOUDINARY_URL="")
-    def test_upload_page_reports_missing_cloudinary_configuration(self):
+    @override_settings(DEBUG=False, SUPABASE_URL="", SUPABASE_SERVICE_ROLE_KEY="")
+    def test_upload_page_reports_missing_supabase_configuration(self):
         self.client.force_login(self.editor)
         response = self.client.post(
             reverse("bank:image_question_upload", args=[self.deck.slug]),
             {"image": self.image_file()},
         )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "CLOUDINARY_URL")
+        self.assertContains(response, "SUPABASE_URL")
         self.assertEqual(QuestionImage.objects.count(), 0)
+
+    @override_settings(
+        DEBUG=False,
+        SUPABASE_URL="https://example.supabase.co",
+        SUPABASE_SERVICE_ROLE_KEY="server-only-test-key",
+        SUPABASE_STORAGE_BUCKET="rawasi-question-images",
+    )
+    def test_supabase_upload_uses_private_server_key_and_returns_public_url(self):
+        with patch("bank.image_storage.urlopen", return_value=io.BytesIO(b"{}")) as open_url:
+            result = upload_question_image(self.image_file())
+
+        request = open_url.call_args.args[0]
+        self.assertEqual(request.method, "POST")
+        self.assertTrue(request.full_url.startswith(
+            "https://example.supabase.co/storage/v1/object/rawasi-question-images/"
+        ))
+        self.assertEqual(request.get_header("Apikey"), "server-only-test-key")
+        self.assertEqual(request.get_header("Authorization"), "Bearer server-only-test-key")
+        self.assertEqual(request.get_header("Content-type"), "image/png")
+        self.assertEqual(request.get_header("X-upsert"), "false")
+        self.assertTrue(result["public_id"].startswith("supabase:"))
+        self.assertTrue(result["secure_url"].startswith(
+            "https://example.supabase.co/storage/v1/object/public/rawasi-question-images/"
+        ))
+        self.assertEqual((result["width"], result["height"]), (16, 12))
+
+    @override_settings(
+        DEBUG=False,
+        SUPABASE_URL="https://example.supabase.co",
+        SUPABASE_SERVICE_ROLE_KEY="server-only-test-key",
+        SUPABASE_STORAGE_BUCKET="rawasi-question-images",
+    )
+    def test_supabase_delete_requests_only_the_referenced_object(self):
+        with patch("bank.image_storage.urlopen", return_value=io.BytesIO(b"{}")) as open_url:
+            delete_question_image("supabase:diagram.png")
+
+        request = open_url.call_args.args[0]
+        self.assertEqual(request.method, "DELETE")
+        self.assertEqual(json.loads(request.data), {"prefixes": ["diagram.png"]})
+        self.assertEqual(request.get_header("Apikey"), "server-only-test-key")
 
     def test_filters_hide_identification_answers_and_review_reveals_them(self):
         image = self.make_image()
