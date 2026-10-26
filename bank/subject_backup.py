@@ -106,6 +106,7 @@ def export_backup():
                 deck_data["questions"].append({
                     "id": question.pk,
                     "number": question.number,
+                    "label": question.label,
                     "kind": question.kind,
                     "stem": question.stem,
                     "answer": question.answer,
@@ -291,6 +292,7 @@ def validate_backup(raw):
                     raise BackupError(f"Question ID {question_id} appears more than once.")
                 seen["questions"].add(question_id)
                 number = _string(question.get("number"), "Question number", 20)
+                label = _string(question.get("label", ""), "Question label", 100)
                 kind = _string(
                     question.get("kind"), "Question type",
                     Question._meta.get_field("kind").max_length,
@@ -347,7 +349,7 @@ def validate_backup(raw):
                         **coordinates,
                     )
                 question.update(
-                    number=number, kind=kind, stem=stem, answer=answer,
+                    number=number, label=label, kind=kind, stem=stem, answer=answer,
                     explanation=explanation, note=note,
                     image_asset_id=image_asset_id,
                     image_answer_mode=image_answer_mode,
@@ -468,6 +470,7 @@ def import_backup(payload):
             for question in deck["questions"]:
                 values = {
                     "bank_id": deck["id"], "number": question["number"],
+                    "label": question["label"],
                     "kind": question["kind"], "stem": question["stem"],
                     "answer": question["answer"], "explanation": question["explanation"],
                     "note": question["note"], "image_asset_id": question["image_asset_id"],
@@ -531,6 +534,7 @@ def import_backup(payload):
             pk=question["id"], bank_id=deck_id, number=question["number"],
             kind=question["kind"], stem=question["stem"], answer=question["answer"],
             explanation=question["explanation"], note=question["note"],
+            label=question["label"],
             image_asset_id=question["image_asset_id"],
             image_answer_mode=question["image_answer_mode"],
         )

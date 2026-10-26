@@ -9,7 +9,7 @@ from .models import ImageTarget, Option, Question, QuestionBank, QuestionImage
 class QuestionForm(forms.ModelForm):
     class Meta:
         model = Question
-        fields = ["bank", "number", "kind", "stem", "answer", "explanation", "note"]
+        fields = ["bank", "number", "label", "kind", "stem", "answer", "explanation", "note"]
         widgets = {
             "stem": forms.Textarea(attrs={"rows": 3}),
             "answer": forms.Textarea(attrs={"rows": 3}),

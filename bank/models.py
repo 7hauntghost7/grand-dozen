@@ -129,6 +129,7 @@ class Question(models.Model):
                              verbose_name="deck")
     number = models.CharField("source number", max_length=20, blank=True,
                               help_text="Label from the original paper, e.g. 17. Optional.")
+    label = models.CharField(max_length=100, blank=True)
     kind = models.CharField(max_length=8, choices=KIND_CHOICES, default=MCQ)
     stem = models.TextField("question")
     answer = models.TextField(blank=True)

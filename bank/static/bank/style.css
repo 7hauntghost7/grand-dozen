@@ -46,6 +46,7 @@ a.set:hover{border-color:var(--acc)}
 .qh{display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
 .qn{font-weight:700;color:var(--acc)}
 .tag{font-size:.72rem;padding:2px 8px;border-radius:99px;background:var(--warn-soft);color:var(--warn)}
+.quiz-source-badge{background:var(--brand-gold);color:var(--brand-charcoal);font-weight:700;letter-spacing:.02em}
 .stem{font-size:1.06rem;font-weight:600;margin:4px 0 12px;white-space:pre-line}
 .opt{display:flex;gap:10px;width:100%;text-align:left;padding:10px 12px;margin:0 0 8px;background:var(--bg)}
 .opt b{flex:0 0 22px;color:var(--mute)}
@@ -865,6 +866,11 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding
 .study-total{padding-bottom:4px;color:var(--mute);font-size:.72rem}
 .study-total i{padding:0 5px;color:var(--brand-gold);font-style:normal}
 .study-form{margin:0}
+.study-label-filter{display:grid;grid-template-columns:minmax(150px,auto) minmax(220px,340px);align-items:center;gap:7px 13px;margin:0 0 18px;color:var(--ink);font-size:.76rem;font-weight:650}
+.study-label-filter>span{color:var(--brand-gold);font-size:.62rem;letter-spacing:.13em}
+.study-label-filter select{width:100%;min-height:40px}
+.study-label-filter small{grid-column:2;color:var(--mute);font-size:.69rem;font-weight:400}
+.study-choice-primary[aria-disabled="true"],.image-quiz-links a[aria-disabled="true"]{pointer-events:none;cursor:not-allowed;opacity:.4}
 .study-choices{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .study-choice{position:relative;display:flex;min-height:248px;flex-direction:column;justify-content:space-between;gap:24px;padding:23px 24px 20px;border:1px solid #625344;border-top:3px solid var(--brand-gold);border-radius:8px;background:#302e2b;color:#fffaec;text-align:left;box-shadow:0 12px 34px rgba(0,0,0,.13);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
 .study-choice-primary{position:absolute;inset:0;z-index:1;display:block;border-radius:inherit}
@@ -919,6 +925,8 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding
 .study-tools a{color:var(--mute);font-size:.68rem;text-decoration:none}
 .study-tools a:hover{color:var(--brand-gold)}
 @media(max-width:640px){
+  .study-label-filter{grid-template-columns:1fr;gap:7px}
+  .study-label-filter small{grid-column:1}
   .study-breadcrumbs{margin-bottom:19px}
   .study-heading{margin-bottom:28px}
   .study-edition{padding-left:13px}

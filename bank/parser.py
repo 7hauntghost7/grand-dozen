@@ -16,6 +16,7 @@ Format (one question per block; blocks start with "Q:"):
     B. 2 alpha and 2 gamma chains
     C. 2 beta and 2 gamma chains
     ANSWER: B                          <- MCQ: letter(s) "B" or "A, C"; TF: "TFFTF"
+    LABEL: U of K                      <- optional source label, kept separately from NOTE
     EXPLANATION: HbF = alpha2 gamma2.  <- optional
     NOTE: optional warning shown to the student (ambiguous / incomplete source)
 
@@ -31,7 +32,7 @@ from dataclasses import dataclass, field
 
 FIELD_RE = re.compile(
     r"^\s*(SUBJECT|SECTION|SEMESTER|DECK|BANK|Q|ID|SOURCE_SUBJECT|SOURCE_SEMESTER|SOURCE_DECK|"
-    r"TARGET_SUBJECT|TARGET_SEMESTER|TARGET_DECK|NO|TYPE|TOPIC|ANSWER|ANS|EXPLANATION|EXPL|NOTE)\s*:\s*(.*)$", re.I
+    r"TARGET_SUBJECT|TARGET_SEMESTER|TARGET_DECK|NO|LABEL|TYPE|TOPIC|ANSWER|ANS|EXPLANATION|EXPL|NOTE)\s*:\s*(.*)$", re.I
 )
 OPT_RE = re.compile(r"^\s*\(?([A-Ha-h])[\.\)](?:\s+(.*))?$")
 RULE_RE = re.compile(r"^\s*(-{3,}|={3,}|\*{3,})\s*$")
@@ -50,6 +51,7 @@ class ParsedQuestion:
     line: int
     stem: str = ""
     number: str = ""
+    label: str = ""
     type_raw: str = ""
     answer_raw: str = ""
     explanation: str = ""
@@ -134,6 +136,8 @@ def parse(text):
                 res.stray.append((n, line))
             elif key == "NO":
                 cur.number, fld = val, None
+            elif key == "LABEL":
+                cur.label, fld = val, None
             elif key == "TYPE":
                 cur.type_raw, fld = val, None
             elif key == "TOPIC":      # no longer used: the deck is the final classification
@@ -277,6 +281,8 @@ def to_text(deck_title, questions, subject=None, semester=None, section=None):
         out.append(f"Q: {q['stem']}")
         if q.get("number"):
             out.append(f"NO: {q['number']}")
+        if q.get("label"):
+            out.append(f"LABEL: {q['label']}")
         if q["kind"] == DESC:
             out += ["TYPE: DESC", f"ANSWER: {q['answer']}"]
         elif q["kind"] == TF:
@@ -301,6 +307,7 @@ Output plain text only (no markdown, no code fences, no commentary).
 
 Rules:
 - Keep optional SUBJECT, SECTION, SEMESTER, and DECK header lines provided by me unchanged.
+- Preserve a question's LABEL as its own "LABEL:" line; do not put it in NOTE.
 - Every question starts with "Q:" followed by the question text.
 - Options go on their own lines as "A. text", "B. text", … in order (max 8).
 - Put "ANSWER:" after the options. Multiple choice: the correct letter(s), e.g. "ANSWER: B" or "ANSWER: A, C".

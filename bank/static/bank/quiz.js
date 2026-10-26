@@ -1,6 +1,5 @@
-/* Quiz runner. Questions come from the API WITHOUT answers; each answer is checked
-   by the server. Progress is kept in localStorage. Large decks are split into
-   blocks of 50 questions, each with its own report. */
+/* Quiz runner. Practice answers are checked locally; progress is kept in localStorage.
+   Large decks are split into blocks of 50 questions, each with its own report. */
 (() => {
   const root = document.getElementById("quiz");
   if (!root) return;
@@ -9,11 +8,9 @@
   const AUTH = D.auth === "1";
   const BLOCK_SIZE = 50;
   const esc = s => String(s).replace(/[&<>\"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  const isUofKLabel = label => /^u\s*of\s*k$/i.test(String(label || "").trim());
   const csrf = () => (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || "";
   const url = (tpl, id) => tpl.replace("/0/", "/" + id + "/");
-  const imageTargetUrl = (questionId, targetId) => D.imageTarget
-    .replace("/0/", "/" + questionId + "/")
-    .replace("/0/", "/" + targetId + "/");
   const editUrl = id => {
     const target = new URL(url(D.edit, id), location.href);
     const next = new URL(location.href);
@@ -85,67 +82,58 @@
     return {status: r.status, json: j};
   }
 
-  async function check(id, payload) {
+  function check(id, payload) {
     if (busy) return;
-    busy = true;
-    try {
-      const r = await post(url(D.check, id), payload);
-      S.a[id] = {payload, res: r.json, revealed: !!payload.reveal};
-      save();
-    } finally { busy = false; render(); }
+    const question = byId[id];
+    const reveal = !!payload.reveal;
+    const res = {explanation: question.explanation, note: question.note, correct: null};
+    if (question.kind === "desc") {
+      res.answer = question.answer;
+    } else if (question.kind === "tf") {
+      res.key = question.answer_key;
+      if (!reveal) {
+        res.per = Object.fromEntries(Object.entries(res.key).map(([optionId, correct]) =>
+          [optionId, (payload.answers || {})[optionId] === correct]
+        ));
+        res.correct = Object.values(res.per).every(Boolean);
+      }
+    } else {
+      res.correct_ids = question.correct_ids;
+      if (!reveal) res.correct = res.correct_ids.includes(payload.selected);
+    }
+    S.a[id] = {payload, res, revealed: reveal};
+    save();
+    render();
   }
 
-  async function revealImageTarget(questionId, targetId) {
+  function revealImageTarget(questionId, targetId) {
     const progress = S.a[questionId] && S.a[questionId].targets || {};
     if (progress[targetId]?.revealed || busy) return;
-    busy = true;
-    try {
-      const response = await post(imageTargetUrl(questionId, targetId), {action: "reveal"});
-      if (response.status !== 200 || typeof response.json.answer !== "string") {
-        reviewNotice = response.json.error || "Could not reveal this target's answer.";
-        return;
-      }
-      if (!S.a[questionId] || !S.a[questionId].targets) S.a[questionId] = {targets: {}};
-      S.a[questionId].targets[targetId] = {
-        ...(S.a[questionId].targets[targetId] || {}),
-        revealed: true,
-        answer: response.json.answer,
-      };
-      save();
-    } catch (error) {
-      reviewNotice = "Could not reveal this target's answer. Check your connection and try again.";
-    } finally {
-      busy = false;
-      render();
-    }
+    if (!S.a[questionId] || !S.a[questionId].targets) S.a[questionId] = {targets: {}};
+    const target = byId[questionId].targets.find(item => String(item.id) === String(targetId));
+    S.a[questionId].targets[targetId] = {
+      ...(S.a[questionId].targets[targetId] || {}),
+      revealed: true,
+      answer: target.answer,
+    };
+    save();
+    render();
   }
 
-  async function revealAllImageTargets(questionId) {
+  function revealAllImageTargets(questionId) {
     const question = byId[questionId];
     for (const target of question.targets || []) {
       const current = S.a[questionId] && S.a[questionId].targets || {};
-      if (!current[target.id]?.revealed) await revealImageTarget(questionId, target.id);
+      if (!current[target.id]?.revealed) revealImageTarget(questionId, target.id);
     }
   }
 
-  async function gradeImageTarget(questionId, targetId, grade) {
+  function gradeImageTarget(questionId, targetId, grade) {
     const progress = S.a[questionId] && S.a[questionId].targets || {};
     if (!progress[targetId]?.revealed || progress[targetId]?.grade || busy) return;
-    busy = true;
-    try {
-      const response = await post(imageTargetUrl(questionId, targetId), {action: "grade", grade});
-      if (response.status !== 200 || !response.json.saved) {
-        reviewNotice = response.json.error || "Could not save your self-assessment.";
-        return;
-      }
-      S.a[questionId].targets[targetId].grade = grade;
-      save();
-    } catch (error) {
-      reviewNotice = "Could not save your self-assessment. Check your connection and try again.";
-    } finally {
-      busy = false;
-      render();
-    }
+    S.a[questionId].targets[targetId].grade = grade;
+    save();
+    render();
   }
 
   async function toggleSave(id) {
@@ -243,7 +231,7 @@
     const q = byId[id];
     return drafts[id] || (drafts[id] = {
       kind: q.kind, stem: q.stem, answer: q.answer || "",
-      explanation: q.explanation || "", note: q.note || "",
+      label: q.label || "", explanation: q.explanation || "", note: q.note || "",
       is_in_sorting_bin: !!q.is_in_sorting_bin,
       is_in_review_bin: !!q.is_in_review_bin,
       delete_question: false,
@@ -286,6 +274,7 @@
       ${draft.delete_question ? '<div class="fb bad">Marked for deletion · unsaved</div>' : ""}
       <label>Type<select data-field="kind"><option value="mcq" ${draft.kind === "mcq" ? "selected" : ""}>Multiple choice</option><option value="tf" ${draft.kind === "tf" ? "selected" : ""}>True / False</option><option value="desc" ${draft.kind === "desc" ? "selected" : ""}>Descriptive</option>${q.image_url ? `<option value="image" ${draft.kind === "image" ? "selected" : ""}>Image-dependent</option>` : ""}</select></label>
       <label>Question<textarea rows="3" data-field="stem">${esc(draft.stem)}</textarea></label>
+      <label>Label<input type="text" maxlength="100" data-field="label" value="${esc(draft.label)}"></label>
       ${draft.kind === "desc" ? `<label>Answer<textarea rows="3" data-field="answer">${esc(draft.answer)}</textarea></label>` : draft.kind === "image" ? imageDetails + options : options}
       <label>Explanation<textarea rows="3" data-field="explanation">${esc(draft.explanation)}</textarea></label>
       <label>Note<textarea rows="2" data-field="note">${esc(draft.note)}</textarea></label>
@@ -515,7 +504,7 @@
   }
 
   function question() {
-    if (!list.length) return `<div class="card"><h2>All caught up</h2><p>No questions remain in this review.</p>
+    if (!list.length) return `<div class="card"><h2>${Q.length ? "All caught up" : "No questions found"}</h2><p>${Q.length ? "No questions remain in this review." : "There are no questions for this question type and source."}</p>
       <a class="btn" href="${esc(D.back)}" data-review-back>← Back</a>
       ${review ? '<button class="btn pri" data-act="exit-save">Save &amp; exit review</button>' : ""}</div>`;
     const id = list[pos], q = byId[id];
@@ -682,6 +671,7 @@
       <div class="nav-wrap quiz-navigation">${navToggle}<div class="nav ${navOpen ? "" : "closed"}">${navOpen ? nav : ""}</div></div>
       <div class="card quiz-question${q.kind === "desc" ? ` flashcard descriptive-question${a && a.res.answer !== undefined ? " is-revealed" : ""}` : ""}${q.kind === "mcq" ? " quiz-question-mcq" : q.kind === "tf" ? " quiz-question-tf" : ""}"><div class="qh">
         <div class="quiz-question-context"><span class="qn quiz-position" aria-label="Question ${localPos + 1} of ${ids.length}"><span>${String(localPos + 1).padStart(2, "0")}</span><span class="quiz-position-divider">/</span><span class="quiz-position-total">${String(ids.length).padStart(2, "0")}</span></span>
+          ${isUofKLabel(q.label) ? '<span class="tag quiz-source-badge">U of K</span>' : ""}
           ${q.multi ? '<span class="tag">more than one defensible</span>' : ""}
           ${q.kind === "tf" ? '<span class="tag">True / False</span>' : ""}
           ${q.is_in_sorting_bin ? '<span class="tag">In sorting bin</span>' : ""}${q.is_in_review_bin ? '<span class="tag">In review bin</span>' : ""}${binLabel}${reviewBinLabel}
@@ -940,6 +930,8 @@
         draft.options = [{text: "", is_correct: true}, {text: "", is_correct: false}];
       }
       render();
+    } else if (field === "label") {
+      draft.label = e.target.value;
     } else if (field === "option-text") {
       draft.options[+e.target.dataset.index].text = e.target.value;
     } else if (field === "option-correct") {

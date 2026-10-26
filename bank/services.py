@@ -67,7 +67,7 @@ def save_questions(bank, parsed, skip_duplicates=True):
         group = _number_group(pq.kind)
         next_numbers[group] += 1
         q = Question.objects.create(
-            bank=bank, number=str(next_numbers[group]), kind=pq.kind, stem=pq.stem,
+            bank=bank, number=str(next_numbers[group]), label=pq.label, kind=pq.kind, stem=pq.stem,
             answer=pq.answer_raw if pq.kind == Question.DESC else "",
             explanation=pq.explanation, note=pq.note,
         )
@@ -84,7 +84,7 @@ def bank_as_dicts(bank):
         is_in_sorting_bin=False, is_in_review_bin=False,
     ).exclude(kind=Question.IMAGE).prefetch_related("options"):
         yield {
-            "number": q.number, "kind": q.kind, "stem": q.stem,
+            "number": q.number, "label": q.label, "kind": q.kind, "stem": q.stem,
             "options": [(o.text, o.is_correct) for o in q.options.all()],
             "answer": q.answer, "explanation": q.explanation, "note": q.note,
         }

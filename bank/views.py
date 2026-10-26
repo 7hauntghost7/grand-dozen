@@ -32,6 +32,22 @@ from .subject_backup import BackupError, MAX_BACKUP_BYTES, encode_backup, restor
 
 
 # ---------------------------------------------------------------- helpers
+def _uofk_label_filter():
+    return Q(label__iexact="U of K") | Q(label__iexact="UofK")
+
+
+def _normalize_label_filter(value):
+    return value if value in {"all", "uofk", "other"} else "all"
+
+
+def _filter_by_label(queryset, label_filter):
+    if label_filter == "uofk":
+        return queryset.filter(_uofk_label_filter())
+    if label_filter == "other":
+        return queryset.exclude(_uofk_label_filter())
+    return queryset
+
+
 def perm_required(perm):
     """Anonymous -> login page; logged in without the permission -> 403."""
     def deco(view):
@@ -79,7 +95,7 @@ def service_worker(request):
     return response
 
 
-def serialize(questions, user, review=False):
+def serialize(questions, user, review=False, include_answers=False):
     qs = list(questions)
     saved = set()
     if user.is_authenticated and qs:
@@ -89,7 +105,7 @@ def serialize(questions, user, review=False):
     for q in qs:
         opts = list(q.options.all())
         question = {
-            "id": q.id, "number": q.number or str(len(data) + 1), "kind": q.kind,
+            "id": q.id, "number": q.number or str(len(data) + 1), "label": q.label, "kind": q.kind,
             "stem": q.stem, "saved": q.id in saved,
             "multi": q.kind == Question.MCQ and sum(o.is_correct for o in opts) > 1,
             "options": [{"id": o.id, "letter": chr(65 + i), "text": o.text} for i, o in enumerate(opts)],
@@ -107,11 +123,21 @@ def serialize(questions, user, review=False):
                         "label": target.label,
                         "x_percent": float(target.x_percent) if target.x_percent is not None else None,
                         "y_percent": float(target.y_percent) if target.y_percent is not None else None,
-                        **({"answer": target.answer} if review else {}),
+                        **({"answer": target.answer} if review or include_answers else {}),
                     }
                     for target in q.image_targets.all()
                 ],
             })
+        if include_answers:
+            question.update({
+                "answer": q.answer,
+                "explanation": q.explanation,
+                "note": q.note,
+            })
+            if q.kind == Question.TF:
+                question["answer_key"] = {str(o.id): o.is_correct for o in opts}
+            elif q.kind in {Question.MCQ, Question.IMAGE}:
+                question["correct_ids"] = [o.id for o in opts if o.is_correct]
         if review:
             question.update({
                 "answer": q.answer,
@@ -189,18 +215,66 @@ def section_detail(request, slug, section_slug):
 def bank_detail(request, slug):
     bank = get_object_or_404(QuestionBank.objects.select_related("subject"), slug=slug)
     questions = bank.questions.filter(is_in_sorting_bin=False, is_in_review_bin=False)
+    uofk_filter = _uofk_label_filter()
+    counts = questions.aggregate(
+        count=Count("id"),
+        mcq_tf_count=Count("id", filter=Q(kind__in=[Question.MCQ, Question.TF])),
+        descriptive_count=Count("id", filter=Q(kind=Question.DESC)),
+        image_count=Count("id", filter=Q(kind=Question.IMAGE)),
+        image_identify_count=Count(
+            "id", filter=Q(kind=Question.IMAGE, image_answer_mode=Question.IMAGE_IDENTIFY),
+        ),
+        image_mcq_count=Count(
+            "id", filter=Q(kind=Question.IMAGE, image_answer_mode=Question.IMAGE_MCQ),
+        ),
+        uofk_count=Count("id", filter=uofk_filter),
+        uofk_mcq_tf_count=Count(
+            "id", filter=Q(kind__in=[Question.MCQ, Question.TF]) & uofk_filter,
+        ),
+        uofk_descriptive_count=Count(
+            "id", filter=Q(kind=Question.DESC) & uofk_filter,
+        ),
+        uofk_image_count=Count("id", filter=Q(kind=Question.IMAGE) & uofk_filter),
+        uofk_image_identify_count=Count(
+            "id", filter=Q(kind=Question.IMAGE, image_answer_mode=Question.IMAGE_IDENTIFY) & uofk_filter,
+        ),
+        uofk_image_mcq_count=Count(
+            "id", filter=Q(kind=Question.IMAGE, image_answer_mode=Question.IMAGE_MCQ) & uofk_filter,
+        ),
+    )
+    mcq_tf_count = counts["mcq_tf_count"]
+    descriptive_count = counts["descriptive_count"]
+    image_count = counts["image_count"]
+    image_identify_count = counts["image_identify_count"]
+    image_mcq_count = counts["image_mcq_count"]
+    uofk_mcq_tf_count = counts["uofk_mcq_tf_count"]
+    uofk_descriptive_count = counts["uofk_descriptive_count"]
+    uofk_image_count = counts["uofk_image_count"]
+    uofk_image_identify_count = counts["uofk_image_identify_count"]
+    uofk_image_mcq_count = counts["uofk_image_mcq_count"]
+    total_count = counts["count"]
+    uofk_total_count = counts["uofk_count"]
     return render(request, "bank/bank_detail.html", {
         "bank": bank,
-        "count": questions.count(),
-        "mcq_tf_count": questions.filter(kind__in=[Question.MCQ, Question.TF]).count(),
-        "descriptive_count": questions.filter(kind=Question.DESC).count(),
-        "image_count": questions.filter(kind=Question.IMAGE).count(),
-        "image_identify_count": questions.filter(
-            kind=Question.IMAGE, image_answer_mode=Question.IMAGE_IDENTIFY,
-        ).count(),
-        "image_mcq_count": questions.filter(
-            kind=Question.IMAGE, image_answer_mode=Question.IMAGE_MCQ,
-        ).count(),
+        "count": total_count,
+        "mcq_tf_count": mcq_tf_count,
+        "descriptive_count": descriptive_count,
+        "image_count": image_count,
+        "image_identify_count": image_identify_count,
+        "image_mcq_count": image_mcq_count,
+        "uofk_count": uofk_total_count,
+        "other_count": total_count - uofk_total_count,
+        "uofk_mcq_tf_count": uofk_mcq_tf_count,
+        "uofk_descriptive_count": uofk_descriptive_count,
+        "uofk_image_count": uofk_image_count,
+        "uofk_image_identify_count": uofk_image_identify_count,
+        "uofk_image_mcq_count": uofk_image_mcq_count,
+        "other_mcq_tf_count": mcq_tf_count - uofk_mcq_tf_count,
+        "other_descriptive_count": descriptive_count - uofk_descriptive_count,
+        "other_image_count": image_count - uofk_image_count,
+        "other_image_identify_count": image_identify_count - uofk_image_identify_count,
+        "other_image_mcq_count": image_mcq_count - uofk_image_mcq_count,
+        "selected_label_filter": _normalize_label_filter(request.GET.get("label", "all")),
     })
 
 
@@ -217,14 +291,19 @@ def quiz(request, slug):
     quiz_type = request.GET.get("type", "mcq_tf")
     if quiz_type not in {"mcq_tf", "descriptive", "image"}:
         quiz_type = "mcq_tf"
+    label_filter = _normalize_label_filter(request.GET.get("label", "all"))
     image_mode = request.GET.get("image_mode", "all")
     if image_mode not in {"all", Question.IMAGE_IDENTIFY, Question.IMAGE_MCQ}:
         image_mode = "all"
     query = f"type={quiz_type}"
     if quiz_type == "image":
         query += f"&image_mode={image_mode}"
+    if label_filter != "all":
+        query += f"&label={label_filter}"
     api = reverse("bank:api_questions", args=[bank.slug]) + "?" + query
     key = f"deck:{bank.slug}:{quiz_type}"
+    if label_filter != "all":
+        key += f":label:{label_filter}"
     if quiz_type == "image" and image_mode != "all":
         key += f":{image_mode}"
     return render(request, "bank/quiz.html", _quiz_context(
@@ -347,12 +426,13 @@ def import_subject_backup(request):
 # ---------------------------------------------------------------- JSON API
 @login_required
 def api_questions(request, slug):
-    """Questions WITHOUT answers; correctness is checked server-side per question."""
+    """Return quiz questions and, outside staff review, their practice answer keys."""
     bank = get_object_or_404(QuestionBank, slug=slug)
     review = request.GET.get("review") == "1"
     if review and not request.user.is_staff:
         return HttpResponseForbidden("Staff access is required.")
     qs = bank.questions.filter(is_in_sorting_bin=False, is_in_review_bin=False)
+    qs = _filter_by_label(qs, _normalize_label_filter(request.GET.get("label", "all")))
     quiz_type = request.GET.get("type")
     if quiz_type == "descriptive":
         qs = qs.filter(kind=Question.DESC)
@@ -364,7 +444,10 @@ def api_questions(request, slug):
         if image_mode in {Question.IMAGE_IDENTIFY, Question.IMAGE_MCQ}:
             qs = qs.filter(image_answer_mode=image_mode)
     qs = qs.select_related("image_asset").prefetch_related("options", "image_targets")
-    return JsonResponse({"title": bank.title, "questions": serialize(qs, request.user, review=review)})
+    return JsonResponse({
+        "title": bank.title,
+        "questions": serialize(qs, request.user, review=review, include_answers=not review),
+    })
 
 
 @staff_required
@@ -425,6 +508,8 @@ def sorting_bin_export(request):
         ]
         if question.number:
             out.append(f"NO: {question.number}")
+        if question.label:
+            out.append(f"LABEL: {question.label}")
         if question.kind == Question.DESC:
             out += ["TYPE: DESC", f"ANSWER: {question.answer}"]
         else:
@@ -466,6 +551,8 @@ def review_bin_export(request):
         ]
         if question.number:
             out.append(f"NO: {question.number}")
+        if question.label:
+            out.append(f"LABEL: {question.label}")
         if question.kind == Question.DESC:
             out += ["TYPE: DESC", f"ANSWER: {question.answer}"]
         else:
@@ -639,6 +726,7 @@ def sorting_bin_import(request):
                 question.stem = parsed.stem
                 question.kind = parsed.kind
                 question.answer = parsed.answer_raw if parsed.kind == Question.DESC else ""
+                question.label = parsed.label
                 question.explanation = parsed.explanation
                 question.note = parsed.note
                 question.is_in_sorting_bin = False
@@ -747,6 +835,7 @@ def api_question_edit(request, pk):
     kind = data.get("kind")
     stem = data.get("stem")
     answer = data.get("answer", "")
+    label = data.get("label", "")
     explanation = data.get("explanation", "")
     note = data.get("note", "")
     options = data.get("options", [])
@@ -810,8 +899,10 @@ def api_question_edit(request, pk):
             targets = []
     if not isinstance(stem, str) or not stem.strip():
         return JsonResponse({"error": "Question text is required."}, status=400)
-    if not all(isinstance(value, str) for value in (answer, explanation, note)):
-        return JsonResponse({"error": "Answer, explanation, and note must be text."}, status=400)
+    if not all(isinstance(value, str) for value in (answer, label, explanation, note)):
+        return JsonResponse({"error": "Answer, label, explanation, and note must be text."}, status=400)
+    if len(label.strip()) > Question._meta.get_field("label").max_length:
+        return JsonResponse({"error": "Label must be 100 characters or fewer."}, status=400)
     if kind == Question.DESC:
         if not answer.strip():
             return JsonResponse({"error": "A descriptive question needs an answer."}, status=400)
@@ -833,6 +924,7 @@ def api_question_edit(request, pk):
         question.kind = kind
         question.stem = stem.strip()
         question.answer = answer.strip() if kind == Question.DESC else ""
+        question.label = label.strip()
         if kind == Question.IMAGE:
             question.image_answer_mode = image_answer_mode
         question.explanation = explanation.strip()
@@ -908,8 +1000,11 @@ def api_image_target(request, pk, target_pk):
 def api_saved_questions(request, slug):
     bank = get_object_or_404(QuestionBank, slug=slug)
     qs = (bank.questions.filter(saved_by__user=request.user, is_in_sorting_bin=False, is_in_review_bin=False)
-          .prefetch_related("options").order_by("id"))
-    return JsonResponse({"title": bank.title, "questions": serialize(qs, request.user)})
+          .select_related("image_asset").prefetch_related("options", "image_targets").order_by("id"))
+    return JsonResponse({
+        "title": bank.title,
+        "questions": serialize(qs, request.user, include_answers=True),
+    })
 
 
 @login_required

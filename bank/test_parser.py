@@ -7,6 +7,7 @@ from bank.parser import DESC, MCQ, TF, parse, to_text
 GOOD = """BANK: Demo
 Q: Which is correct?
 NO: 5
+LABEL: U of K
 A. one
 B. two
 C. three
@@ -44,6 +45,7 @@ class ParserTests(unittest.TestCase):
         a, b = r.questions
         self.assertTrue(a.ok and b.ok, (a.errors, b.errors))
         self.assertEqual((a.kind, a.number, a.correct), (MCQ, "5", [False, True, False]))
+        self.assertEqual(a.label, "U of K")
         self.assertEqual(a.explanation, "because it wraps.")
         self.assertEqual(a.note, "source was messy")
         self.assertEqual((b.kind, b.correct), (TF, [False, True]))

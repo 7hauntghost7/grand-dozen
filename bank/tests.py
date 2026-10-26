@@ -32,6 +32,7 @@ ANSWER: TF
 """
 DESCRIPTIVE_SAMPLE = """Q: Explain the resting membrane potential.
 TYPE: DESC
+LABEL: U of K
 ANSWER: The voltage difference across a cell membrane at rest.
 """
 
@@ -69,7 +70,8 @@ class SubjectBackupTests(Base):
         deck = self.import_sample()
         descriptive = Question.objects.create(
             bank=deck, kind=Question.DESC, stem="Describe resting potential.",
-            answer="A voltage difference at rest.", explanation="Explanation text.", note="Source note.",
+            answer="A voltage difference at rest.", explanation="Explanation text.",
+            note="Source note.", label="U of K",
         )
         second_subject = Subject.objects.create(name="Anatomy")
         second_deck = QuestionBank.objects.create(
@@ -103,6 +105,10 @@ class SubjectBackupTests(Base):
         self.assertEqual(subject_data["name"], self.subject.name)
         self.assertEqual(deck_data["title"], deck.title)
         self.assertIn(descriptive.answer, json.dumps(payload))
+        self.assertEqual(
+            next(q for q in deck_data["questions"] if q["stem"] == descriptive.stem)["label"],
+            "U of K",
+        )
         self.assertEqual(
             {question["kind"] for question in deck_data["questions"]},
             {Question.MCQ, Question.TF, Question.DESC},
@@ -372,11 +378,36 @@ class ReviewWorkflowTests(Base):
         descriptive_review = self.client.get(
             reverse("bank:review_deck", args=[deck.slug]), {"type": "descriptive"})
         self.assertContains(descriptive_review, "?review=1&amp;type=descriptive")
-        descriptive = self.client.get(
-            reverse("bank:api_questions", args=[deck.slug]), {"review": "1", "type": "descriptive"}
-        ).json()["questions"]
-        self.assertEqual(len(descriptive), 1)
-        self.assertEqual(descriptive[0]["kind"], Question.DESC)
+
+    def test_deck_source_filter_shows_counts_and_preserves_selected_mode(self):
+        deck = self.import_sample()
+        self.client.force_login(self.student)
+        Question.objects.create(
+            bank=deck, kind=Question.DESC, stem="U of K question.",
+            answer="Answer.", label="U of K",
+        )
+        Question.objects.create(
+            bank=deck, kind=Question.DESC, stem="Unlabelled question.",
+            answer="Answer.",
+        )
+        page = self.client.get(deck.get_absolute_url())
+        self.assertContains(page, 'id="study-label-filter"')
+        self.assertContains(page, "U of K only (1)")
+        self.assertContains(page, "Other questions (3)")
+        self.assertContains(page, 'data-count-uofk="1"')
+        self.assertContains(page, 'data-count-other="2"')
+
+        selected = self.client.get(deck.get_absolute_url(), {"label": "uofk"})
+        self.assertContains(selected, '<option value="uofk" selected>')
+
+        quiz_page = self.client.get(reverse("bank:quiz", args=[deck.slug]), {
+            "type": "descriptive", "label": "other",
+        })
+        self.assertContains(quiz_page, f'data-key="deck:{deck.slug}:descriptive:label:other"')
+        self.assertContains(
+            quiz_page,
+            f'data-api="{reverse("bank:api_questions", args=[deck.slug])}?type=descriptive&amp;label=other"',
+        )
 
     def test_review_edit_saves_and_moves_to_bin_without_deleting_question(self):
         deck = self.import_sample()
@@ -745,9 +776,11 @@ class BrowseAndImportTests(Base):
             "semester": 1, "deck_title": deck.title, "skip_dupes": "1"})
         question = Question.objects.get(kind=Question.DESC)
         self.assertEqual(question.answer, "The voltage difference across a cell membrane at rest.")
+        self.assertEqual(question.label, "U of K")
         self.assertEqual(question.number, "1")
         exported = self.client.get(reverse("bank:export", args=[question.bank.slug])).content.decode()
         self.assertIn("TYPE: DESC", exported)
+        self.assertIn("LABEL: U of K", exported)
         self.assertIn("ANSWER: " + question.answer, exported)
 
     def test_deck_page_shows_separate_quiz_modes_and_counts(self):
@@ -758,10 +791,10 @@ class BrowseAndImportTests(Base):
         self.assertContains(page, "Choose a question type")
         self.assertContains(page, "MCQs &amp; True / False")
         self.assertContains(page, "value=\"mcq_tf\"")
-        self.assertContains(page, "<strong>2</strong> questions")
+        self.assertContains(page, '<strong data-count-all="2" data-count-uofk="0" data-count-other="2">2</strong> questions')
         self.assertContains(page, "Descriptive")
         self.assertContains(page, "value=\"descriptive\"")
-        self.assertContains(page, "<strong>1</strong> questions")
+        self.assertContains(page, '<strong data-count-all="1" data-count-uofk="0" data-count-other="1">1</strong> questions')
         self.assertContains(page, "Shuffle question order")
 
 
@@ -778,12 +811,16 @@ class QuizApiTests(Base):
         cache.set(f"bank:active-session:{self.editor.pk}", "stale-session-key", None)
         self.assertEqual(self.client.get(reverse("bank:home")).status_code, 200)
 
-    def test_api_hides_answers_and_checks(self):
+    def test_practice_api_includes_answer_keys_and_checks_remain_available(self):
         deck = self.import_sample()
         self.client.force_login(self.editor)
         data = self.client.get(reverse("bank:api_questions", args=[deck.slug])).json()
-        self.assertNotIn("is_correct", json.dumps(data))
         mcq, tf = data["questions"]
+        self.assertEqual(mcq["correct_ids"], [mcq["options"][1]["id"]])
+        self.assertEqual(tf["answer_key"], {
+            str(option["id"]): index == 0 for index, option in enumerate(tf["options"])
+        })
+        self.assertNotIn("is_correct", json.dumps(data))
         wrong, right = mcq["options"][0]["id"], mcq["options"][1]["id"]
         chk = lambda pk, body: self.post_json(reverse("bank:api_check", args=[pk]), body).json()
         self.assertFalse(chk(mcq["id"], {"selected": wrong})["correct"])
@@ -792,14 +829,14 @@ class QuizApiTests(Base):
         self.assertTrue(chk(tf["id"], {"answers": {str(a): True, str(b): False}})["correct"])
         self.assertFalse(chk(tf["id"], {"answers": {str(a): True, str(b): True}})["correct"])
 
-    def test_descriptive_api_filters_and_reveals_answer_on_request(self):
+    def test_descriptive_practice_api_includes_answer_and_filters_by_type(self):
         deck = self.import_sample()
         question = Question.objects.create(
             bank=deck, kind=Question.DESC, stem="Describe resting potential.", answer="A voltage difference at rest.")
         self.client.force_login(self.editor)
         descriptive = self.client.get(reverse("bank:api_questions", args=[deck.slug]) + "?type=descriptive").json()
         self.assertEqual([q["id"] for q in descriptive["questions"]], [question.pk])
-        self.assertNotIn(question.answer, json.dumps(descriptive))
+        self.assertEqual(descriptive["questions"][0]["answer"], question.answer)
         mcq_tf = self.client.get(reverse("bank:api_questions", args=[deck.slug]) + "?type=mcq_tf").json()
         self.assertEqual({q["kind"] for q in mcq_tf["questions"]}, {Question.MCQ, Question.TF})
         check_url = reverse("bank:api_check", args=[question.pk])
@@ -807,6 +844,42 @@ class QuizApiTests(Base):
         revealed = self.post_json(check_url, {"reveal": True}).json()
         self.assertEqual(revealed["answer"], question.answer)
 
+    def test_practice_api_filters_questions_by_uofk_label(self):
+        deck = self.import_sample()
+        uofk = Question.objects.create(
+            bank=deck, kind=Question.DESC, stem="U of K question.",
+            answer="Answer.", label="U of K",
+        )
+        legacy_uofk = Question.objects.create(
+            bank=deck, kind=Question.DESC, stem="Legacy UofK question.",
+            answer="Answer.", label="UofK",
+        )
+        other = Question.objects.create(
+            bank=deck, kind=Question.DESC, stem="Other source question.",
+            answer="Answer.", label="Other source",
+        )
+        unlabelled = Question.objects.create(
+            bank=deck, kind=Question.DESC, stem="Unlabelled question.",
+            answer="Answer.",
+        )
+        self.client.force_login(self.editor)
+        url = reverse("bank:api_questions", args=[deck.slug])
+        uofk_ids = {
+            question["id"] for question in self.client.get(
+                url, {"type": "descriptive", "label": "uofk"},
+            ).json()["questions"]
+        }
+        other_ids = {
+            question["id"] for question in self.client.get(
+                url, {"type": "descriptive", "label": "other"},
+            ).json()["questions"]
+        }
+        self.assertEqual(uofk_ids, {uofk.pk, legacy_uofk.pk})
+        self.assertEqual(other_ids, {other.pk, unlabelled.pk})
+        self.assertEqual(
+            len(self.client.get(url, {"type": "descriptive", "label": "invalid"}).json()["questions"]),
+            4,
+        )
 
 class SavedTests(Base):
     def test_save_toggle_and_saved_section(self):
@@ -822,6 +895,12 @@ class SavedTests(Base):
         self.assertContains(self.client.get(reverse("bank:saved_deck", args=[deck.slug])), q.stem)
         api = self.client.get(reverse("bank:api_saved_questions", args=[deck.slug])).json()
         self.assertEqual([x["id"] for x in api["questions"]], [q.pk])
+        self.assertEqual(api["questions"][0]["correct_ids"], list(
+            q.options.filter(is_correct=True).values_list("id", flat=True)
+        ))
+        practice = self.client.get(reverse("bank:saved_quiz", args=[deck.slug]))
+        self.assertContains(practice, 'id="quiz"')
+        self.assertContains(practice, f'data-api="{reverse("bank:api_saved_questions", args=[deck.slug])}"')
         self.assertFalse(self.post_json(url, {}).json()["saved"])          # toggles off
         self.assertEqual(SavedQuestion.objects.count(), 0)
 
@@ -1164,7 +1243,7 @@ class ImageQuestionTests(Base):
         self.assertEqual(json.loads(request.data), {"prefixes": ["diagram.png"]})
         self.assertEqual(request.get_header("Apikey"), "server-only-test-key")
 
-    def test_filters_hide_identification_answers_and_review_reveals_them(self):
+    def test_practice_includes_identification_answers_and_review_still_reveals_them(self):
         image = self.make_image()
         identification, target = self.make_identification(image)
         mcq = Question.objects.create(
@@ -1178,7 +1257,10 @@ class ImageQuestionTests(Base):
 
         all_questions = self.client.get(api_url, {"type": "image"}).json()["questions"]
         self.assertEqual({question["id"] for question in all_questions}, {identification.pk, mcq.pk})
-        self.assertNotIn(target.answer, json.dumps(all_questions))
+        practice_identification = next(question for question in all_questions if question["id"] == identification.pk)
+        self.assertEqual(practice_identification["targets"][0]["answer"], target.answer)
+        practice_mcq = next(question for question in all_questions if question["id"] == mcq.pk)
+        self.assertEqual(practice_mcq["correct_ids"], [mcq.options.get(is_correct=True).pk])
         self.assertEqual(all_questions[0]["image_url"], image.secure_url)
         self.assertEqual(
             (all_questions[0]["image_width"], all_questions[0]["image_height"]),
