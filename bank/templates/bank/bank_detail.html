@@ -74,8 +74,8 @@
         <div class="study-choice study-choice-image">
           {% if image_count %}<a class="study-choice-primary" data-count-all="{{ image_count }}" data-count-uofk="{{ uofk_image_count }}" data-count-other="{{ other_image_count }}" href="{% url 'bank:quiz' bank.slug %}?type=image" aria-label="Start all image questions"></a>{% endif %}
           <span class="study-choice-top"><span>03 <i>/ QUESTION TYPE</i></span><span class="study-choice-arrow" aria-hidden="true">↗</span></span>
-          <span class="study-choice-main"><strong>Identify</strong><span>Questions that ask you to identify labelled structures in an image.</span></span>
-          <span class="study-choice-bottom"><span class="study-choice-count"><strong data-count-all="{{ image_count }}" data-count-uofk="{{ uofk_image_count }}" data-count-other="{{ other_image_count }}">{{ image_count }}</strong> identification questions</span>
+          <span class="study-choice-main"><strong>Identify</strong><span>Image questions, including labelled structures and image-based MCQs.</span></span>
+          <span class="study-choice-bottom"><span class="study-choice-count"><strong data-count-all="{{ image_count }}" data-count-uofk="{{ uofk_image_count }}" data-count-other="{{ other_image_count }}">{{ image_count }}</strong> image questions</span>
             <span class="study-choice-actions">
               <span class="image-quiz-links">
                 {% if image_count %}<a data-count-all="{{ image_count }}" data-count-uofk="{{ uofk_image_count }}" data-count-other="{{ other_image_count }}" href="{% url 'bank:quiz' bank.slug %}?type=image">Start Identify</a>{% endif %}

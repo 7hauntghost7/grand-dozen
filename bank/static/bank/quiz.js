@@ -104,6 +104,7 @@
     S.a[id] = {payload, res, revealed: reveal};
     save();
     render();
+    scrollToAnswerAction();
   }
 
   function revealImageTarget(questionId, targetId) {
@@ -118,14 +119,25 @@
     };
     save();
     render();
+    scrollToAnswerAction();
   }
 
   function revealAllImageTargets(questionId) {
     const question = byId[questionId];
+    if (!S.a[questionId] || !S.a[questionId].targets) S.a[questionId] = {targets: {}};
+    const progress = S.a[questionId].targets;
     for (const target of question.targets || []) {
-      const current = S.a[questionId] && S.a[questionId].targets || {};
-      if (!current[target.id]?.revealed) revealImageTarget(questionId, target.id);
+      if (!progress[target.id]?.revealed) {
+        progress[target.id] = {
+          ...progress[target.id],
+          revealed: true,
+          answer: target.answer,
+        };
+      }
     }
+    save();
+    render();
+    scrollToAnswerAction();
   }
 
   function gradeImageTarget(questionId, targetId, grade) {
@@ -185,6 +197,14 @@
   function scrollToCurrentQuestion() {
     const questionContent = root.querySelector(".quiz-question .stem") || root.querySelector(".quiz-question");
     if (questionContent) questionContent.scrollIntoView({behavior: "smooth", block: "start"});
+  }
+
+  function scrollToAnswerAction() {
+    const action = root.querySelector(".quiz-controls .btn.pri");
+    if (!action) return;
+    const targetTop = Math.round(window.innerHeight * 0.68);
+    const scrollTop = window.scrollY + action.getBoundingClientRect().top - targetTop;
+    window.scrollTo({top: Math.max(0, scrollTop), behavior: "smooth"});
   }
 
   function feedback(q, a) {
@@ -724,8 +744,10 @@
         ...((S.a[id] && S.a[id].targets && S.a[id].targets[target.id]) || {}),
         label: target.label,
       })));
+    const imageMcqs = ids.filter(id => byId[id].kind === "mcq");
     const imageReport = D.questionType === "image"
       ? `<div class="image-report">
+          ${imageMcqs.length ? `<p><strong>Image MCQs:</strong> ${imageMcqs.filter(id => status(id) === "ok").length} correct · ${imageMcqs.filter(id => status(id) === "bad").length} wrong · ${imageMcqs.filter(id => ["new", "rev"].includes(status(id))).length} unanswered / revealed</p>` : ""}
           <p><strong>Identification (self-assessed):</strong> ${identificationTargets.filter(target => target.grade === "known").length} identified · ${identificationTargets.filter(target => target.grade === "missed").length} missed · ${identificationTargets.filter(target => !target.grade).length} not self-rated</p>
         </div>` : "";
     const wrong = ids.filter(i => status(i) === "bad");

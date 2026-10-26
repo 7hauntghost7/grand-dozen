@@ -13,6 +13,7 @@
   {% csrf_token %}
   <input type="hidden" name="kind" value="{{ answer_mode }}">
   <input type="hidden" name="is_lab" value="{% if is_lab %}1{% else %}0{% endif %}">
+  <input type="hidden" name="destination" value="{{ destination }}">
   <input type="hidden" name="next" value="{{ next_url }}">
   {{ form.non_field_errors }}
   <div class="field">

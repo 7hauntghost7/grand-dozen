@@ -10,6 +10,7 @@
       data-targets="{{ initial_targets|escape }}" data-options="{{ initial_options|escape }}">
   {% csrf_token %}
   <input type="hidden" name="next" value="{{ next_url }}">
+  <input type="hidden" name="destination" value="{{ destination }}">
   {{ form.targets_json }}
   {{ form.options_json }}
   {{ form.non_field_errors }}
@@ -68,6 +69,12 @@
     <button class="btn pri">Save question</button>
   </div>
 </form>
+{% if question and perms.bank.delete_question %}
+<form method="post" action="{% url 'bank:question_delete' question.pk %}" style="margin-top:14px"
+      onsubmit="return confirm('Delete this question permanently?')">
+  {% csrf_token %}<button class="btn badc">Delete question</button>
+</form>
+{% endif %}
 {% endblock %}
 {% block scripts %}
 <script>

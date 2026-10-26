@@ -70,7 +70,7 @@ class ImageQuestionForm(forms.Form):
     is_lab = forms.BooleanField(
         label="Import this question to Labs",
         required=False,
-        help_text="Labs can contain MCQs, True / False, descriptive, and image-identification questions.",
+        help_text="Labs can contain MCQs, True / False, descriptive, and image questions.",
     )
     answer_mode = forms.ChoiceField(choices=(
         (Question.IMAGE_IDENTIFY, "Identify labelled structures"),
