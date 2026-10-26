@@ -67,8 +67,19 @@ class ImageUploadForm(forms.Form):
 
 
 class ImageQuestionForm(forms.Form):
-    answer_mode = forms.ChoiceField(choices=Question.IMAGE_ANSWER_CHOICES)
+    is_lab = forms.BooleanField(
+        label="Import this question to Labs",
+        required=False,
+        help_text="Labs can contain MCQs, True / False, descriptive, and image-identification questions.",
+    )
+    answer_mode = forms.ChoiceField(choices=(
+        (Question.IMAGE_IDENTIFY, "Identify labelled structures"),
+        (Question.MCQ, "MCQ"),
+        (Question.TF, "True / False"),
+        (Question.DESC, "Descriptive"),
+    ))
     stem = forms.CharField(label="Question / instructions", widget=forms.Textarea(attrs={"rows": 3}))
+    answer = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
     explanation = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
     note = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
     targets_json = forms.CharField(widget=forms.HiddenInput(), initial="[]")
@@ -124,10 +135,11 @@ class ImageQuestionForm(forms.Form):
                     self.add_error("targets_json", f"Target {label.strip()} marker must be within the image.")
                     break
             cleaned["targets"] = targets
-        else:
+        elif mode in {Question.MCQ, Question.TF}:
             options = self._json_list("options_json") if "options_json" in cleaned else []
-            if not 2 <= len(options) <= 8:
-                self.add_error("options_json", "Add between 2 and 8 answer choices.")
+            minimum = 1 if mode == Question.TF else 2
+            if not minimum <= len(options) <= 8:
+                self.add_error("options_json", f"Add between {minimum} and 8 answer choices.")
                 return cleaned
             if any(
                 not isinstance(option, dict)
@@ -138,9 +150,11 @@ class ImageQuestionForm(forms.Form):
             ):
                 self.add_error("options_json", "Every answer choice needs text and a correct/incorrect selection.")
                 return cleaned
-            if not any(option["is_correct"] for option in options):
+            if mode == Question.MCQ and not any(option["is_correct"] for option in options):
                 self.add_error("options_json", "Mark at least one correct answer choice.")
             cleaned["options"] = options
+        elif not cleaned.get("answer", "").strip():
+            self.add_error("answer", "Enter the answer shown on the descriptive flashcard.")
         return cleaned
 
     @staticmethod

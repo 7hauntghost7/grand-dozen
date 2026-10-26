@@ -35,6 +35,7 @@ FIELD_RE = re.compile(
     r"TARGET_SUBJECT|TARGET_SEMESTER|TARGET_DECK|NO|LABEL|TYPE|TOPIC|ANSWER|ANS|EXPLANATION|EXPL|NOTE)\s*:\s*(.*)$", re.I
 )
 OPT_RE = re.compile(r"^\s*\(?([A-Ha-h])[\.\)](?:\s+(.*))?$")
+INLINE_OPT_RE = re.compile(r"(?<!\w)([A-Ha-h])\s*[-.)]\s+")
 RULE_RE = re.compile(r"^\s*(-{3,}|={3,}|\*{3,})\s*$")
 
 MCQ, TF, DESC = "mcq", "tf", "desc"
@@ -97,6 +98,82 @@ def question_key(kind, stem, options, answer=""):
     return kind + "|" + norm(stem) + "|" + "|".join(sorted(norm(o) for o in options)) + "|" + norm(answer)
 
 
+def _strip_redundant_question_number(question):
+    number = question.number.strip()
+    if not number.isdigit():
+        return
+    match = re.match(r"^Q\s*0*(\d+)[.)\-:]?\s+(.+)$", question.stem, re.I)
+    if match and int(match.group(1)) == int(number):
+        question.stem = match.group(2)
+
+
+def _extract_inline_options(question):
+    if question.options:
+        return
+    matches = list(INLINE_OPT_RE.finditer(question.stem))
+    if len(matches) < 2 or matches[0].group(1).upper() != "A":
+        return
+    letters = [match.group(1).upper() for match in matches]
+    if letters != [chr(65 + index) for index in range(len(letters))]:
+        return
+    options = [
+        question.stem[match.end():matches[index + 1].start() if index + 1 < len(matches) else len(question.stem)].strip()
+        for index, match in enumerate(matches)
+    ]
+    if any(not option for option in options):
+        return
+
+    answer = question.answer_raw.strip()
+    expected = set(letters)
+    tf_pairs = re.findall(r"(?<![A-Za-z])([A-H])\s*[:=\-]?\s+(true|false|t|f)\b", answer, re.I)
+    if tf_pairs and {letter.upper() for letter, _ in tf_pairs} == expected:
+        question.kind = TF
+        question.type_raw = "TF"
+        answers = {letter.upper(): value.lower().startswith("t") for letter, value in tf_pairs}
+        question.correct = [answers[letter] for letter in letters]
+        question.answer_raw = "".join("T" if answers[letter] else "F" for letter in letters)
+    elif len(letters) == 2 and re.match(r"(?i)^neither\b", answer):
+        question.kind = TF
+        question.type_raw = "TF"
+        question.correct = [False, False]
+        question.answer_raw = "FF"
+    else:
+        selected = []
+        marked_answers = list(INLINE_OPT_RE.finditer(answer))
+        if marked_answers:
+            for index, match in enumerate(marked_answers):
+                letter = match.group(1).upper()
+                value = answer[match.end():marked_answers[index + 1].start() if index + 1 < len(marked_answers) else len(answer)].strip()
+                value = re.sub(r"\s+(?:or|and)\s*$", "", value, flags=re.I)
+                if letter not in expected or norm(value) != norm(options[ord(letter) - 65]):
+                    selected = []
+                    break
+                selected.append(letter)
+        else:
+            exact_matches = [letter for letter, option in zip(letters, options) if norm(answer) == norm(option)]
+            if len(exact_matches) == 1:
+                selected = exact_matches
+            else:
+                answer_letters = re.match(
+                    r"^\s*([A-H](?:\s*(?:,|/|and|or)\s*[A-H])*)"
+                    r"(?:\s+(?:are|is)\s+true\b|\s*\()",
+                    answer,
+                    re.I,
+                )
+                if answer_letters:
+                    selected = re.findall(r"[A-H]", answer_letters.group(1).upper())
+        if not selected or any(letter not in expected for letter in selected):
+            return
+        question.kind = MCQ
+        question.type_raw = "MCQ"
+        question.correct = [letter in selected for letter in letters]
+        question.answer_raw = ", ".join(selected)
+
+    question.stem = question.stem[:matches[0].start()].rstrip(" :")
+    question.option_letters = letters
+    question.options = options
+
+
 def parse(text):
     res = ParseResult()
     cur, fld = None, None
@@ -144,7 +221,13 @@ def parse(text):
                 cur.warnings.append("TOPIC line ignored (the deck is the only classification).")
                 fld = None
             elif key in ("ANSWER", "ANS"):
-                cur.answer_raw, fld = val, "answer"
+                explanation = re.search(r"\s+Explanation:\s*", val, re.I)
+                if explanation:
+                    cur.answer_raw = val[:explanation.start()].rstrip()
+                    cur.explanation = val[explanation.end():].strip()
+                    fld = "explanation"
+                else:
+                    cur.answer_raw, fld = val, "answer"
             elif key in ("EXPLANATION", "EXPL"):
                 cur.explanation, fld = val, "explanation"
             elif key == "NOTE":
@@ -179,6 +262,8 @@ def parse(text):
                 "EXPLANATION: or directly beneath the line it continues."
             )
     for q in res.questions:
+        _strip_redundant_question_number(q)
+        _extract_inline_options(q)
         _validate(q)
     mark_duplicates(res.questions)
     return res

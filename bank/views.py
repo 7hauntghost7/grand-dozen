@@ -15,7 +15,7 @@ from django.http import FileResponse, HttpResponse, HttpResponseForbidden, JsonR
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
@@ -104,19 +104,26 @@ def serialize(questions, user, review=False, include_answers=False):
     data = []
     for q in qs:
         opts = list(q.options.all())
+        kind = (
+            Question.MCQ
+            if q.kind == Question.IMAGE and q.image_answer_mode == Question.IMAGE_MCQ
+            else q.kind
+        )
         question = {
-            "id": q.id, "number": q.number or str(len(data) + 1), "label": q.label, "kind": q.kind,
-            "stem": q.stem, "saved": q.id in saved,
-            "multi": q.kind == Question.MCQ and sum(o.is_correct for o in opts) > 1,
+            "id": q.id, "number": q.number or str(len(data) + 1), "label": q.label, "kind": kind,
+            "stem": q.stem, "saved": q.id in saved, "is_lab": q.is_lab,
+            "multi": kind == Question.MCQ and sum(o.is_correct for o in opts) > 1,
             "options": [{"id": o.id, "letter": chr(65 + i), "text": o.text} for i, o in enumerate(opts)],
         }
-        if q.kind == Question.IMAGE:
+        if q.image_asset_id:
             question.update({
                 "image_url": q.image_asset.secure_url if q.image_asset_id else "",
                 "image_width": q.image_asset.width if q.image_asset_id else 0,
                 "image_height": q.image_asset.height if q.image_asset_id else 0,
-                "image_answer_mode": q.image_answer_mode,
-                "multi": q.image_answer_mode == Question.IMAGE_MCQ and sum(o.is_correct for o in opts) > 1,
+            })
+        if kind == Question.IMAGE:
+            question.update({
+                "image_answer_mode": Question.IMAGE_IDENTIFY,
                 "targets": [
                     {
                         "id": target.pk,
@@ -134,9 +141,9 @@ def serialize(questions, user, review=False, include_answers=False):
                 "explanation": q.explanation,
                 "note": q.note,
             })
-            if q.kind == Question.TF:
+            if kind == Question.TF:
                 question["answer_key"] = {str(o.id): o.is_correct for o in opts}
-            elif q.kind in {Question.MCQ, Question.IMAGE}:
+            elif kind == Question.MCQ:
                 question["correct_ids"] = [o.id for o in opts if o.is_correct]
         if review:
             question.update({
@@ -216,64 +223,65 @@ def bank_detail(request, slug):
     bank = get_object_or_404(QuestionBank.objects.select_related("subject"), slug=slug)
     questions = bank.questions.filter(is_in_sorting_bin=False, is_in_review_bin=False)
     uofk_filter = _uofk_label_filter()
+    standard_questions = questions.filter(is_lab=False)
     counts = questions.aggregate(
         count=Count("id"),
-        mcq_tf_count=Count("id", filter=Q(kind__in=[Question.MCQ, Question.TF])),
+        uofk_count=Count("id", filter=uofk_filter),
+    )
+    standard_counts = standard_questions.aggregate(
+        mcq_tf_count=Count(
+            "id",
+            filter=Q(kind__in=[Question.MCQ, Question.TF])
+            | Q(kind=Question.IMAGE, image_answer_mode=Question.IMAGE_MCQ),
+        ),
         descriptive_count=Count("id", filter=Q(kind=Question.DESC)),
-        image_count=Count("id", filter=Q(kind=Question.IMAGE)),
-        image_identify_count=Count(
+        image_count=Count(
             "id", filter=Q(kind=Question.IMAGE, image_answer_mode=Question.IMAGE_IDENTIFY),
         ),
-        image_mcq_count=Count(
-            "id", filter=Q(kind=Question.IMAGE, image_answer_mode=Question.IMAGE_MCQ),
-        ),
-        uofk_count=Count("id", filter=uofk_filter),
         uofk_mcq_tf_count=Count(
-            "id", filter=Q(kind__in=[Question.MCQ, Question.TF]) & uofk_filter,
+            "id",
+            filter=(Q(kind__in=[Question.MCQ, Question.TF])
+                    | Q(kind=Question.IMAGE, image_answer_mode=Question.IMAGE_MCQ))
+            & uofk_filter,
         ),
         uofk_descriptive_count=Count(
             "id", filter=Q(kind=Question.DESC) & uofk_filter,
         ),
-        uofk_image_count=Count("id", filter=Q(kind=Question.IMAGE) & uofk_filter),
-        uofk_image_identify_count=Count(
+        uofk_image_count=Count(
             "id", filter=Q(kind=Question.IMAGE, image_answer_mode=Question.IMAGE_IDENTIFY) & uofk_filter,
         ),
-        uofk_image_mcq_count=Count(
-            "id", filter=Q(kind=Question.IMAGE, image_answer_mode=Question.IMAGE_MCQ) & uofk_filter,
-        ),
     )
-    mcq_tf_count = counts["mcq_tf_count"]
-    descriptive_count = counts["descriptive_count"]
-    image_count = counts["image_count"]
-    image_identify_count = counts["image_identify_count"]
-    image_mcq_count = counts["image_mcq_count"]
-    uofk_mcq_tf_count = counts["uofk_mcq_tf_count"]
-    uofk_descriptive_count = counts["uofk_descriptive_count"]
-    uofk_image_count = counts["uofk_image_count"]
-    uofk_image_identify_count = counts["uofk_image_identify_count"]
-    uofk_image_mcq_count = counts["uofk_image_mcq_count"]
+    lab_counts = questions.filter(is_lab=True).aggregate(
+        lab_count=Count("id"),
+        uofk_lab_count=Count("id", filter=uofk_filter),
+    )
+    mcq_tf_count = standard_counts["mcq_tf_count"]
+    descriptive_count = standard_counts["descriptive_count"]
+    image_count = standard_counts["image_count"]
+    uofk_mcq_tf_count = standard_counts["uofk_mcq_tf_count"]
+    uofk_descriptive_count = standard_counts["uofk_descriptive_count"]
+    uofk_image_count = standard_counts["uofk_image_count"]
     total_count = counts["count"]
     uofk_total_count = counts["uofk_count"]
+    lab_count = lab_counts["lab_count"]
+    uofk_lab_count = lab_counts["uofk_lab_count"]
     return render(request, "bank/bank_detail.html", {
         "bank": bank,
         "count": total_count,
         "mcq_tf_count": mcq_tf_count,
         "descriptive_count": descriptive_count,
         "image_count": image_count,
-        "image_identify_count": image_identify_count,
-        "image_mcq_count": image_mcq_count,
         "uofk_count": uofk_total_count,
         "other_count": total_count - uofk_total_count,
         "uofk_mcq_tf_count": uofk_mcq_tf_count,
         "uofk_descriptive_count": uofk_descriptive_count,
         "uofk_image_count": uofk_image_count,
-        "uofk_image_identify_count": uofk_image_identify_count,
-        "uofk_image_mcq_count": uofk_image_mcq_count,
         "other_mcq_tf_count": mcq_tf_count - uofk_mcq_tf_count,
         "other_descriptive_count": descriptive_count - uofk_descriptive_count,
         "other_image_count": image_count - uofk_image_count,
-        "other_image_identify_count": image_identify_count - uofk_image_identify_count,
-        "other_image_mcq_count": image_mcq_count - uofk_image_mcq_count,
+        "lab_count": lab_count,
+        "uofk_lab_count": uofk_lab_count,
+        "other_lab_count": lab_count - uofk_lab_count,
         "selected_label_filter": _normalize_label_filter(request.GET.get("label", "all")),
     })
 
@@ -289,23 +297,16 @@ def _quiz_context(request, **kw):
 def quiz(request, slug):
     bank = get_object_or_404(QuestionBank, slug=slug)
     quiz_type = request.GET.get("type", "mcq_tf")
-    if quiz_type not in {"mcq_tf", "descriptive", "image"}:
+    if quiz_type not in {"mcq_tf", "descriptive", "image", "labs"}:
         quiz_type = "mcq_tf"
     label_filter = _normalize_label_filter(request.GET.get("label", "all"))
-    image_mode = request.GET.get("image_mode", "all")
-    if image_mode not in {"all", Question.IMAGE_IDENTIFY, Question.IMAGE_MCQ}:
-        image_mode = "all"
     query = f"type={quiz_type}"
-    if quiz_type == "image":
-        query += f"&image_mode={image_mode}"
     if label_filter != "all":
         query += f"&label={label_filter}"
     api = reverse("bank:api_questions", args=[bank.slug]) + "?" + query
     key = f"deck:{bank.slug}:{quiz_type}"
     if label_filter != "all":
         key += f":label:{label_filter}"
-    if quiz_type == "image" and image_mode != "all":
-        key += f":{image_mode}"
     return render(request, "bank/quiz.html", _quiz_context(
         request, title=bank.title, key=key, question_type=quiz_type,
         api=api, back=bank.get_absolute_url(), review=False, edit_api="",
@@ -321,22 +322,18 @@ def quiz(request, slug):
 def review_deck(request, slug):
     bank = get_object_or_404(QuestionBank, slug=slug)
     review_type = request.GET.get("type", "mcq_tf")
-    if review_type not in {"mcq_tf", "descriptive", "image"}:
+    if review_type not in {"mcq_tf", "descriptive", "image", "labs"}:
         review_type = "mcq_tf"
-    image_mode = request.GET.get("image_mode", "all")
-    if image_mode not in {"all", Question.IMAGE_IDENTIFY, Question.IMAGE_MCQ}:
-        image_mode = "all"
     review_label = {
         "descriptive": "Descriptive",
-        "image": "Images",
+        "image": "Identify",
         "mcq_tf": "MCQs & True / False",
+        "labs": "Labs",
     }[review_type]
     query = f"review=1&type={review_type}"
-    if review_type == "image":
-        query += f"&image_mode={image_mode}"
     return render(request, "bank/quiz.html", _quiz_context(
         request, title=f"Review {review_label} · {bank.title}",
-        key=f"review:{bank.slug}:{review_type}:{image_mode}",
+        key=f"review:{bank.slug}:{review_type}",
         question_type=review_type,
         api=reverse("bank:api_questions", args=[bank.slug]) + "?" + query,
         back=bank.get_absolute_url(), review=True,
@@ -362,6 +359,8 @@ def export_bank(request, slug):
     text = parser.to_text(bank.title, services.bank_as_dicts(bank),
                           subject=bank.subject.name if bank.subject else None, semester=bank.semester,
                           section=bank.section.name if bank.section else None)
+    if bank.questions.filter(is_in_sorting_bin=False, is_in_review_bin=False, image_asset__isnull=False).exists():
+        text = "# NOTE: Attached image files are not included in this text export.\n\n" + text
     resp = HttpResponse(text, content_type="text/plain; charset=utf-8")
     resp["Content-Disposition"] = f'attachment; filename="{bank.slug}.txt"'
     return resp
@@ -435,14 +434,19 @@ def api_questions(request, slug):
     qs = _filter_by_label(qs, _normalize_label_filter(request.GET.get("label", "all")))
     quiz_type = request.GET.get("type")
     if quiz_type == "descriptive":
-        qs = qs.filter(kind=Question.DESC)
+        qs = qs.filter(kind=Question.DESC, is_lab=False)
     elif quiz_type == "mcq_tf":
-        qs = qs.filter(kind__in=[Question.MCQ, Question.TF])
+        qs = qs.filter(
+            (
+                Q(kind__in=[Question.MCQ, Question.TF])
+                | Q(kind=Question.IMAGE, image_answer_mode=Question.IMAGE_MCQ)
+            ),
+            is_lab=False,
+        )
     elif quiz_type == "image":
-        qs = qs.filter(kind=Question.IMAGE)
-        image_mode = request.GET.get("image_mode")
-        if image_mode in {Question.IMAGE_IDENTIFY, Question.IMAGE_MCQ}:
-            qs = qs.filter(image_answer_mode=image_mode)
+        qs = qs.filter(kind=Question.IMAGE, image_answer_mode=Question.IMAGE_IDENTIFY, is_lab=False)
+    elif quiz_type == "labs":
+        qs = qs.filter(is_lab=True)
     qs = qs.select_related("image_asset").prefetch_related("options", "image_targets")
     return JsonResponse({
         "title": bank.title,
@@ -838,7 +842,10 @@ def api_question_edit(request, pk):
     label = data.get("label", "")
     explanation = data.get("explanation", "")
     note = data.get("note", "")
+    is_lab = data.get("is_lab", question.is_lab)
     options = data.get("options", [])
+    if not isinstance(is_lab, bool):
+        return JsonResponse({"error": "Invalid Labs state."}, status=400)
     if kind not in {Question.MCQ, Question.TF, Question.DESC, Question.IMAGE}:
         return JsonResponse({"error": "Choose a valid question type."}, status=400)
     targets = data.get("targets", [])
@@ -925,6 +932,7 @@ def api_question_edit(request, pk):
         question.stem = stem.strip()
         question.answer = answer.strip() if kind == Question.DESC else ""
         question.label = label.strip()
+        question.is_lab = is_lab
         if kind == Question.IMAGE:
             question.image_answer_mode = image_answer_mode
         question.explanation = explanation.strip()
@@ -1169,7 +1177,7 @@ def _edit_question(request, question, bank=None, is_new=False):
 @perm_required("bank.change_question")
 def question_edit(request, pk):
     q = get_object_or_404(Question.objects.select_related("bank__subject"), pk=pk)
-    if q.kind == Question.IMAGE:
+    if q.image_asset_id:
         return _image_question_form(request, q.bank, q.image_asset, question=q)
     return _edit_question(request, q)
 
@@ -1188,8 +1196,14 @@ def _image_question_form(request, bank, image, question=None):
     initial = {}
     if question is not None:
         initial = {
-            "answer_mode": question.image_answer_mode,
+            "is_lab": question.is_lab,
+            "answer_mode": (
+                Question.IMAGE_IDENTIFY
+                if question.kind == Question.IMAGE
+                else question.kind
+            ),
             "stem": question.stem,
+            "answer": question.answer,
             "explanation": question.explanation,
             "note": question.note,
             "targets_json": json.dumps([
@@ -1203,8 +1217,15 @@ def _image_question_form(request, bank, image, question=None):
                 for option in question.options.all()
             ]),
         }
+    requested_mode = request.GET.get("kind", Question.IMAGE_IDENTIFY)
+    if requested_mode not in {
+        Question.IMAGE_IDENTIFY, Question.MCQ, Question.TF, Question.DESC,
+    }:
+        requested_mode = Question.IMAGE_IDENTIFY
     form = ImageQuestionForm(request.POST or None, initial=initial or {
-        "answer_mode": Question.IMAGE_IDENTIFY,
+        "is_lab": request.GET.get("is_lab") == "1",
+        "answer_mode": requested_mode,
+        "answer": "",
         "targets_json": "[]",
         "options_json": "[]",
     })
@@ -1213,20 +1234,32 @@ def _image_question_form(request, bank, image, question=None):
             if question is None:
                 question = Question.objects.create(
                     bank=bank,
-                    kind=Question.IMAGE,
-                    number=str(bank.questions.filter(kind=Question.IMAGE).count() + 1),
+                    kind=Question.IMAGE if form.cleaned_data["answer_mode"] == Question.IMAGE_IDENTIFY
+                    else form.cleaned_data["answer_mode"],
+                    number=(
+                        str(bank.questions.filter(kind=Question.IMAGE).count() + 1)
+                        if form.cleaned_data["answer_mode"] == Question.IMAGE_IDENTIFY else ""
+                    ),
                     image_asset=image,
                 )
-            question.kind = Question.IMAGE
+            question.kind = (
+                Question.IMAGE
+                if form.cleaned_data["answer_mode"] == Question.IMAGE_IDENTIFY
+                else form.cleaned_data["answer_mode"]
+            )
             question.stem = form.cleaned_data["stem"]
-            question.image_answer_mode = form.cleaned_data["answer_mode"]
-            question.answer = ""
+            question.is_lab = form.cleaned_data["is_lab"]
+            question.image_answer_mode = Question.IMAGE_IDENTIFY
+            question.answer = (
+                form.cleaned_data["answer"].strip()
+                if question.kind == Question.DESC else ""
+            )
             question.explanation = form.cleaned_data["explanation"].strip()
             question.note = form.cleaned_data["note"].strip()
             question.save()
             question.options.all().delete()
             question.image_targets.all().delete()
-            if question.image_answer_mode == Question.IMAGE_MCQ:
+            if question.kind in {Question.MCQ, Question.TF}:
                 Option.objects.bulk_create([
                     Option(
                         question=question, text=option["text"].strip(),
@@ -1234,7 +1267,7 @@ def _image_question_form(request, bank, image, question=None):
                     )
                     for index, option in enumerate(form.cleaned_data["options"])
                 ])
-            else:
+            elif question.kind == Question.IMAGE:
                 ImageTarget.objects.bulk_create([
                     ImageTarget(
                         question=question, label=target["label"].strip(),
@@ -1247,7 +1280,15 @@ def _image_question_form(request, bank, image, question=None):
                 ])
         if request.POST.get("add_another") == "1":
             messages.success(request, "Question saved. Add another separate question using the same image.")
-            return redirect("bank:image_question_add", slug=bank.slug, image_id=image.pk)
+            next_url = request.POST.get("next") or request.GET.get("next", "")
+            add_url = reverse("bank:image_question_add", args=[bank.slug, image.pk])
+            if form.cleaned_data["answer_mode"] != Question.IMAGE_IDENTIFY:
+                add_url += f"?kind={form.cleaned_data['answer_mode']}"
+            if form.cleaned_data["is_lab"]:
+                add_url += ("&" if "?" in add_url else "?") + "is_lab=1"
+            if next_url:
+                add_url += ("&" if "?" in add_url else "?") + urlencode({"next": next_url})
+            return redirect(add_url)
         messages.success(request, "Image question saved.")
         return redirect(safe_next(request, bank.get_absolute_url()))
     return render(request, "bank/image_question_form.html", {
@@ -1264,6 +1305,10 @@ def _image_question_form(request, bank, image, question=None):
 def image_question_upload(request, slug):
     bank = get_object_or_404(QuestionBank, slug=slug)
     form = ImageUploadForm(request.POST or None, request.FILES or None)
+    requested_mode = request.POST.get("kind", request.GET.get("kind", Question.IMAGE_IDENTIFY))
+    requested_lab = request.POST.get("is_lab", request.GET.get("is_lab", "")) == "1"
+    if requested_mode not in {Question.IMAGE_IDENTIFY, Question.MCQ, Question.TF, Question.DESC}:
+        requested_mode = Question.IMAGE_IDENTIFY
     if request.method == "POST" and form.is_valid():
         uploaded = form.cleaned_data["image"]
         try:
@@ -1279,12 +1324,24 @@ def image_question_upload(request, slug):
                 width=result["width"],
                 height=result["height"],
             )
-            return redirect("bank:image_question_add", slug=bank.slug, image_id=image.pk)
+            add_url = reverse("bank:image_question_add", args=[bank.slug, image.pk])
+            answer_mode = requested_mode
+            if answer_mode in {Question.MCQ, Question.TF, Question.DESC}:
+                add_url += f"?kind={answer_mode}"
+            if requested_lab:
+                add_url += ("&" if "?" in add_url else "?") + "is_lab=1"
+            next_url = request.POST.get("next") or request.GET.get("next", "")
+            if next_url:
+                add_url += ("&" if "?" in add_url else "?") + urlencode({"next": next_url})
+            return redirect(add_url)
     return render(request, "bank/image_upload.html", {
         "bank": bank,
         "form": form,
         "image_uploads_enabled": image_uploads_enabled(),
         "local_image_uploads": settings.DEBUG,
+        "answer_mode": requested_mode,
+        "is_lab": requested_lab,
+        "next_url": request.GET.get("next", ""),
     })
 
 
@@ -1357,6 +1414,7 @@ def import_questions(request):
         "section_id": request.GET.get("section", ""),
         "sections": SubjectSection.objects.select_related("subject").all(),
         "deck_title": request.GET.get("deck_title", ""), "skip_dupes": True,
+        "import_to_labs": request.GET.get("import_to_labs") == "1",
         "decks_json": [{"s": d.subject_id, "m": d.semester, "c": d.section_id, "t": d.title}
                        for d in QuestionBank.objects.filter(subject__isnull=False)],
     }
@@ -1369,6 +1427,7 @@ def import_questions(request):
         text = upload.read().decode("utf-8-sig", errors="replace")
     result = parser.parse(text)
     skip_dupes = bool(request.POST.get("skip_dupes"))
+    import_to_labs = request.POST.get("import_to_labs") == "1"
 
     # Form fields win; header lines (SUBJECT/SEMESTER/DECK) in the text fill any blanks.
     subject = None
@@ -1398,7 +1457,7 @@ def import_questions(request):
     if deck and section and deck.section_id not in (None, section.pk):
         section_error = "This deck already belongs to a different sub-subject."
     if deck:
-        parser.mark_duplicates(result.questions, services.existing_keys(deck))
+        parser.mark_duplicates(result.questions, services.existing_keys(deck, is_lab=import_to_labs))
 
     if request.POST.get("action") == "commit":
         missing = [n for n, v in (("subject", subject), ("semester", semester), ("deck title", title)) if not v]
@@ -1408,9 +1467,12 @@ def import_questions(request):
             messages.error(request, "Please choose the " + ", ".join(missing) + ".")
         else:
             deck = services.get_or_create_deck(subject, semester, title, section)
-            created, bad, dup = services.save_questions(deck, result.questions, skip_dupes)
+            created, bad, dup = services.save_questions(
+                deck, result.questions, skip_dupes, is_lab=import_to_labs,
+            )
+            destination = "Labs in " if import_to_labs else ""
             messages.success(
-                request, f"Imported {created} question(s) into “{deck.path}”. "
+                request, f"Imported {created} question(s) into {destination}“{deck.path}”. "
                          f"Skipped {bad} with errors and {dup} duplicate(s).")
             return redirect(deck)
 
@@ -1430,6 +1492,7 @@ def import_questions(request):
         "section_error": section_error,
         "semester": str(semester or ""), "deck_title": title, "skip_dupes": skip_dupes,
         "deck_exists": deck, "rows": rows, "previewed": True,
+        "import_to_labs": import_to_labs,
         "importable": sum(1 for r in rows if r["q"].ok and not r["skipped"]),
         "n_errors": sum(1 for r in rows if not r["q"].ok),
         "n_dupes": sum(1 for r in rows if r["q"].duplicate_of),

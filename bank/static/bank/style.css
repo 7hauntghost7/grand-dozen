@@ -881,6 +881,8 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding
 .study-choice-recall{border-top-color:#bc7450}
 .study-choice-image{border-top-color:#698bab}
 .study-choice-image .study-choice-top>span:first-child,.study-choice-image .study-choice-arrow{color:#9fc5e9}
+.study-choice-labs{border-top-color:#68a77d}
+.study-choice-labs .study-choice-top>span:first-child,.study-choice-labs .study-choice-arrow{color:#9bd3ab}
 .study-choice-actions .image-quiz-links,.study-choice-actions .image-review-links{position:relative;display:flex;gap:8px;flex-wrap:wrap;pointer-events:auto}
 .image-quiz-links a,.image-review-links a{color:#c9def3;font-size:.72rem;text-underline-offset:3px}
 .image-quiz-links a:first-child{color:#b4d8ff;font-weight:700}

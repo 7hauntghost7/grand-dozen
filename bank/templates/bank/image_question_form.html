@@ -4,7 +4,7 @@
 {% block content %}
 <p class="crumbs"><a href="{{ cancel_url }}">← {{ bank.title }}</a></p>
 <h2 class="pagetitle">{% if is_new %}Add a question for this image{% else %}Edit image question {{ question.number }}{% endif %}</h2>
-<p class="mute">This question is separate in the quiz. The image is shared and will not be uploaded again when you add another question.</p>
+<p class="mute">Choose the quiz category for this question. It will appear alongside text-only questions in that category, with this image attached.</p>
 
 <form method="post" class="card image-question-form" id="image-question-form"
       data-targets="{{ initial_targets|escape }}" data-options="{{ initial_options|escape }}">
@@ -25,6 +25,11 @@
   </figure>
 
   <div class="field">
+    {{ form.is_lab }} {{ form.is_lab.label_tag }}
+    {{ form.is_lab.errors }}
+    {% if form.is_lab.help_text %}<span class="mute">{{ form.is_lab.help_text }}</span>{% endif %}
+  </div>
+  <div class="field">
     {{ form.stem.label_tag }}{{ form.stem }}{{ form.stem.errors }}
   </div>
   <div class="field">
@@ -40,11 +45,15 @@
   </section>
 
   <section id="options-section">
-    <h3>Image MCQ choices</h3>
-    <p class="mute">Add 2–8 choices and mark every correct choice.</p>
+    <h3>Answer choices</h3>
+    <p class="mute" id="options-help">Add 2–8 choices and mark every correct choice.</p>
     <div id="image-option-rows"></div>
     <button class="btn" type="button" id="add-image-option">+ Add choice</button>
     {{ form.options_json.errors }}
+  </section>
+
+  <section id="answer-section" class="field">
+    {{ form.answer.label_tag }}{{ form.answer }}{{ form.answer.errors }}
   </section>
 
   <div class="field">
@@ -103,7 +112,11 @@
     markerLayer.innerHTML = targets.filter(target => target.x_percent != null && target.y_percent != null)
       .map(target => `<span class="image-marker" style="left:${Number(target.x_percent)}%;top:${Number(target.y_percent)}%">${escapeHtml(target.label)}</span>`).join("");
     document.getElementById("targets-section").hidden = mode.value !== "identify";
-    document.getElementById("options-section").hidden = mode.value !== "mcq";
+    document.getElementById("options-section").hidden = !["mcq", "tf"].includes(mode.value);
+    document.getElementById("answer-section").hidden = mode.value !== "desc";
+    document.getElementById("options-help").textContent = mode.value === "tf"
+      ? "Add one statement per choice. Mark the true statements."
+      : "Add 2–8 choices and mark every correct choice.";
   }
 
   document.getElementById("add-target").addEventListener("click", () => {

@@ -135,6 +135,11 @@ class Question(models.Model):
     answer = models.TextField(blank=True)
     explanation = models.TextField(blank=True)
     note = models.TextField(blank=True, help_text="Warning shown to students (ambiguous / flawed source).")
+    is_lab = models.BooleanField(
+        "include in Labs",
+        default=False,
+        help_text="Keep this question in the mixed-format Labs tab instead of the standard question-type tabs.",
+    )
     image_asset = models.ForeignKey(
         "QuestionImage", null=True, blank=True, on_delete=models.PROTECT, related_name="questions",
     )

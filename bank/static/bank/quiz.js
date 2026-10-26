@@ -232,6 +232,7 @@
     return drafts[id] || (drafts[id] = {
       kind: q.kind, stem: q.stem, answer: q.answer || "",
       label: q.label || "", explanation: q.explanation || "", note: q.note || "",
+      is_lab: !!q.is_lab,
       is_in_sorting_bin: !!q.is_in_sorting_bin,
       is_in_review_bin: !!q.is_in_review_bin,
       delete_question: false,
@@ -265,17 +266,19 @@
       </div>`).join("") +
       (draft.targets.length < 50 ? '<button class="btn" type="button" data-act="add-target">+ Add target</button>' : "") +
       "</div>" : "";
-    const imageDetails = draft.kind === "image" ? `<div class="review-image-preview"><img src="${esc(q.image_url)}" alt="Question image"></div>
-      <label>Image answer style<select data-field="image_answer_mode">
-        <option value="identify" ${draft.image_answer_mode === "identify" ? "selected" : ""}>Identification targets</option>
-        <option value="mcq" ${draft.image_answer_mode === "mcq" ? "selected" : ""}>Image multiple choice</option>
-      </select></label>${targets}` : "";
+    const imageDetails = q.image_url ? `<div class="review-image-preview"><img src="${esc(q.image_url)}" alt="Question image"></div>` : "";
+    const imageTargetsEditor = draft.kind === "image" ? `<label>Image answer style<select data-field="image_answer_mode">
+      <option value="identify" ${draft.image_answer_mode === "identify" ? "selected" : ""}>Identification targets</option>
+      <option value="mcq" ${draft.image_answer_mode === "mcq" ? "selected" : ""}>Image multiple choice</option>
+    </select></label>${targets}` : "";
     return `<section class="review-editor" aria-label="Edit question">
       ${draft.delete_question ? '<div class="fb bad">Marked for deletion · unsaved</div>' : ""}
       <label>Type<select data-field="kind"><option value="mcq" ${draft.kind === "mcq" ? "selected" : ""}>Multiple choice</option><option value="tf" ${draft.kind === "tf" ? "selected" : ""}>True / False</option><option value="desc" ${draft.kind === "desc" ? "selected" : ""}>Descriptive</option>${q.image_url ? `<option value="image" ${draft.kind === "image" ? "selected" : ""}>Image-dependent</option>` : ""}</select></label>
       <label>Question<textarea rows="3" data-field="stem">${esc(draft.stem)}</textarea></label>
       <label>Label<input type="text" maxlength="100" data-field="label" value="${esc(draft.label)}"></label>
-      ${draft.kind === "desc" ? `<label>Answer<textarea rows="3" data-field="answer">${esc(draft.answer)}</textarea></label>` : draft.kind === "image" ? imageDetails + options : options}
+      ${imageDetails}
+      ${draft.kind === "desc" ? `<label>Answer<textarea rows="3" data-field="answer">${esc(draft.answer)}</textarea></label>` : draft.kind === "image" ? imageTargetsEditor + options : options}
+      <label><input type="checkbox" data-field="is_lab" ${draft.is_lab ? "checked" : ""}> Include in Labs</label>
       <label>Explanation<textarea rows="3" data-field="explanation">${esc(draft.explanation)}</textarea></label>
       <label>Note<textarea rows="2" data-field="note">${esc(draft.note)}</textarea></label>
       <div class="row review-edit-actions">
@@ -302,6 +305,7 @@
       }
       const oldBinState = !!byId[id].is_in_sorting_bin;
       const oldReviewBinState = !!byId[id].is_in_review_bin;
+      const oldLabState = !!byId[id].is_lab;
       if (response.json.deleted) {
         Q = Q.filter(q => q.id !== id);
         delete byId[id];
@@ -319,13 +323,20 @@
       save();
       delete drafts[id];
       delete editing[id];
-      if (oldBinState !== !!updated.is_in_sorting_bin || oldReviewBinState !== !!updated.is_in_review_bin) {
+      const binStateChanged = oldBinState !== !!updated.is_in_sorting_bin
+        || oldReviewBinState !== !!updated.is_in_review_bin;
+      const labStateChanged = oldLabState !== !!updated.is_lab;
+      if (binStateChanged || labStateChanged) {
         Q = Q.filter(q => q.id !== id);
         delete byId[id];
         list = list.filter(questionId => questionId !== id);
-        delete S.a[id];
+        if (binStateChanged) delete S.a[id];
         pos = Math.min(pos, Math.max(0, list.length - 1));
-        if (updated.is_in_review_bin) {
+        if (labStateChanged && !binStateChanged) {
+          reviewNotice = updated.is_lab
+            ? "Saved and moved to Labs."
+            : "Saved and moved to the regular question tabs.";
+        } else if (updated.is_in_review_bin) {
           reviewNotice = "Saved and moved to the review bin.";
         } else if (updated.is_in_sorting_bin) {
           reviewNotice = "Saved and moved to the sorting bin.";
@@ -516,6 +527,10 @@
       `<button class="${status(j)} ${j === id ? "cur" : ""}" data-act="go" data-p="${blockStart(b) + i}" aria-label="Question ${i + 1}" title="Question ${i + 1}">${i + 1}</button>`).join("");
     const navToggle = `<button class="btn nav-toggle" data-act="toggle-nav" aria-expanded="${navOpen}" title="${navOpen ? "Hide question list" : "Show question list"}">${navOpen ? "▾" : "▸"}</button>`;
     let body = "";
+    const attachedImage = q.image_url ? `<figure class="quiz-image-figure">
+      <div class="image-stage${q.image_width > 0 && q.image_height > 0 ? " is-calibrated" : ""}"${q.image_width > 0 && q.image_height > 0 ? ` style="--image-aspect-ratio:${q.image_width}/${q.image_height};--image-max-width:${78 * q.image_width / q.image_height}vh"` : ""}><img src="${esc(q.image_url)}" alt="Image for question ${localPos + 1} of ${ids.length}" loading="eager"></div>
+      <figcaption><a href="${esc(q.image_url)}" target="_blank" rel="noopener">Open original image</a></figcaption>
+    </figure>` : "";
     if (q.kind === "image") {
       const imageStem = `<div class="stem image-stem">${esc(q.stem)}</div>`;
       const markers = (q.targets || []).filter(target =>
@@ -562,7 +577,7 @@
         }).join("");
       }
     } else if (q.kind === "mcq") {
-      body = `<div class="quiz-answer-list">${q.options.map(o => {
+      body = attachedImage + `<div class="quiz-answer-list">${q.options.map(o => {
         let cl = review && o.is_correct ? "ok" : "";
         if (a) {
           if (a.res.correct_ids.includes(o.id)) cl = "ok";
@@ -572,7 +587,7 @@
       }).join("")}</div>`;
     } else if (q.kind === "tf") {
       const pend = tfPending[id] || {};
-      body = `<div class="quiz-answer-list quiz-answer-list-tf">${q.options.map(o => {
+      body = attachedImage + `<div class="quiz-answer-list quiz-answer-list-tf">${q.options.map(o => {
         const chosen = a && !a.revealed ? a.payload.answers[o.id] : pend[o.id];
         const btn = (v, lbl) => {
           let cl = "";
@@ -633,6 +648,7 @@
       ${q.note ? `<p class="note">Note: ${esc(q.note)}</p>` : ""}</div>` : "";
     const descriptiveStudy = q.kind === "desc"
       ? `<section class="flash-study">
+          ${attachedImage}
           <div class="flash-prompt">
             <div class="stem">${esc(q.stem)}</div>
           </div>
@@ -702,7 +718,6 @@
       </div>`;
     }
     const ids = blockList(resultBlock), t = tally(ids), answered = t.ok + t.bad;
-    const imageMcqIds = ids.filter(id => byId[id].kind === "image" && byId[id].image_answer_mode === "mcq");
     const identificationTargets = ids
       .filter(id => byId[id].kind === "image" && byId[id].image_answer_mode === "identify")
       .flatMap(id => (byId[id].targets || []).map(target => ({
@@ -711,7 +726,6 @@
       })));
     const imageReport = D.questionType === "image"
       ? `<div class="image-report">
-          <p><strong>Image MCQs:</strong> ${imageMcqIds.filter(id => status(id) === "ok").length} correct · ${imageMcqIds.filter(id => status(id) === "bad").length} missed · ${imageMcqIds.filter(id => ["new", "rev"].includes(status(id))).length} unanswered/revealed</p>
           <p><strong>Identification (self-assessed):</strong> ${identificationTargets.filter(target => target.grade === "known").length} identified · ${identificationTargets.filter(target => target.grade === "missed").length} missed · ${identificationTargets.filter(target => !target.grade).length} not self-rated</p>
         </div>` : "";
     const wrong = ids.filter(i => status(i) === "bad");
@@ -932,6 +946,8 @@
       render();
     } else if (field === "label") {
       draft.label = e.target.value;
+    } else if (field === "is_lab") {
+      draft.is_lab = e.target.checked;
     } else if (field === "option-text") {
       draft.options[+e.target.dataset.index].text = e.target.value;
     } else if (field === "option-correct") {

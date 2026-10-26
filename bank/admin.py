@@ -38,12 +38,12 @@ class QuestionBankAdmin(admin.ModelAdmin):
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
     form = QuestionForm
-    list_display = ("__str__", "bank", "kind", "label")
-    list_filter = ("bank__subject", "bank", "kind")
+    list_display = ("__str__", "bank", "kind", "is_lab", "label")
+    list_filter = ("bank__subject", "bank", "kind", "is_lab")
     search_fields = ("stem", "number")
     inlines = [OptionInline]
     fieldsets = (
-        (None, {"fields": ("bank", "number", "label", "kind", "stem")}),
+        (None, {"fields": ("bank", "number", "label", "kind", "stem", "is_lab")}),
         ("Descriptive answer", {"fields": ("answer",)}),
         ("Feedback shown after answering", {"fields": ("explanation", "note")}),
     )

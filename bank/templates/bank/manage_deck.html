@@ -9,16 +9,17 @@
   <a class="btn" href="{% url 'bank:import' %}?subject={{ bank.subject_id|default_if_none:"" }}&semester={{ bank.semester }}&deck_title={{ bank.title|urlencode }}">Bulk import</a>{% endif %}</span></div>
 <div class="card scroll" style="margin-top:10px">
 <table>
-  <tr><th>#</th><th>Question</th><th>Type</th><th></th></tr>
+  <tr><th>#</th><th>Question</th><th>Type</th><th>Destination</th><th></th></tr>
   {% for q in questions %}
   <tr>
     <td>{{ q.number|default:q.pk }}</td>
     <td>{{ q.stem|truncatechars:120 }}
       {% if q.open_comments %}<div class="warnc">💬 {{ q.open_comments }} open comment{{ q.open_comments|pluralize }}</div>{% endif %}</td>
     <td>{{ q.kind|upper }}</td>
+    <td>{% if q.is_lab %}<span class="tag">Labs</span>{% else %}Regular practice{% endif %}</td>
     <td><a class="btn" href="{% url 'bank:question_edit' q.pk %}">Edit</a></td>
   </tr>
-  {% empty %}<tr><td colspan="4">No questions yet.</td></tr>
+  {% empty %}<tr><td colspan="5">No questions yet.</td></tr>
   {% endfor %}
 </table>
 </div>

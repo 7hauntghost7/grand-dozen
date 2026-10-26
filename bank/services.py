@@ -4,10 +4,12 @@ from .models import Option, Question, QuestionBank
 from .parser import question_key
 
 
-def existing_keys(bank):
-    """{fingerprint: label} for every question already stored in `bank`."""
+def existing_keys(bank, is_lab=False):
+    """{fingerprint: label} for questions already stored in this destination."""
     keys = {}
-    for q in bank.questions.filter(is_in_sorting_bin=False, is_in_review_bin=False).prefetch_related("options"):
+    for q in bank.questions.filter(
+        is_in_sorting_bin=False, is_in_review_bin=False, is_lab=is_lab,
+    ).prefetch_related("options"):
         keys[question_key(q.kind, q.stem, [o.text for o in q.options.all()], answer=q.answer)] = q.number or f"#{q.pk}"
     return keys
 
@@ -40,18 +42,19 @@ def _number_group(kind):
 
 
 @transaction.atomic
-def save_questions(bank, parsed, skip_duplicates=True):
+def save_questions(bank, parsed, skip_duplicates=True, is_lab=False):
     """Persist questions with sequential MCQ/TF and descriptive numbering.
 
     Source NO/number labels are deliberately ignored. Existing questions are
     normalized within their quiz type, then imports continue that type's sequence.
     """
     existing = list(bank.questions.order_by("id"))
-    next_numbers = {"mcq_tf": 0, Question.DESC: 0, Question.IMAGE: 0}
-    for i, q in enumerate(existing, start=1):
+    next_numbers = {}
+    for q in existing:
         group = _number_group(q.kind)
-        next_numbers[group] += 1
-        label = str(next_numbers[group])
+        key = (q.is_lab, group)
+        next_numbers[key] = next_numbers.get(key, 0) + 1
+        label = str(next_numbers[key])
         if q.number != label:
             q.number = label
             q.save(update_fields=["number"])
@@ -65,11 +68,12 @@ def save_questions(bank, parsed, skip_duplicates=True):
             dup += 1
             continue
         group = _number_group(pq.kind)
-        next_numbers[group] += 1
+        key = (is_lab, group)
+        next_numbers[key] = next_numbers.get(key, 0) + 1
         q = Question.objects.create(
-            bank=bank, number=str(next_numbers[group]), label=pq.label, kind=pq.kind, stem=pq.stem,
+            bank=bank, number=str(next_numbers[key]), label=pq.label, kind=pq.kind, stem=pq.stem,
             answer=pq.answer_raw if pq.kind == Question.DESC else "",
-            explanation=pq.explanation, note=pq.note,
+            explanation=pq.explanation, note=pq.note, is_lab=is_lab,
         )
         Option.objects.bulk_create([
             Option(question=q, text=t, is_correct=c, order=i)

@@ -10,7 +10,7 @@ from .models import ImageTarget, Option, Question, QuestionBank, QuestionImage, 
 
 
 FORMAT = "grand-dozen-subject-backup"
-VERSION = 2
+VERSION = 3
 MAX_BACKUP_BYTES = 100 * 1024 * 1024
 
 
@@ -112,6 +112,7 @@ def export_backup():
                     "answer": question.answer,
                     "explanation": question.explanation,
                     "note": question.note,
+                    "is_lab": question.is_lab,
                     "image_asset_id": question.image_asset_id,
                     "image_answer_mode": question.image_answer_mode,
                     "image_targets": [
@@ -165,7 +166,7 @@ def validate_backup(raw):
     if (
         isinstance(payload.get("version"), bool)
         or not isinstance(payload.get("version"), int)
-        or payload.get("version") not in {1, VERSION}
+        or payload.get("version") not in {1, 2, VERSION}
     ):
         raise BackupError("This backup format version is not supported.")
     version = payload["version"]
@@ -301,6 +302,9 @@ def validate_backup(raw):
                 answer = _string(question.get("answer"), "Question answer")
                 explanation = _string(question.get("explanation"), "Question explanation")
                 note = _string(question.get("note"), "Question note")
+                is_lab = question.get("is_lab", False)
+                if not isinstance(is_lab, bool):
+                    raise BackupError(f"Question {question_id} has an invalid Labs flag.")
                 if kind not in valid_kinds:
                     raise BackupError(f"Question {question_id} has an unsupported type.")
                 if not isinstance(question.get("options"), list):
@@ -351,14 +355,15 @@ def validate_backup(raw):
                 question.update(
                     number=number, label=label, kind=kind, stem=stem, answer=answer,
                     explanation=explanation, note=note,
+                    is_lab=is_lab,
                     image_asset_id=image_asset_id,
                     image_answer_mode=image_answer_mode,
                     image_targets=image_targets,
                 )
                 if kind == Question.IMAGE and image_asset_id is None:
                     raise BackupError(f"Image question {question_id} is missing its image asset.")
-                if kind != Question.IMAGE and (image_asset_id is not None or image_targets):
-                    raise BackupError(f"Non-image question {question_id} contains image data.")
+                if kind != Question.IMAGE and image_targets:
+                    raise BackupError(f"Non-identification question {question_id} contains image targets.")
                 for option in question["options"]:
                     if not isinstance(option, dict):
                         raise BackupError("Each answer option must be an object.")
@@ -473,7 +478,8 @@ def import_backup(payload):
                     "label": question["label"],
                     "kind": question["kind"], "stem": question["stem"],
                     "answer": question["answer"], "explanation": question["explanation"],
-                    "note": question["note"], "image_asset_id": question["image_asset_id"],
+                    "note": question["note"], "is_lab": question["is_lab"],
+                    "image_asset_id": question["image_asset_id"],
                     "image_answer_mode": question["image_answer_mode"],
                 }
                 if _find_or_plan(
@@ -535,6 +541,7 @@ def import_backup(payload):
             kind=question["kind"], stem=question["stem"], answer=question["answer"],
             explanation=question["explanation"], note=question["note"],
             label=question["label"],
+            is_lab=question["is_lab"],
             image_asset_id=question["image_asset_id"],
             image_answer_mode=question["image_answer_mode"],
         )

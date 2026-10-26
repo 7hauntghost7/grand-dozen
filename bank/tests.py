@@ -71,7 +71,7 @@ class SubjectBackupTests(Base):
         descriptive = Question.objects.create(
             bank=deck, kind=Question.DESC, stem="Describe resting potential.",
             answer="A voltage difference at rest.", explanation="Explanation text.",
-            note="Source note.", label="U of K",
+            note="Source note.", label="U of K", is_lab=True,
         )
         second_subject = Subject.objects.create(name="Anatomy")
         second_deck = QuestionBank.objects.create(
@@ -108,6 +108,9 @@ class SubjectBackupTests(Base):
         self.assertEqual(
             next(q for q in deck_data["questions"] if q["stem"] == descriptive.stem)["label"],
             "U of K",
+        )
+        self.assertTrue(
+            next(q for q in deck_data["questions"] if q["stem"] == descriptive.stem)["is_lab"],
         )
         self.assertEqual(
             {question["kind"] for question in deck_data["questions"]},
@@ -210,7 +213,7 @@ class SubjectBackupTests(Base):
         )
         question = Question.objects.create(
             bank=deck, kind=Question.IMAGE, image_asset=image,
-            image_answer_mode=Question.IMAGE_IDENTIFY, stem="Identify the image.",
+            image_answer_mode=Question.IMAGE_IDENTIFY, stem="Identify the image.", is_lab=True,
         )
         target = ImageTarget.objects.create(
             question=question, label="A", answer="Test structure",
@@ -225,6 +228,7 @@ class SubjectBackupTests(Base):
         exported_question = exported_deck["questions"][0]
         self.assertEqual(exported_deck["section_id"], section.pk)
         self.assertEqual(exported_question["kind"], Question.IMAGE)
+        self.assertTrue(exported_question["is_lab"])
         self.assertEqual(exported_question["image_asset_id"], image.pk)
         self.assertEqual(exported_question["image_targets"][0]["id"], target.pk)
         subject_id, section_id, deck_id = subject.pk, section.pk, deck.pk
@@ -248,6 +252,7 @@ class SubjectBackupTests(Base):
         self.assertEqual(restored_subject.sections.get(pk=section_id).name, "Gross Anatomy")
         self.assertEqual(restored_deck.section_id, section_id)
         self.assertEqual(restored_question.image_asset_id, image_id)
+        self.assertTrue(restored_question.is_lab)
         restored_target = restored_question.image_targets.get(pk=target_id)
         self.assertEqual(restored_target.answer, "Test structure")
         self.assertEqual(float(restored_target.x_percent), 25)
@@ -783,6 +788,44 @@ class BrowseAndImportTests(Base):
         self.assertIn("LABEL: U of K", exported)
         self.assertIn("ANSWER: " + question.answer, exported)
 
+    def test_bulk_import_only_routes_to_labs_when_selected_and_keeps_categories_separate(self):
+        deck = self.import_sample()
+        self.client.force_login(self.editor)
+        response = self.client.post(reverse("bank:import"), {
+            "action": "commit", "text": SAMPLE, "subject": self.subject.pk,
+            "semester": 1, "deck_title": deck.title, "skip_dupes": "1",
+            "import_to_labs": "1",
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(deck.questions.filter(is_lab=True).count(), 2)
+
+        self.client.post(reverse("bank:import"), {
+            "action": "commit", "text": DESCRIPTIVE_SAMPLE, "subject": self.subject.pk,
+            "semester": 1, "deck_title": deck.title, "skip_dupes": "1",
+            "import_to_labs": "1",
+        })
+        self.assertTrue(deck.questions.get(kind=Question.DESC).is_lab)
+
+        self.client.force_login(self.student)
+        api_url = reverse("bank:api_questions", args=[deck.slug])
+        standard_mcq_tf = self.client.get(api_url, {"type": "mcq_tf"}).json()["questions"]
+        self.assertEqual(len(standard_mcq_tf), 2)
+        self.assertTrue(all(not question["is_lab"] for question in standard_mcq_tf))
+        lab_questions = self.client.get(api_url, {"type": "labs"}).json()["questions"]
+        self.assertEqual(
+            {question["kind"] for question in lab_questions},
+            {Question.MCQ, Question.TF, Question.DESC},
+        )
+        self.assertTrue(all(question["is_lab"] for question in lab_questions))
+
+        self.client.force_login(self.editor)
+        page = self.client.get(deck.get_absolute_url())
+        self.assertContains(page, "Labs")
+        self.assertContains(page, f"?type=labs")
+        self.assertContains(page, "Import questions to Labs")
+        quiz_page = self.client.get(reverse("bank:quiz", args=[deck.slug]), {"type": "labs"})
+        self.assertContains(quiz_page, f"data-question-type=\"labs\"")
+
     def test_deck_page_shows_separate_quiz_modes_and_counts(self):
         deck = self.import_sample()
         Question.objects.create(bank=deck, kind=Question.DESC, stem="Describe a membrane.", answer="A lipid bilayer.")
@@ -796,6 +839,22 @@ class BrowseAndImportTests(Base):
         self.assertContains(page, "value=\"descriptive\"")
         self.assertContains(page, '<strong data-count-all="1" data-count-uofk="0" data-count-other="1">1</strong> questions')
         self.assertContains(page, "Shuffle question order")
+
+    def test_labs_count_is_separate_from_regular_question_type_counts(self):
+        deck = self.import_sample()
+        Question.objects.create(
+            bank=deck, kind=Question.MCQ, stem="Lab-only MCQ.", is_lab=True,
+        )
+        self.client.force_login(self.editor)
+        page = self.client.get(deck.get_absolute_url())
+        self.assertContains(
+            page,
+            '<strong data-count-all="2" data-count-uofk="0" data-count-other="2">2</strong> questions',
+        )
+        self.assertContains(
+            page,
+            '<strong data-count-all="1" data-count-uofk="0" data-count-other="1">1</strong> questions',
+        )
 
 
 class QuizApiTests(Base):
@@ -1082,17 +1141,18 @@ class ImageQuestionTests(Base):
         Option.objects.create(question=mcq, text="Incorrect", is_correct=False, order=1)
         self.client.force_login(self.editor)
         page = self.client.get(self.deck.get_absolute_url())
-        self.assertContains(page, "Images")
-        self.assertContains(page, "2</strong> questions")
-        self.assertContains(page, "?type=image&amp;image_mode=identify")
-        self.assertContains(page, "?type=image&amp;image_mode=mcq")
+        self.assertContains(page, "Identify")
+        self.assertContains(page, "1</strong> identification questions")
+        self.assertContains(page, "?kind=mcq")
+        self.assertContains(page, "?kind=desc")
+        self.assertContains(page, "?kind=identify")
+        self.assertContains(page, "?type=image")
         self.assertContains(page, reverse("bank:image_question_upload", args=[self.deck.slug]))
 
         reviewer = User.objects.create_user("image-card-reviewer", "test-password", is_staff=True)
         self.client.force_login(reviewer)
         staff_page = self.client.get(self.deck.get_absolute_url())
-        self.assertContains(staff_page, "Review identification")
-        self.assertContains(staff_page, "Review MCQs")
+        self.assertContains(staff_page, "Review Identify")
 
     def test_image_question_has_dedicated_editor_and_review_edit_support(self):
         image = self.make_image()
@@ -1166,10 +1226,110 @@ class ImageQuestionTests(Base):
             ]),
             "add_another": "1",
         })
-        self.assertRedirects(second, add_url)
+        self.assertRedirects(second, f"{add_url}?kind=mcq")
         self.assertEqual(Question.objects.count(), 2)
-        self.assertEqual(Question.objects.get(stem="Which structure is shown?").image_asset, image)
+        mcq = Question.objects.get(stem="Which structure is shown?")
+        self.assertEqual(mcq.kind, Question.MCQ)
+        self.assertEqual(mcq.image_asset, image)
         self.assertEqual(image.questions.count(), 2)
+
+    def test_lab_destination_survives_image_upload_and_question_creation(self):
+        self.client.force_login(self.editor)
+        upload_url = reverse("bank:image_question_upload", args=[self.deck.slug])
+        with patch("bank.views.upload_question_image", return_value={
+            "public_id": "supabase:lab-diagram.png",
+            "secure_url": "https://example.supabase.co/lab-diagram.png",
+            "width": 800,
+            "height": 600,
+        }):
+            upload_response = self.client.post(upload_url, {
+                "image": self.image_file(), "kind": "identify", "is_lab": "1",
+            })
+        image = QuestionImage.objects.get()
+        add_url = reverse("bank:image_question_add", args=[self.deck.slug, image.pk]) + "?is_lab=1"
+        self.assertRedirects(upload_response, add_url)
+        self.assertContains(self.client.get(add_url), 'name="is_lab"')
+        self.assertContains(self.client.get(add_url), "checked")
+
+        response = self.client.post(add_url, {
+            "is_lab": "on",
+            "answer_mode": Question.IMAGE_IDENTIFY,
+            "stem": "Identify the lab structure.",
+            "targets_json": json.dumps([{"label": "A", "answer": "Lab structure"}]),
+            "options_json": "[]",
+        })
+        self.assertEqual(response.status_code, 302)
+        question = Question.objects.get()
+        self.assertTrue(question.is_lab)
+        self.assertEqual(question.image_asset, image)
+
+    def test_image_questions_are_created_in_their_selected_quiz_categories(self):
+        image = self.make_image()
+        self.client.force_login(self.editor)
+        add_url = reverse("bank:image_question_add", args=[self.deck.slug, image.pk])
+
+        response = self.client.post(add_url, {
+            "answer_mode": Question.MCQ,
+            "stem": "Which structure is shown?",
+            "targets_json": "[]",
+            "options_json": json.dumps([
+                {"text": "Correct", "is_correct": True},
+                {"text": "Incorrect", "is_correct": False},
+            ]),
+        })
+        self.assertEqual(response.status_code, 302)
+        mcq = Question.objects.get()
+        self.assertEqual(mcq.kind, Question.MCQ)
+        self.assertEqual(mcq.image_asset, image)
+
+        response = self.client.post(add_url, {
+            "answer_mode": Question.TF,
+            "stem": "This structure is present.",
+            "targets_json": "[]",
+            "options_json": json.dumps([
+                {"text": "Statement", "is_correct": True},
+            ]),
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(Question.objects.filter(kind=Question.TF, image_asset=image).exists())
+
+        response = self.client.post(add_url, {
+            "answer_mode": Question.DESC,
+            "stem": "Describe the image.",
+            "answer": "The answer is shown here.",
+            "targets_json": "[]",
+            "options_json": "[]",
+        })
+        self.assertEqual(response.status_code, 302)
+        descriptive = Question.objects.get(kind=Question.DESC)
+        self.assertEqual(descriptive.answer, "The answer is shown here.")
+        self.assertEqual(descriptive.image_asset, image)
+
+        lab_add_url = f"{add_url}?kind=identify&is_lab=1"
+        lab_page = self.client.get(lab_add_url)
+        self.assertContains(lab_page, "Import this question to Labs")
+        response = self.client.post(lab_add_url, {
+            "answer_mode": Question.IMAGE_IDENTIFY,
+            "is_lab": "on",
+            "stem": "Identify the lab image.",
+            "targets_json": json.dumps([{"label": "A", "answer": "Lab target"}]),
+            "options_json": "[]",
+        })
+        self.assertEqual(response.status_code, 302)
+        lab_image_question = Question.objects.get(stem="Identify the lab image.")
+        self.assertTrue(lab_image_question.is_lab)
+
+        self.client.force_login(self.student)
+        api_url = reverse("bank:api_questions", args=[self.deck.slug])
+        mcq_tf = self.client.get(api_url, {"type": "mcq_tf"}).json()["questions"]
+        self.assertEqual({question["kind"] for question in mcq_tf}, {Question.MCQ, Question.TF})
+        self.assertTrue(all(question["image_url"] == image.secure_url for question in mcq_tf))
+        descriptive_api = self.client.get(api_url, {"type": "descriptive"}).json()["questions"]
+        self.assertEqual([question["id"] for question in descriptive_api], [descriptive.pk])
+        self.assertEqual(descriptive_api[0]["image_url"], image.secure_url)
+        self.assertEqual(descriptive_api[0]["answer"], "The answer is shown here.")
+        lab_api = self.client.get(api_url, {"type": "labs"}).json()["questions"]
+        self.assertEqual([question["id"] for question in lab_api], [lab_image_question.pk])
 
     def test_debug_upload_saves_locally_and_removes_file_after_last_question(self):
         self.client.force_login(self.editor)
@@ -1255,25 +1415,20 @@ class ImageQuestionTests(Base):
         self.client.force_login(self.student)
         api_url = reverse("bank:api_questions", args=[self.deck.slug])
 
-        all_questions = self.client.get(api_url, {"type": "image"}).json()["questions"]
-        self.assertEqual({question["id"] for question in all_questions}, {identification.pk, mcq.pk})
-        practice_identification = next(question for question in all_questions if question["id"] == identification.pk)
+        identify_questions = self.client.get(api_url, {"type": "image"}).json()["questions"]
+        self.assertEqual([question["id"] for question in identify_questions], [identification.pk])
+        practice_identification = identify_questions[0]
         self.assertEqual(practice_identification["targets"][0]["answer"], target.answer)
-        practice_mcq = next(question for question in all_questions if question["id"] == mcq.pk)
-        self.assertEqual(practice_mcq["correct_ids"], [mcq.options.get(is_correct=True).pk])
-        self.assertEqual(all_questions[0]["image_url"], image.secure_url)
+        self.assertEqual(identify_questions[0]["image_url"], image.secure_url)
         self.assertEqual(
-            (all_questions[0]["image_width"], all_questions[0]["image_height"]),
+            (identify_questions[0]["image_width"], identify_questions[0]["image_height"]),
             (image.width, image.height),
         )
-        identify_questions = self.client.get(
-            api_url, {"type": "image", "image_mode": Question.IMAGE_IDENTIFY},
-        ).json()["questions"]
-        self.assertEqual([question["id"] for question in identify_questions], [identification.pk])
-        mcq_questions = self.client.get(
-            api_url, {"type": "image", "image_mode": Question.IMAGE_MCQ},
-        ).json()["questions"]
+        mcq_questions = self.client.get(api_url, {"type": "mcq_tf"}).json()["questions"]
         self.assertEqual([question["id"] for question in mcq_questions], [mcq.pk])
+        practice_mcq = mcq_questions[0]
+        self.assertEqual(practice_mcq["kind"], Question.MCQ)
+        self.assertEqual(practice_mcq["correct_ids"], [mcq.options.get(is_correct=True).pk])
 
         reveal_url = reverse("bank:api_image_target", args=[identification.pk, target.pk])
         revealed = self.post_json(reveal_url, {"action": "reveal"})
@@ -1315,6 +1470,17 @@ class ImageQuestionTests(Base):
             text = self.client.get(reverse(f"bank:{name}")).content.decode()
             self.assertNotIn(question.stem, text)
             self.assertIn("Image-dependent questions are not included", text)
+
+    def test_text_export_warns_when_attached_images_are_omitted(self):
+        image = self.make_image()
+        question = Question.objects.create(
+            bank=self.deck, kind=Question.DESC, image_asset=image,
+            stem="Describe this image.", answer="An example image.",
+        )
+        self.client.force_login(self.student)
+        response = self.client.get(reverse("bank:export", args=[self.deck.slug]))
+        self.assertContains(response, "Attached image files are not included in this text export.")
+        self.assertContains(response, question.stem)
 
     def test_shared_image_is_deleted_only_after_last_question(self):
         image = self.make_image()

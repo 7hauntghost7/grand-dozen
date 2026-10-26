@@ -39,6 +39,66 @@ class ParserTests(unittest.TestCase):
         self.assertEqual((restored.kind, restored.stem, restored.answer_raw),
                          (DESC, question.stem, question.answer_raw))
 
+    def test_redundant_question_number_is_removed_only_when_it_matches_no(self):
+        matching = parse("Q: Q1 Name the two submucosal glands?\nNO: 1\nTYPE: DESC\nANSWER: Esophagus and duodenum\n").questions[0]
+        mismatched = parse("Q: Q1 receptor is activated by the ligand.\nNO: 2\nTYPE: DESC\nANSWER: True\n").questions[0]
+        self.assertEqual(matching.stem, "Name the two submucosal glands?")
+        self.assertEqual(mismatched.stem, "Q1 receptor is activated by the ligand.")
+
+    def test_inline_answer_explanation_is_parsed_as_separate_fields(self):
+        question = parse(
+            "Q: Name two parts of the GIT with submucosal glands?\n"
+            "NO: 2\nTYPE: DESC\n"
+            "ANSWER: Esophagus and duodenum Explanation: These contain the esophageal glands and Brunner's glands.\n"
+        ).questions[0]
+        self.assertEqual(question.answer_raw, "Esophagus and duodenum")
+        self.assertEqual(question.explanation, "These contain the esophageal glands and Brunner's glands.")
+
+    def test_inline_question_choices_are_extracted_and_classified(self):
+        question = parse(
+            "Q: Which artery supplies the lateral leg compartment? A- Anterior tibial "
+            "B- Posterior tibial C- Dorsalis pedis D- Fibular (or peroneal)\n"
+            "NO: 5\nLABEL: U of K\nTYPE: DESC\n"
+            "ANSWER: D- Fibular (or peroneal)\n"
+        ).questions[0]
+        self.assertTrue(question.ok, question.errors)
+        self.assertEqual(question.kind, MCQ)
+        self.assertEqual(question.stem, "Which artery supplies the lateral leg compartment?")
+        self.assertEqual(question.options, [
+            "Anterior tibial", "Posterior tibial", "Dorsalis pedis", "Fibular (or peroneal)",
+        ])
+        self.assertEqual(question.correct, [False, False, False, True])
+        self.assertEqual(question.label, "U of K")
+
+    def test_inline_true_false_statements_are_extracted(self):
+        question = parse(
+            "Q: For each statement, mark whether it is true: A. Hallux has 3 phalanges "
+            "B. Talus is largest bone\nTYPE: DESC\nANSWER: Neither (both false)\n"
+        ).questions[0]
+        self.assertTrue(question.ok, question.errors)
+        self.assertEqual(question.kind, TF)
+        self.assertEqual(question.options, ["Hallux has 3 phalanges", "Talus is largest bone"])
+        self.assertEqual(question.correct, [False, False])
+
+    def test_inline_choice_marker_does_not_split_hyphenated_choice_text(self):
+        question = parse(
+            "Q: Which statement is correct? A- The lateral meniscus is C-shaped and mobile "
+            "B- The medial meniscus is more mobile\nANSWER: A- The lateral meniscus is C-shaped and mobile\n"
+        ).questions[0]
+        self.assertTrue(question.ok, question.errors)
+        self.assertEqual(question.options[0], "The lateral meniscus is C-shaped and mobile")
+        self.assertEqual(question.correct, [True, False])
+
+    def test_inline_answer_can_mark_multiple_choices(self):
+        question = parse(
+            "Q: Which are true? A- First statement B- Second statement C- Third statement\n"
+            "TYPE: DESC\nANSWER: A, C are True (first and third)\n"
+        ).questions[0]
+        self.assertTrue(question.ok, question.errors)
+        self.assertEqual(question.kind, MCQ)
+        self.assertEqual(question.correct, [True, False, True])
+        self.assertEqual(question.answer_raw, "A, C")
+
     def test_basic_mcq_and_tf(self):
         r = parse(GOOD)
         self.assertEqual(r.bank_title, "Demo")

@@ -44,6 +44,10 @@
   {% if section_error %}<div class="fb error">{{ section_error }}</div>{% endif %}
   <p class="mute" style="margin:4px 0 0">Typing the title of an existing deck adds to it; a new title creates a new deck.
   You can also start the pasted text with <code>SUBJECT:</code> / <code>SECTION:</code> / <code>SEMESTER:</code> / <code>DECK:</code> lines to fill these in.</p>
+  <p class="row" style="justify-content:flex-start">
+    <label><input type="checkbox" name="import_to_labs" value="1" {% if import_to_labs %}checked{% endif %}>
+      Import these questions to Labs <span class="mute">(otherwise they go to the regular question-type tabs)</span></label>
+  </p>
   <p><textarea name="text" rows="16" placeholder="Q: …&#10;A. …&#10;B. …&#10;ANSWER: B">{{ text }}</textarea></p>
   <p class="row" style="justify-content:flex-start">
     <label>or upload .txt <input type="file" name="file" accept=".txt,text/plain"></label>
@@ -60,9 +64,9 @@
 <div class="card" style="margin-top:12px">
   <h3 style="margin-top:0">Preview</h3>
   {% if deck_exists %}
-    <div class="fb info">Will add to the existing deck <b>{{ deck_exists.path }}</b>.</div>
+    <div class="fb info">Will add to {% if import_to_labs %}<b>Labs</b> in {% endif %}the existing deck <b>{{ deck_exists.path }}</b>.</div>
   {% elif subject_id and semester and deck_title %}
-    <div class="fb info">Will create a new deck <b>{{ deck_title }}</b>{% if selected_section %} under {{ selected_section.name }}{% endif %} (Semester {{ semester }}).</div>
+    <div class="fb info">Will create a new deck <b>{{ deck_title }}</b>{% if selected_section %} under {{ selected_section.name }}{% endif %} (Semester {{ semester }}){% if import_to_labs %} and add the questions to Labs{% endif %}.</div>
   {% else %}
     <div class="fb error">Choose a subject, semester and deck title before importing.</div>
   {% endif %}

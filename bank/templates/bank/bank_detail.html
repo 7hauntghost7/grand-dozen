@@ -44,6 +44,7 @@
         <label><input type="radio" name="type" value="mcq_tf" checked> MCQs &amp; True / False</label>
         <label><input type="radio" name="type" value="descriptive"> Descriptive</label>
         <label><input type="radio" name="type" value="image"> Images</label>
+        <label><input type="radio" name="type" value="labs"> Labs</label>
       </div>
       <div class="study-choices">
         <div class="study-choice study-choice-quiz">
@@ -53,6 +54,7 @@
           <span class="study-choice-bottom"><span class="study-choice-count"><strong data-count-all="{{ mcq_tf_count }}" data-count-uofk="{{ uofk_mcq_tf_count }}" data-count-other="{{ other_mcq_tf_count }}">{{ mcq_tf_count }}</strong> questions</span>
             <span class="study-choice-actions">
               <span class="study-choice-start-label">{% if mcq_tf_count %}Start MCQs &amp; True / False <span aria-hidden="true">→</span>{% else %}No questions yet{% endif %}</span>
+              {% if perms.bank.add_question %}<a class="study-choice-review" href="{% url 'bank:image_question_upload' bank.slug %}?kind=mcq">Add image question</a>{% endif %}
               {% if user.is_staff %}<a class="study-choice-review" href="{% url 'bank:review_deck' bank.slug %}?type=mcq_tf">Review &amp; edit</a>{% endif %}
             </span>
           </span>
@@ -64,6 +66,7 @@
           <span class="study-choice-bottom"><span class="study-choice-count"><strong data-count-all="{{ descriptive_count }}" data-count-uofk="{{ uofk_descriptive_count }}" data-count-other="{{ other_descriptive_count }}">{{ descriptive_count }}</strong> questions</span>
             <span class="study-choice-actions">
               <span class="study-choice-start-label">{% if descriptive_count %}Start Descriptive <span aria-hidden="true">→</span>{% else %}No questions yet{% endif %}</span>
+              {% if perms.bank.add_question %}<a class="study-choice-review" href="{% url 'bank:image_question_upload' bank.slug %}?kind=desc">Add image question</a>{% endif %}
               {% if user.is_staff %}<a class="study-choice-review" href="{% url 'bank:review_deck' bank.slug %}?type=descriptive">Review &amp; edit</a>{% endif %}
             </span>
           </span>
@@ -71,21 +74,33 @@
         <div class="study-choice study-choice-image">
           {% if image_count %}<a class="study-choice-primary" data-count-all="{{ image_count }}" data-count-uofk="{{ uofk_image_count }}" data-count-other="{{ other_image_count }}" href="{% url 'bank:quiz' bank.slug %}?type=image" aria-label="Start all image questions"></a>{% endif %}
           <span class="study-choice-top"><span>03 <i>/ QUESTION TYPE</i></span><span class="study-choice-arrow" aria-hidden="true">↗</span></span>
-          <span class="study-choice-main"><strong>Images</strong><span>Image identification and image-based multiple-choice questions.</span></span>
-          <span class="study-choice-bottom"><span class="study-choice-count"><strong data-count-all="{{ image_count }}" data-count-uofk="{{ uofk_image_count }}" data-count-other="{{ other_image_count }}">{{ image_count }}</strong> questions · <span data-count-all="{{ image_identify_count }}" data-count-uofk="{{ uofk_image_identify_count }}" data-count-other="{{ other_image_identify_count }}">{{ image_identify_count }}</span> identify · <span data-count-all="{{ image_mcq_count }}" data-count-uofk="{{ uofk_image_mcq_count }}" data-count-other="{{ other_image_mcq_count }}">{{ image_mcq_count }}</span> MCQ</span>
+          <span class="study-choice-main"><strong>Identify</strong><span>Questions that ask you to identify labelled structures in an image.</span></span>
+          <span class="study-choice-bottom"><span class="study-choice-count"><strong data-count-all="{{ image_count }}" data-count-uofk="{{ uofk_image_count }}" data-count-other="{{ other_image_count }}">{{ image_count }}</strong> identification questions</span>
             <span class="study-choice-actions">
               <span class="image-quiz-links">
-                <a data-count-all="{{ image_count }}" data-count-uofk="{{ uofk_image_count }}" data-count-other="{{ other_image_count }}" href="{% url 'bank:quiz' bank.slug %}?type=image">Start all</a>
-                {% if image_identify_count %}<a data-count-all="{{ image_identify_count }}" data-count-uofk="{{ uofk_image_identify_count }}" data-count-other="{{ other_image_identify_count }}" href="{% url 'bank:quiz' bank.slug %}?type=image&amp;image_mode=identify">Identification</a>{% endif %}
-                {% if image_mcq_count %}<a data-count-all="{{ image_mcq_count }}" data-count-uofk="{{ uofk_image_mcq_count }}" data-count-other="{{ other_image_mcq_count }}" href="{% url 'bank:quiz' bank.slug %}?type=image&amp;image_mode=mcq">Image MCQs</a>{% endif %}
+                {% if image_count %}<a data-count-all="{{ image_count }}" data-count-uofk="{{ uofk_image_count }}" data-count-other="{{ other_image_count }}" href="{% url 'bank:quiz' bank.slug %}?type=image">Start Identify</a>{% endif %}
+                {% if perms.bank.add_question %}<a href="{% url 'bank:image_question_upload' bank.slug %}?kind=identify">Add image question</a>{% endif %}
               </span>
               {% if user.is_staff %}
                 <span class="image-review-links">
-                  <a href="{% url 'bank:review_deck' bank.slug %}?type=image">Review all</a>
-                  {% if image_identify_count %}<a href="{% url 'bank:review_deck' bank.slug %}?type=image&amp;image_mode=identify">Review identification</a>{% endif %}
-                  {% if image_mcq_count %}<a href="{% url 'bank:review_deck' bank.slug %}?type=image&amp;image_mode=mcq">Review MCQs</a>{% endif %}
+                  <a href="{% url 'bank:review_deck' bank.slug %}?type=image">Review Identify</a>
                 </span>
               {% endif %}
+            </span>
+          </span>
+        </div>
+        <div class="study-choice study-choice-labs">
+          {% if lab_count %}<a class="study-choice-primary" data-count-all="{{ lab_count }}" data-count-uofk="{{ uofk_lab_count }}" data-count-other="{{ other_lab_count }}" href="{% url 'bank:quiz' bank.slug %}?type=labs" aria-label="Start Labs mixed-format quiz"></a>{% endif %}
+          <span class="study-choice-top"><span>04 <i>/ QUESTION TYPE</i></span><span class="study-choice-arrow" aria-hidden="true">↗</span></span>
+          <span class="study-choice-main"><strong>Labs</strong><span>Mixed practice: MCQs, True / False, descriptive, and image questions.</span></span>
+          <span class="study-choice-bottom"><span class="study-choice-count"><strong data-count-all="{{ lab_count }}" data-count-uofk="{{ uofk_lab_count }}" data-count-other="{{ other_lab_count }}">{{ lab_count }}</strong> questions</span>
+            <span class="study-choice-actions">
+              <span class="study-choice-start-label">{% if lab_count %}Start Labs <span aria-hidden="true">→</span>{% else %}No questions yet{% endif %}</span>
+              <span class="image-quiz-links">
+                {% if perms.bank.add_question %}<a href="{% url 'bank:import' %}?subject={{ bank.subject_id|default_if_none:"" }}&semester={{ bank.semester }}&deck_title={{ bank.title|urlencode }}&import_to_labs=1">Import questions to Labs</a>{% endif %}
+                {% if perms.bank.add_question %}<a href="{% url 'bank:image_question_upload' bank.slug %}?kind=identify&is_lab=1">Add image question to Labs</a>{% endif %}
+              </span>
+              {% if user.is_staff %}<span class="image-review-links"><a href="{% url 'bank:review_deck' bank.slug %}?type=labs">Review &amp; edit Labs</a></span>{% endif %}
             </span>
           </span>
         </div>
@@ -99,7 +114,6 @@
     <a href="{% url 'bank:export' bank.slug %}">Download deck</a>
     {% if perms.bank.change_question %}<a href="{% url 'bank:manage_deck' bank.slug %}">Manage questions</a>{% endif %}
     {% if perms.bank.add_question %}<a href="{% url 'bank:import' %}?subject={{ bank.subject_id|default_if_none:"" }}&semester={{ bank.semester }}&deck_title={{ bank.title|urlencode }}">Add questions</a>{% endif %}
-    {% if perms.bank.add_question %}<a href="{% url 'bank:image_question_upload' bank.slug %}">Add image question</a>{% endif %}
   </footer>
 </main>
 {% endblock %}
@@ -109,7 +123,7 @@
   const source = document.querySelector("#study-label-filter");
   const shuffle = document.querySelector('#study-form [name="shuffle"]');
   if (!source || !shuffle) return;
-  const links = document.querySelectorAll(".study-choice-primary, .image-quiz-links a");
+  const links = document.querySelectorAll(".study-choice-primary, .image-quiz-links a[data-count-all]");
   const total = document.querySelector(".study-total");
   const countKey = mode => `count${mode === "all" ? "All" : mode === "uofk" ? "Uofk" : "Other"}`;
   function updateOptions() {
