@@ -1,0 +1,48 @@
+{% extends "bank/base.html" %}
+{% load static %}
+{% block title %}{{ attempt.title }} · Mock exam{% endblock %}
+{% block content %}
+<main class="exam-page">
+  <div id="exam-runner"
+       data-api="{{ api_url }}"
+       data-answer="{{ answer_url }}"
+       data-submit="{{ submit_url }}"
+       data-share="{{ share_url }}"
+       data-save-template="{{ save_template_url }}"
+       data-delete-attempt="{{ delete_attempt_url }}"
+       data-practice-again="{{ practice_again_url }}"
+       data-back="{{ back_url }}">
+    {% csrf_token %}
+    <div class="row quiz-meta exam-runner-meta">
+      <a class="btn quiz-back-link" href="{{ back_url }}">← Back</a>
+      <span class="quiz-meta-copy"><span id="exam-stage-title" class="quiz-meta-title">{{ attempt.title }}</span>
+        <span id="exam-answered" class="quiz-meta-stats">Loading exam…</span></span>
+      <span id="exam-clock" class="exam-clock" aria-live="polite"></span>
+    </div>
+    <section id="exam-assessment-heading" class="exam-assessment-heading" hidden>
+      <div class="exam-assessment-heading-copy">
+        <span class="exam-assessment-kicker">THE LAST STEP</span>
+        <h1>Time to assess yourself</h1>
+        <p>Compare your response with the suggested answer, then choose honestly. This is just for you.</p>
+      </div>
+      <div class="exam-assessment-counter" aria-live="polite">
+        <strong id="exam-assessment-remaining">—</strong>
+        <span>left to assess</span>
+      </div>
+    </section>
+    <div id="exam-status" class="mute exam-status" role="status">Loading your exam…</div>
+    <div class="bar quiz-progress exam-progress"><i id="exam-progress-bar"></i></div>
+    <div class="nav-wrap quiz-navigation"><div id="exam-navigation" class="nav" aria-label="Question navigation"></div></div>
+    <section id="exam-question" class="card quiz-question exam-question" aria-live="polite"></section>
+    <div class="ctl quiz-controls exam-controls">
+      <button id="exam-previous" type="button">← Previous</button>
+      <span id="exam-position" class="mute"></span>
+      <button id="exam-next" type="button">Next →</button>
+    </div>
+    <div class="exam-submit-row">
+      <button id="exam-submit" class="btn pri" type="button">Submit exam</button>
+    </div>
+  </div>
+</main>
+{% endblock %}
+{% block scripts %}<script src="{% static 'bank/exam.js' %}?v=20261028-26"></script>{% endblock %}

@@ -3,6 +3,16 @@
 {% block content %}
 <p class="crumbs"><a href="{% url 'bank:home' %}">Subjects</a> › {{ subject.name }}</p>
 <h2 class="pagetitle">{{ subject.name }}</h2>
+{% if decks %}
+<section class="card exam-entry">
+  <div>
+    <p class="study-context">SELF-STUDY MODE</p>
+    <h3>Subject mock exam</h3>
+    <p class="mute">Choose chapters, set their shares, and apply one question-type mix across each chapter.</p>
+  </div>
+  <a class="btn pri" href="{% url 'bank:subject_exams' subject.slug %}">Set up an exam <span aria-hidden="true">→</span></a>
+</section>
+{% endif %}
 {% if sections %}
   <div class="blocks section-blocks">
     {% for section in sections %}

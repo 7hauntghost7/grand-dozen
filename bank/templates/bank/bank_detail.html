@@ -21,6 +21,15 @@
     </div>
   </header>
 
+  <section class="card exam-entry">
+    <div>
+      <p class="study-context">SELF-STUDY MODE</p>
+      <h3>Mock exam</h3>
+      <p class="mute">Build a mixed exam for this deck. Answers stay hidden until you submit.</p>
+    </div>
+    <a class="btn pri" href="{% url 'bank:deck_exams' bank.slug %}">Set up an exam <span aria-hidden="true">→</span></a>
+  </section>
+
   <section class="study-sessions" aria-labelledby="study-sessions-title">
     <div class="study-section-heading">
       <div>

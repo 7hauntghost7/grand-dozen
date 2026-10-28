@@ -38,7 +38,7 @@
 <link rel="manifest" href="{% url 'bank:manifest' %}">
 <link rel="icon" type="image/svg+xml" href="{% static 'bank/icons/app-101.svg' %}">
 <link rel="apple-touch-icon" href="{% static 'bank/icons/app-101-192.png' %}">
-<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20261028-2">
+<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20261028-17">
 </head>
 <body class="{% block body_class %}{% endblock %}">
 <div class="wrap {% block wrap_class %}{% endblock %}">
@@ -186,6 +186,22 @@
     });
   })();
 </script>
+{% if active_exam_resume %}
+<div id="active-exam-resume-context" hidden
+     data-id="{{ active_exam_resume.id }}"
+     data-title="{{ active_exam_resume.title }}"
+     data-url="{{ active_exam_resume.url }}"
+     data-updated-at="{{ active_exam_resume.started_at }}"></div>
+{% endif %}
+<aside id="resume-activity" class="resume-activity" aria-label="Active quiz" hidden>
+  <div class="resume-activity-copy">
+    <strong id="resume-activity-title"></strong>
+    <span id="resume-activity-subtitle"></span>
+  </div>
+  <a id="resume-activity-return" class="btn pri" href="#">Go back to quiz</a>
+  <button id="resume-activity-exit" class="btn" type="button">Exit quiz</button>
+</aside>
 {% block scripts %}{% endblock %}
+<script src="{% static 'bank/resume_activity.js' %}?v=2"></script>
 </body>
 </html>

@@ -6,6 +6,7 @@
   const D = root.dataset;
   const QUESTION_TYPE = D.questionType;
   const KEY = "gd:" + D.key;
+  const ACTIVE_KEY = "gd:activeQuiz";
   const AI_SETTINGS_KEY = `gd:settings:${D.userId}`;
   const AUTH = D.auth === "1";
   const BLOCK_SIZE = 50;
@@ -30,6 +31,28 @@
   if (!Array.isArray(S.retry)) S.retry = null;
   if (!Array.isArray(S.removed)) S.removed = [];
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+  const updateResumeActivity = () => {
+    try {
+      const active = JSON.parse(localStorage.getItem(ACTIVE_KEY) || "null");
+      if (review || view !== "quiz" || !list.length) {
+        if (active?.key === KEY) {
+          localStorage.removeItem(ACTIVE_KEY);
+          window.dispatchEvent(new Event("gd:resume-activity-change"));
+        }
+        return;
+      }
+      localStorage.setItem(ACTIVE_KEY, JSON.stringify({
+        key: KEY,
+        title: D.title,
+        url: location.pathname + location.search + location.hash,
+        back: D.back,
+        updatedAt: Date.now(),
+      }));
+      window.dispatchEvent(new Event("gd:resume-activity-change"));
+    } catch (error) {
+      console.warn("Unable to update the active quiz reminder.", error);
+    }
+  };
 
   let Q = [], byId = {}, list = [], pos = 0, view = "quiz", busy = false, navOpen = false, blockNavOpen = false;
   let resultBlock = 0, showUnanswered = false, retryMode = false;
@@ -203,6 +226,7 @@
       const ta = root.querySelector("textarea.cmt");
       if (ta) ta.addEventListener("input", e => { (cm[list[pos]] || (cm[list[pos]] = {})).text = e.target.value; });
     }
+    updateResumeActivity();
   }
 
   function scrollToCurrentQuestion() {

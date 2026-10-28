@@ -11,6 +11,7 @@ Home: big subject blocks
 
 * **Subjects → optional sub-subjects → semesters → decks.** Anatomy starts with ordered Embryology, Histology, and Gross Anatomy sections; any subject can use its own sections. A subject without sections keeps the existing semester-to-deck layout. A deck is a lesson.
 * **Quizzes** with instant feedback, explanations, progress saving, shuffle, retry-missed. Correct answers are checked **server-side**.
+* **Mock exams** – logged-in users can save and edit deck-level or subject-level templates with a question count, shared question-type mix, and optional timer. Subject templates select chapters, assign each a percentage of the exam, and use a semester filter only to find chapters. Questions are randomized within each type and presented in type groups; answers stay hidden until submission. MCQ/true-false are scored automatically; descriptive and Identify answers are revealed for self-assessment. Users can save a completed exam's exact question set as an unanswered template, delete attempts, or create a revocable link for another user to take an independent attempt.
 * **★ Saved questions** – logged-in users can save any question. The **Saved** section mirrors the same layout (subject blocks → semester bands → decks) and lets you practise just the saved questions.
 * **💬 Comments** – logged-in users can send a private comment about a question. Editors get a **Comments inbox** (with an open-count badge in the nav), jump straight to the question's edit page, and can resolve comments.
 * **Editor pages** (not the Django admin) – manage a deck's questions, edit or add a question, delete it.
@@ -135,12 +136,12 @@ Rules: each question starts with `Q:`; MCQ/TF options are `A.`–`H.` in order; 
 
 ```
 config/                  settings, urls
-bank/models.py           Subject → SubjectSection → QuestionBank (deck) → Question → Option
+bank/models.py           Subject → SubjectSection → QuestionBank (deck) → Question → Option, exam templates and attempts
 bank/parser.py           plain-text format <-> Python (no Django imports; has its own tests)
 bank/views.py            pages, JSON API, editor pages, import, signup
 bank/forms.py            question editor form + option formset, signup form
-bank/static/bank/        quiz.js, style.css
-bank/templates/bank/     home, subject_detail, section_detail, bank_detail (deck), quiz, saved_*, manage_deck,
+bank/static/bank/        quiz.js, exam.js, style.css
+bank/templates/bank/     home, subject_detail, section_detail, bank_detail (deck), quiz, exam, saved_*, manage_deck,
                          question_edit, comments, import, login, signup
 bank/management/         import_questions, export_bank, seed_subjects
 data/*.txt               244 seed questions
@@ -157,4 +158,4 @@ python manage.py test                   # everything
 Set `DJANGO_SECRET_KEY`, `DATABASE_URL`, `DJANGO_DEBUG=0`, `DJANGO_ALLOWED_HOSTS=yourdomain`, `DJANGO_CSRF_ORIGINS=https://yourdomain`; run `migrate` and `collectstatic`; serve with gunicorn behind nginx (or WhiteNoise / a PaaS). The PWA manifest and root-scoped service worker require HTTPS in production. Consider email verification or a CAPTCHA on sign-up if the site is public, since anyone can register and comment.
 
 ## Ideas for next steps
-Attempt history and weak-deck stats per user · spaced repetition on saved questions · timed exam mode · images in questions · comment notifications by email · a public "report this question" count shown to editors.
+Semester- and subject-level mock exams · attempt history and weak-deck stats per user · spaced repetition on saved questions · comment notifications by email · a public "report this question" count shown to editors.

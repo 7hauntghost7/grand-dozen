@@ -1,5 +1,9 @@
 import json
+import math
+import random
+import uuid
 from functools import wraps
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib import messages
@@ -7,7 +11,7 @@ from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView, redirect_to_login
 from django.contrib.admin.views.decorators import staff_member_required
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.core.cache import cache
 from django.contrib.sessions.models import Session
@@ -20,13 +24,16 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
 from . import parser, services
-from .forms import ImageQuestionForm, ImageUploadForm, QuestionForm, option_formset
+from .forms import (
+    ExamTemplateForm, ImageQuestionForm, ImageUploadForm, QuestionForm, option_formset,
+)
 from .image_storage import (
     ImageStorageError, delete_question_image, image_uploads_enabled, upload_question_image,
 )
 from .models import (
     Comment, ImageTarget, Option, Question, QuestionBank, QuestionImage,
-    SavedQuestion, Subject, SubjectSection, SEMESTER_CHOICES,
+    ExamAttempt, ExamTemplate, ExamTemplateChapter, SavedQuestion, Subject, SubjectSection,
+    SEMESTER_CHOICES,
 )
 from .subject_backup import BackupError, MAX_BACKUP_BYTES, encode_backup, restore_backup
 
@@ -292,6 +299,943 @@ def _quiz_context(request, **kw):
     ctx = {"shuffle": "1" if request.GET.get("shuffle") else "0"}
     ctx.update(kw)
     return ctx
+
+
+EXAM_FORMATS = ("mcq", "tf", "descriptive", "identify")
+
+
+def _exam_questions(bank=None):
+    questions = Question.objects.filter(
+        is_in_sorting_bin=False, is_in_review_bin=False,
+    )
+    return questions.filter(bank=bank) if bank else questions
+
+
+def _exam_format_query(question_format):
+    if question_format == "mcq":
+        return Q(kind=Question.MCQ) | Q(kind=Question.IMAGE, image_answer_mode=Question.IMAGE_MCQ)
+    if question_format == "tf":
+        return Q(kind=Question.TF) | Q(kind=Question.IMAGE, image_answer_mode=Question.TF)
+    if question_format == "descriptive":
+        return Q(kind=Question.DESC) | Q(kind=Question.IMAGE, image_answer_mode=Question.DESC)
+    return Q(
+        kind=Question.IMAGE,
+        image_answer_mode=Question.IMAGE_IDENTIFY,
+        image_targets__isnull=False,
+    )
+
+
+def _exam_question_counts(bank):
+    return _exam_question_counts_by_bank([bank]).get(
+        bank.pk, {question_format: 0 for question_format in EXAM_FORMATS},
+    )
+
+
+def _exam_question_counts_by_bank(banks):
+    banks = list(banks)
+    counts = {
+        bank.pk: {question_format: 0 for question_format in EXAM_FORMATS}
+        for bank in banks
+    }
+    if not banks:
+        return counts
+    annotations = {
+        question_format: Count(
+            "pk", filter=_exam_format_query(question_format), distinct=True,
+        )
+        for question_format in EXAM_FORMATS
+    }
+    for row in _exam_questions().filter(bank__in=banks).values("bank_id").annotate(**annotations):
+        counts[row["bank_id"]] = {
+            question_format: row[question_format]
+            for question_format in EXAM_FORMATS
+        }
+    return counts
+
+
+def _allocate_weighted(total, weights):
+    raw = {key: total * percentage / 100 for key, percentage in weights}
+    quotas = {key: math.floor(amount) for key, amount in raw.items()}
+    remaining = total - sum(quotas.values())
+    priority = sorted(
+        raw,
+        key=lambda key: raw[key] - quotas[key],
+        reverse=True,
+    )
+    for key in priority[:remaining]:
+        quotas[key] += 1
+    return quotas
+
+
+def _exam_quotas(total, mix):
+    return _allocate_weighted(
+        total, [(question_format, mix.get(question_format, 0)) for question_format in EXAM_FORMATS],
+    )
+
+
+def _start_exam(
+    user, bank, name, question_count, mix, time_limit_minutes=None, template=None,
+    chapter_weights=None, subject=None,
+):
+    if chapter_weights is None:
+        chapter_weights = [(bank, 100)] if bank else []
+    if template and template.snapshot:
+        question_ids = template.snapshot.get("question_ids")
+        configuration = template.snapshot.get("configuration")
+        if (
+            not isinstance(question_ids, list)
+            or not question_ids
+            or any(isinstance(question_id, bool) or not isinstance(question_id, int) for question_id in question_ids)
+            or len(set(question_ids)) != len(question_ids)
+            or not isinstance(configuration, dict)
+        ):
+            raise ValueError("This saved exam snapshot is invalid.")
+        if not chapter_weights or sum(percentage for _, percentage in chapter_weights) != 100:
+            raise ValueError("Saved exam chapters are no longer available.")
+        available_ids = set(
+            _exam_questions().filter(
+                pk__in=question_ids,
+                bank_id__in=[chapter.pk for chapter, _ in chapter_weights],
+            ).values_list("pk", flat=True)
+        )
+        if available_ids != set(question_ids):
+            raise ValueError("Some saved exam questions are no longer available.")
+        saved_configuration = configuration.copy()
+        saved_configuration["question_count"] = len(question_ids)
+        saved_configuration["time_limit_minutes"] = time_limit_minutes
+        expires_at = (
+            timezone.now() + timedelta(minutes=time_limit_minutes)
+            if time_limit_minutes else None
+        )
+        return ExamAttempt.objects.create(
+            user=user,
+            bank=chapter_weights[0][0],
+            subject=subject,
+            template=template,
+            title=name,
+            configuration=saved_configuration,
+            question_ids=question_ids,
+            expires_at=expires_at,
+        )
+    if not chapter_weights or sum(percentage for _, percentage in chapter_weights) != 100:
+        raise ValueError("Chapter percentages must add up to 100%.")
+    chapter_quotas = _allocate_weighted(
+        question_count, [(chapter.pk, percentage) for chapter, percentage in chapter_weights],
+    )
+    available_by_chapter = _exam_question_counts_by_bank(
+        [chapter for chapter, _ in chapter_weights],
+    )
+    question_ids_by_format = {question_format: [] for question_format in EXAM_FORMATS}
+    chapter_format_quotas = {}
+    for chapter, _ in chapter_weights:
+        chapter_count = chapter_quotas[chapter.pk]
+        format_quotas = _exam_quotas(chapter_count, mix)
+        chapter_format_quotas[str(chapter.pk)] = format_quotas
+        available = available_by_chapter[chapter.pk]
+        unavailable = {
+            question_format: quota
+            for question_format, quota in format_quotas.items()
+            if quota > available[question_format]
+        }
+        if unavailable:
+            details = ", ".join(
+                f"{question_format}: need {quota}, have {available[question_format]}"
+                for question_format, quota in unavailable.items()
+            )
+            raise ValueError(
+                f"Not enough eligible questions in {chapter.title} for its exam allocation ({details})."
+            )
+        for question_format, quota in format_quotas.items():
+            if quota:
+                ids = list(
+                    _exam_questions(chapter).filter(_exam_format_query(question_format))
+                    .distinct().order_by("?").values_list("pk", flat=True)[:quota]
+                )
+                question_ids_by_format[question_format].extend(ids)
+    question_ids = []
+    for question_format in EXAM_FORMATS:
+        random.shuffle(question_ids_by_format[question_format])
+        question_ids.extend(question_ids_by_format[question_format])
+
+    now = timezone.now()
+    expires_at = (
+        now + timedelta(minutes=time_limit_minutes) if time_limit_minutes else None
+    )
+    return ExamAttempt.objects.create(
+        user=user,
+        bank=chapter_weights[0][0],
+        subject=subject,
+        template=template,
+        title=name,
+        configuration={
+            "question_count": question_count,
+            "mix": mix,
+            "time_limit_minutes": time_limit_minutes,
+            "quotas": {
+                question_format: len(question_ids_by_format[question_format])
+                for question_format in EXAM_FORMATS
+            },
+            "chapter_weights": [
+                {"bank_id": chapter.pk, "title": chapter.title, "percentage": percentage}
+                for chapter, percentage in chapter_weights
+            ],
+            "chapter_quotas": chapter_quotas,
+            "chapter_format_quotas": chapter_format_quotas,
+        },
+        question_ids=question_ids,
+        expires_at=expires_at,
+    )
+
+
+@login_required
+def deck_exams(request, slug):
+    bank = get_object_or_404(QuestionBank, slug=slug)
+    form = ExamTemplateForm(request.POST or None, show_publish=request.user.is_staff)
+    if request.method == "POST" and form.is_valid():
+        try:
+            template = ExamTemplate.objects.create(
+                user=request.user,
+                bank=bank,
+                name=form.cleaned_data["name"],
+                question_count=form.cleaned_data["question_count"],
+                mix=form.mix(),
+                time_limit_minutes=form.cleaned_data["time_limit_minutes"],
+                is_published=bool(form.cleaned_data.get("is_published")),
+            )
+        except IntegrityError:
+            form.add_error("name", "You already have an exam setup with this name for this deck.")
+        else:
+            try:
+                attempt = _start_exam(
+                    request.user, bank, template.name, template.question_count,
+                    template.mix, template.time_limit_minutes, template=template,
+                )
+            except ValueError as error:
+                template.delete()
+                form.add_error(None, str(error))
+            else:
+                return redirect("bank:exam_attempt", attempt_id=attempt.pk)
+    templates = ExamTemplate.objects.filter(bank=bank).select_related("user")
+    admin_templates = templates.filter(user__is_staff=True, is_published=True)
+    my_templates = templates.filter(user=request.user).exclude(
+        user__is_staff=True, is_published=True,
+    )
+    recent_attempts = ExamAttempt.objects.filter(user=request.user, bank=bank)[:10]
+    return render(request, "bank/deck_exams.html", {
+        "bank": bank,
+        "form": form,
+        "admin_templates": admin_templates,
+        "my_templates": my_templates,
+        "recent_attempts": recent_attempts,
+        "question_counts": _exam_question_counts(bank),
+    })
+
+
+@login_required
+def subject_exams(request, slug):
+    subject = get_object_or_404(Subject, slug=slug)
+    banks = list(subject.decks.select_related("section").order_by("semester", "title"))
+    form = ExamTemplateForm(request.POST or None, banks=banks, show_publish=request.user.is_staff)
+    counts_by_bank = _exam_question_counts_by_bank(banks)
+    if request.method == "POST" and form.is_valid():
+        template = None
+        try:
+            template = ExamTemplate.objects.create(
+                user=request.user,
+                subject=subject,
+                name=form.cleaned_data["name"],
+                question_count=form.cleaned_data["question_count"],
+                mix=form.mix(),
+                time_limit_minutes=form.cleaned_data["time_limit_minutes"],
+                is_published=bool(form.cleaned_data.get("is_published")),
+            )
+            ExamTemplateChapter.objects.bulk_create([
+                ExamTemplateChapter(template=template, bank=bank, percentage=percentage)
+                for bank, percentage in form.chapter_weights()
+            ])
+        except IntegrityError:
+            if template:
+                template.delete()
+            form.add_error("name", "You already have an exam setup with this name for this subject.")
+        else:
+            try:
+                weights = form.chapter_weights()
+                attempt = _start_exam(
+                    request.user, weights[0][0], template.name, template.question_count,
+                    template.mix, template.time_limit_minutes, template=template,
+                    chapter_weights=weights, subject=subject,
+                )
+            except ValueError as error:
+                template.delete()
+                form.add_error(None, str(error))
+            else:
+                return redirect("bank:exam_attempt", attempt_id=attempt.pk)
+    chapter_rows = []
+    for row in form.chapter_rows:
+        row["question_counts"] = counts_by_bank[row["bank"].pk]
+        chapter_rows.append(row)
+    templates = ExamTemplate.objects.filter(subject=subject).select_related("user").prefetch_related(
+        "chapters__bank",
+    )
+    admin_templates = templates.filter(user__is_staff=True, is_published=True)
+    my_templates = templates.filter(user=request.user).exclude(
+        user__is_staff=True, is_published=True,
+    )
+    recent_attempts = ExamAttempt.objects.filter(user=request.user).filter(
+        Q(subject=subject) | Q(bank__subject=subject)
+    )[:10]
+    return render(request, "bank/subject_exams.html", {
+        "subject": subject,
+        "form": form,
+        "chapter_rows": chapter_rows,
+        "semesters": sorted({bank.semester for bank in banks}),
+        "question_counts": {
+            question_format: sum(
+                row["question_counts"][question_format] for row in chapter_rows
+            )
+            for question_format in EXAM_FORMATS
+        },
+        "admin_templates": admin_templates,
+        "my_templates": my_templates,
+        "recent_attempts": recent_attempts,
+    })
+
+
+@login_required
+@require_POST
+def exam_template_start(request, template_id):
+    template = get_object_or_404(
+        ExamTemplate.objects.select_related("bank", "subject").filter(
+            Q(user=request.user) | Q(is_published=True, user__is_staff=True),
+        ),
+        pk=template_id,
+    )
+    if template.subject_id:
+        chapter_weights = [
+            (chapter.bank, chapter.percentage)
+            for chapter in template.chapters.select_related("bank")
+        ]
+        if any(chapter.subject_id != template.subject_id for chapter, _ in chapter_weights):
+            messages.error(request, "A saved chapter no longer belongs to this subject.")
+            return redirect("bank:subject_exams", slug=template.subject.slug)
+        bank = chapter_weights[0][0] if chapter_weights else None
+        subject = template.subject
+    else:
+        chapter_weights = None
+        bank = template.bank
+        subject = None
+    try:
+        attempt = _start_exam(
+            request.user, bank, template.name, template.question_count,
+            template.mix, template.time_limit_minutes, template=template,
+            chapter_weights=chapter_weights, subject=subject,
+        )
+    except ValueError as error:
+        messages.error(request, str(error))
+        destination = "bank:subject_exams" if template.subject_id else "bank:deck_exams"
+        slug = template.subject.slug if template.subject_id else template.bank.slug
+        return redirect(destination, slug=slug)
+    return redirect("bank:exam_attempt", attempt_id=attempt.pk)
+
+
+def _saved_attempt_template_name(attempt):
+    base = f"{attempt.title} (saved)"[:100]
+    name = base
+    suffix = 2
+    while ExamTemplate.objects.filter(
+        user=attempt.user,
+        bank=attempt.bank if attempt.subject_id is None else None,
+        subject=attempt.subject,
+        name=name,
+    ).exists():
+        extra = f" ({suffix})"
+        name = f"{base[:100 - len(extra)]}{extra}"
+        suffix += 1
+    return name
+
+
+@login_required
+@require_POST
+def api_exam_save_template(request, attempt_id):
+    attempt = get_object_or_404(
+        ExamAttempt.objects.select_related("bank", "subject"),
+        pk=attempt_id,
+        user=request.user,
+    )
+    if attempt.submitted_at is None:
+        return JsonResponse({"error": "Finish the exam before saving it as a template."}, status=409)
+    review = _exam_review_data(attempt)
+    if not review["report_ready"]:
+        return JsonResponse(
+            {"error": "Complete every self-assessment before saving this exam."},
+            status=409,
+        )
+    if review["question_count"] != len(attempt.question_ids):
+        return JsonResponse(
+            {"error": "Some exam questions are no longer available, so this exam cannot be saved."},
+            status=409,
+        )
+    chapter_weights = attempt.configuration.get("chapter_weights", [])
+    if attempt.subject_id:
+        chapter_ids = [
+            row.get("bank_id") for row in chapter_weights if isinstance(row, dict)
+        ] if isinstance(chapter_weights, list) else []
+        chapters = list(
+            QuestionBank.objects.filter(subject=attempt.subject, pk__in=chapter_ids)
+        )
+        if (
+            not chapter_ids
+            or len(chapter_ids) != len(set(chapter_ids))
+            or len(chapters) != len(chapter_ids)
+        ):
+            return JsonResponse(
+                {"error": "The chapters in this exam are no longer available."},
+                status=409,
+            )
+    with transaction.atomic():
+        template, created = ExamTemplate.objects.get_or_create(
+            source_attempt=attempt,
+            defaults={
+                "user": request.user,
+                "bank": attempt.bank if attempt.subject_id is None else None,
+                "subject": attempt.subject,
+                "name": _saved_attempt_template_name(attempt),
+                "question_count": len(attempt.question_ids),
+                "mix": attempt.configuration.get("mix", {}),
+                "time_limit_minutes": attempt.configuration.get("time_limit_minutes"),
+                "snapshot": {
+                    "question_ids": list(attempt.question_ids),
+                    "configuration": attempt.configuration,
+                },
+            },
+        )
+        if created and attempt.subject_id:
+            chapter_by_id = {chapter.pk: chapter for chapter in chapters}
+            ExamTemplateChapter.objects.bulk_create([
+                ExamTemplateChapter(
+                    template=template,
+                    bank=chapter_by_id[row["bank_id"]],
+                    percentage=row["percentage"],
+                )
+                for row in chapter_weights
+            ])
+    return JsonResponse({"saved": True, "created": created, "template_name": template.name})
+
+
+@login_required
+def exam_template_edit(request, template_id):
+    template = get_object_or_404(
+        ExamTemplate.objects.select_related("bank", "subject"), pk=template_id, user=request.user,
+    )
+    if template.snapshot:
+        messages.info(request, "Saved question sets keep their original questions and cannot be edited.")
+        destination = "bank:subject_exams" if template.subject_id else "bank:deck_exams"
+        slug = template.subject.slug if template.subject_id else template.bank.slug
+        return redirect(destination, slug=slug)
+    subject = template.subject
+    banks = (
+        list(subject.decks.select_related("section").order_by("semester", "title"))
+        if subject else None
+    )
+    chapter_initials = {
+        chapter.bank_id: chapter.percentage
+        for chapter in template.chapters.all()
+    }
+    initial = {
+        "name": template.name,
+        "question_count": template.question_count,
+        "mcq_percent": template.mix.get("mcq", 40),
+        "tf_percent": template.mix.get("tf", 20),
+        "descriptive_percent": template.mix.get("descriptive", 20),
+        "identify_percent": template.mix.get("identify", 20),
+        "time_limit_minutes": template.time_limit_minutes,
+    }
+    form = ExamTemplateForm(
+        request.POST or None,
+        initial=initial,
+        banks=banks,
+        show_publish=request.user.is_staff,
+        chapter_initials=chapter_initials,
+        publish_initial=template.is_published,
+    )
+    if request.method == "POST" and form.is_valid():
+        try:
+            with transaction.atomic():
+                template.name = form.cleaned_data["name"]
+                template.question_count = form.cleaned_data["question_count"]
+                template.mix = form.mix()
+                template.time_limit_minutes = form.cleaned_data["time_limit_minutes"]
+                if request.user.is_staff:
+                    template.is_published = bool(form.cleaned_data.get("is_published"))
+                template.save()
+                if subject:
+                    template.chapters.all().delete()
+                    ExamTemplateChapter.objects.bulk_create([
+                        ExamTemplateChapter(template=template, bank=bank, percentage=percentage)
+                        for bank, percentage in form.chapter_weights()
+                    ])
+        except IntegrityError:
+            form.add_error("name", "You already have an exam setup with this name for this scope.")
+        else:
+            messages.success(request, "Exam template updated.")
+            destination = "bank:subject_exams" if subject else "bank:deck_exams"
+            slug = subject.slug if subject else template.bank.slug
+            return redirect(destination, slug=slug)
+    chapter_rows = []
+    counts_by_bank = _exam_question_counts_by_bank(banks or [])
+    for row in form.chapter_rows:
+        row["question_counts"] = counts_by_bank[row["bank"].pk]
+        chapter_rows.append(row)
+    return render(request, "bank/exam_template_edit.html", {
+        "template": template,
+        "subject": subject,
+        "form": form,
+        "chapter_rows": chapter_rows,
+        "semesters": sorted({bank.semester for bank in banks or []}),
+        "cancel_url": (
+            reverse("bank:subject_exams", args=[subject.slug])
+            if subject else reverse("bank:deck_exams", args=[template.bank.slug])
+        ),
+    })
+
+
+@login_required
+@require_POST
+def exam_template_delete(request, template_id):
+    template = get_object_or_404(
+        ExamTemplate.objects.select_related("bank", "subject"), pk=template_id, user=request.user,
+    )
+    subject = template.subject
+    slug = subject.slug if subject else template.bank.slug
+    template.delete()
+    messages.success(request, "Exam setup deleted.")
+    destination = "bank:subject_exams" if subject else "bank:deck_exams"
+    return redirect(destination, slug=slug)
+
+
+@login_required
+@require_POST
+def exam_attempt_delete(request, attempt_id):
+    attempt = get_object_or_404(
+        ExamAttempt.objects.select_related("bank", "subject"),
+        pk=attempt_id,
+        user=request.user,
+    )
+    destination = "bank:subject_exams" if attempt.subject_id else "bank:deck_exams"
+    slug = attempt.subject.slug if attempt.subject_id else attempt.bank.slug
+    attempt.delete()
+    messages.success(request, "Exam attempt deleted.")
+    return redirect(destination, slug=slug)
+
+
+@login_required
+@ensure_csrf_cookie
+def exam_attempt(request, attempt_id):
+    attempt = get_object_or_404(
+        ExamAttempt.objects.select_related("bank", "subject", "shared_from"),
+        pk=attempt_id,
+        user=request.user,
+    )
+    _expire_exam_if_needed(attempt)
+    back_url = (
+        reverse("bank:subject_exams", args=[attempt.subject.slug])
+        if attempt.subject_id else reverse("bank:deck_exams", args=[attempt.bank.slug])
+    )
+    return render(request, "bank/exam_attempt.html", {
+        "attempt": attempt,
+        "api_url": reverse("bank:api_exam_attempt", args=[attempt.pk]),
+        "answer_url": reverse("bank:api_exam_answer", args=[attempt.pk]),
+        "submit_url": reverse("bank:api_exam_submit", args=[attempt.pk]),
+        "share_url": reverse("bank:api_exam_share", args=[attempt.pk]),
+        "save_template_url": reverse("bank:api_exam_save_template", args=[attempt.pk]),
+        "delete_attempt_url": reverse("bank:exam_attempt_delete", args=[attempt.pk]),
+        "practice_again_url": (
+            reverse("bank:exam_share_retry", args=[attempt.pk])
+            if attempt.shared_from_id and attempt.shared_from.share_token else ""
+        ),
+        "back_url": back_url,
+    })
+
+
+def _create_shared_practice(source_attempt, user):
+    time_limit = source_attempt.configuration.get("time_limit_minutes")
+    expires_at = (
+        timezone.now() + timedelta(minutes=time_limit)
+        if isinstance(time_limit, int) and not isinstance(time_limit, bool) and time_limit > 0
+        else None
+    )
+    return ExamAttempt.objects.create(
+        user=user,
+        bank_id=source_attempt.bank_id,
+        subject_id=source_attempt.subject_id,
+        shared_from=source_attempt,
+        title=source_attempt.title,
+        configuration=source_attempt.configuration.copy(),
+        question_ids=list(source_attempt.question_ids),
+        expires_at=expires_at,
+    )
+
+
+@login_required
+def exam_share(request, token):
+    source_attempt = get_object_or_404(
+        ExamAttempt.objects.select_related("bank", "subject"),
+        share_token=token,
+        submitted_at__isnull=False,
+    )
+    report = _exam_review_data(source_attempt)
+    if not report["report_ready"] or report["question_count"] != len(source_attempt.question_ids):
+        return HttpResponse("Some questions in this shared exam are no longer available.", status=410)
+    with transaction.atomic():
+        source_attempt = get_object_or_404(
+            ExamAttempt.objects.select_for_update(),
+            pk=source_attempt.pk,
+            share_token=token,
+            submitted_at__isnull=False,
+        )
+        prior_practice = ExamAttempt.objects.filter(
+            user=request.user,
+            shared_from=source_attempt,
+        ).order_by("-started_at", "-pk").first()
+        if prior_practice:
+            return redirect("bank:exam_attempt", attempt_id=prior_practice.pk)
+        attempt = _create_shared_practice(source_attempt, request.user)
+    return redirect("bank:exam_attempt", attempt_id=attempt.pk)
+
+
+@login_required
+@require_POST
+def exam_share_retry(request, attempt_id):
+    prior_practice = get_object_or_404(
+        ExamAttempt.objects.select_related("shared_from"),
+        pk=attempt_id,
+        user=request.user,
+        submitted_at__isnull=False,
+        shared_from__share_token__isnull=False,
+    )
+    source_attempt = prior_practice.shared_from
+    report = _exam_review_data(source_attempt)
+    if not report["report_ready"] or report["question_count"] != len(source_attempt.question_ids):
+        return HttpResponse("Some questions in this shared exam are no longer available.", status=410)
+    with transaction.atomic():
+        source_attempt = get_object_or_404(
+            ExamAttempt.objects.select_for_update(),
+            pk=source_attempt.pk,
+            share_token__isnull=False,
+            submitted_at__isnull=False,
+        )
+        attempt = _create_shared_practice(source_attempt, request.user)
+    return redirect("bank:exam_attempt", attempt_id=attempt.pk)
+
+
+@login_required
+@require_POST
+def api_exam_share(request, attempt_id):
+    attempt = get_object_or_404(
+        ExamAttempt.objects.select_related("bank", "subject"),
+        pk=attempt_id,
+        user=request.user,
+    )
+    data = json_body(request)
+    if not isinstance(data, dict) or data.get("action") not in {"create", "revoke"}:
+        return JsonResponse({"error": "Choose whether to create or revoke the share link."}, status=400)
+    if data["action"] == "revoke":
+        attempt.share_token = None
+        attempt.save(update_fields=["share_token"])
+        return JsonResponse({"share_url": None})
+    report = _exam_review_data(attempt)
+    if attempt.submitted_at is None or not report["report_ready"]:
+        return JsonResponse(
+            {"error": "Finish the exam and all self-assessments before sharing it."},
+            status=409,
+        )
+    if report["question_count"] != len(attempt.question_ids):
+        return JsonResponse(
+            {"error": "Some exam questions are no longer available, so this exam cannot be shared."},
+            status=409,
+        )
+    if attempt.share_token is None:
+        attempt.share_token = uuid.uuid4()
+        attempt.save(update_fields=["share_token"])
+    url = reverse("bank:exam_share", args=[attempt.share_token])
+    return JsonResponse({"share_url": request.build_absolute_uri(url)})
+
+
+def _expire_exam_if_needed(attempt):
+    if attempt.submitted_at is None and attempt.expires_at and timezone.now() >= attempt.expires_at:
+        attempt.submitted_at = attempt.expires_at
+        attempt.save(update_fields=["submitted_at"])
+        return True
+    return False
+
+
+def _exam_question_payload(question, index, reveal, response=None):
+    kind = (
+        question.image_answer_mode
+        if question.kind == Question.IMAGE else question.kind
+    )
+    payload = {
+        "id": question.pk,
+        "number": question.number or str(index + 1),
+        "kind": kind,
+        "stem": question.stem,
+        "options": [
+            {
+                "id": option.pk,
+                "letter": chr(65 + option_index),
+                "text": option.text,
+            }
+            for option_index, option in enumerate(question.options.all())
+        ],
+        "response": response or {},
+    }
+    if question.image_asset_id:
+        payload.update({
+            "image_url": question.image_asset.secure_url,
+            "image_width": question.image_asset.width,
+            "image_height": question.image_asset.height,
+        })
+    if kind == Question.IMAGE_IDENTIFY:
+        payload["targets"] = [
+            {
+                "id": target.pk, "label": target.label,
+                "x_percent": float(target.x_percent) if target.x_percent is not None else None,
+                "y_percent": float(target.y_percent) if target.y_percent is not None else None,
+                **({"answer": target.answer} if reveal else {}),
+            }
+            for target in question.image_targets.all()
+        ]
+    if reveal:
+        payload.update({
+            "answer": question.answer,
+            "explanation": question.explanation,
+            "note": question.note,
+        })
+        if question.answer_image_asset_id:
+            payload["answer_image_url"] = question.answer_image_asset.secure_url
+        if kind == Question.MCQ:
+            payload["correct_ids"] = [
+                option.pk for option in question.options.all() if option.is_correct
+            ]
+        elif kind == Question.TF:
+            payload["answer_key"] = {
+                str(option.pk): option.is_correct for option in question.options.all()
+            }
+    return payload
+
+
+def _exam_review_data(attempt):
+    questions = list(
+        Question.objects.filter(pk__in=attempt.question_ids)
+        .select_related("image_asset", "answer_image_asset")
+        .prefetch_related("options", "image_targets")
+    )
+    by_id = {question.pk: question for question in questions}
+    ordered = [by_id[question_id] for question_id in attempt.question_ids if question_id in by_id]
+    items = [
+        _exam_question_payload(
+            question, index, attempt.submitted_at is not None,
+            attempt.responses.get(str(question.pk), {}),
+        )
+        for index, question in enumerate(ordered)
+    ]
+    points = 0.0
+    missed = []
+    assessment_complete = True
+    report_rows = []
+    for question, item in zip(ordered, items):
+        response = item["response"]
+        kind = item["kind"]
+        earned = 0.0
+        possible = 1.0
+        reason = ""
+        if kind == Question.MCQ:
+            correct = response.get("selected") in item.get("correct_ids", [])
+            earned = float(correct)
+            reason = "Correct" if correct else "Incorrect or unanswered"
+        elif kind == Question.TF:
+            answers = response.get("answers", {})
+            correct = bool(item["options"]) and all(
+                answers.get(str(option["id"])) is item.get("answer_key", {}).get(str(option["id"]))
+                for option in item["options"]
+            )
+            earned = float(correct)
+            reason = "Correct" if correct else "Incorrect or unanswered"
+        elif attempt.submitted_at and kind == Question.DESC:
+            rating = response.get("ratings", {}).get("answer")
+            if rating not in {"known", "missed"}:
+                assessment_complete = False
+                reason = "Awaiting self-assessment"
+            else:
+                earned = float(rating == "known")
+                reason = "Self-rated as known" if earned else "Self-rated as missed"
+        elif attempt.submitted_at and kind == Question.IMAGE_IDENTIFY:
+            ratings = response.get("ratings", {})
+            target_ids = [str(target["id"]) for target in item.get("targets", [])]
+            rated = [ratings.get(target_id) for target_id in target_ids]
+            if not target_ids or any(value not in {"known", "missed"} for value in rated):
+                assessment_complete = False
+                reason = "Awaiting self-assessment"
+            else:
+                earned = sum(value == "known" for value in rated) / len(target_ids)
+                reason = (
+                    "All targets self-rated as known" if earned == 1
+                    else "Some targets self-rated as missed" if earned
+                    else "All targets self-rated as missed"
+                )
+        points += earned
+        report_row = {
+            "id": question.pk,
+            "number": item["number"],
+            "stem": item["stem"],
+            "earned": earned,
+            "possible": possible,
+            "reason": reason,
+        }
+        report_rows.append(report_row)
+        if attempt.submitted_at and reason != "Awaiting self-assessment" and earned < possible:
+            missed.append(report_row)
+
+    report_ready = attempt.submitted_at is not None and assessment_complete
+    score_percent = round(points / len(items) * 100) if report_ready and items else 0
+    result = {
+        "title": attempt.title,
+        "submitted": attempt.submitted_at is not None,
+        "questions": items,
+        "question_count": len(items),
+        "report_ready": report_ready,
+        "expires_at": attempt.expires_at.isoformat() if attempt.expires_at else None,
+        "started_at": attempt.started_at.isoformat(),
+    }
+    if report_ready:
+        result.update({
+            "score_percent": score_percent,
+            "points_earned": round(points, 2),
+            "points_possible": len(items),
+            "missed": missed,
+            "report": report_rows,
+        })
+    return result
+
+
+@login_required
+def api_exam_attempt(request, attempt_id):
+    attempt = get_object_or_404(
+        ExamAttempt.objects.select_related("bank"), pk=attempt_id, user=request.user,
+    )
+    _expire_exam_if_needed(attempt)
+    result = _exam_review_data(attempt)
+    if result["report_ready"]:
+        result["template_saved"] = ExamTemplate.objects.filter(source_attempt=attempt).exists()
+    if result["report_ready"]:
+        result["share_url"] = (
+            request.build_absolute_uri(reverse("bank:exam_share", args=[attempt.share_token]))
+            if attempt.share_token else None
+        )
+    return JsonResponse(result)
+
+
+def _exam_question_for_attempt(attempt, question_id):
+    if question_id not in attempt.question_ids:
+        return None
+    return get_object_or_404(
+        Question.objects.prefetch_related("options", "image_targets"),
+        pk=question_id,
+    )
+
+
+@login_required
+@require_POST
+def api_exam_answer(request, attempt_id):
+    attempt = get_object_or_404(ExamAttempt, pk=attempt_id, user=request.user)
+    expired_submission = (
+        attempt.submitted_at is not None
+        and attempt.expires_at is not None
+        and attempt.submitted_at >= attempt.expires_at
+    )
+    if expired_submission or _expire_exam_if_needed(attempt):
+        return JsonResponse({"error": "The exam has ended.", "submitted": True}, status=409)
+    data = json_body(request)
+    if not isinstance(data, dict) or isinstance(data.get("question_id"), bool) or not isinstance(data.get("question_id"), int):
+        return JsonResponse({"error": "Invalid exam answer."}, status=400)
+    question = _exam_question_for_attempt(attempt, data["question_id"])
+    if question is None:
+        return JsonResponse({"error": "This question is not in this exam."}, status=400)
+    response = data.get("response")
+    kind = question.image_answer_mode if question.kind == Question.IMAGE else question.kind
+    current = attempt.responses.get(str(question.pk), {})
+    if attempt.submitted_at:
+        ratings = data.get("ratings")
+        if kind not in {Question.DESC, Question.IMAGE_IDENTIFY} or not isinstance(ratings, dict):
+            return JsonResponse({"error": "This answer can no longer be changed."}, status=400)
+        allowed = {"known", "missed"}
+        valid_keys = (
+            {str(target.pk) for target in question.image_targets.all()}
+            if kind == Question.IMAGE_IDENTIFY else {"answer"}
+        )
+        if not ratings or any(
+            key not in valid_keys or value not in allowed for key, value in ratings.items()
+        ):
+            return JsonResponse({"error": "Invalid self-assessment."}, status=400)
+        if kind == Question.DESC and ratings.get("answer") == "known" and not current.get("text", "").strip():
+            return JsonResponse({"error": "Enter your answer before rating it as known."}, status=400)
+        if kind == Question.IMAGE_IDENTIFY and any(
+            value == "known" and not current.get("targets", {}).get(key, "").strip()
+            for key, value in ratings.items()
+        ):
+            return JsonResponse({"error": "Enter a response before rating a target as known."}, status=400)
+        current["ratings"] = ratings
+    else:
+        if not isinstance(response, dict):
+            return JsonResponse({"error": "Answer must be an object."}, status=400)
+        if kind == Question.MCQ:
+            selected = response.get("selected")
+            valid_ids = set(question.options.values_list("pk", flat=True))
+            if selected is not None and (isinstance(selected, bool) or selected not in valid_ids):
+                return JsonResponse({"error": "Choose a valid option."}, status=400)
+            current["selected"] = selected
+        elif kind == Question.TF:
+            answers = response.get("answers", {})
+            valid_ids = {str(option_id) for option_id in question.options.values_list("pk", flat=True)}
+            if not isinstance(answers, dict) or any(
+                key not in valid_ids or not isinstance(value, bool) for key, value in answers.items()
+            ):
+                return JsonResponse({"error": "Choose True or False for valid statements."}, status=400)
+            current["answers"] = answers
+        elif kind == Question.DESC:
+            text = response.get("text", "")
+            if not isinstance(text, str) or len(text) > 10000:
+                return JsonResponse({"error": "Descriptive responses must be 10,000 characters or fewer."}, status=400)
+            current["text"] = text
+        else:
+            targets = response.get("targets", {})
+            valid_ids = {str(target_id) for target_id in question.image_targets.values_list("pk", flat=True)}
+            if not isinstance(targets, dict) or any(
+                key not in valid_ids or not isinstance(value, str) or len(value) > 1000
+                for key, value in targets.items()
+            ):
+                return JsonResponse({"error": "Enter valid answers for the labelled targets."}, status=400)
+            current["targets"] = targets
+    attempt.responses[str(question.pk)] = current
+    attempt.save(update_fields=["responses"])
+    return JsonResponse({"saved": True})
+
+
+@login_required
+@require_POST
+def api_exam_submit(request, attempt_id):
+    attempt = get_object_or_404(ExamAttempt, pk=attempt_id, user=request.user)
+    if attempt.submitted_at is None:
+        attempt.submitted_at = min(timezone.now(), attempt.expires_at) if attempt.expires_at else timezone.now()
+        attempt.save(update_fields=["submitted_at"])
+    result = _exam_review_data(attempt)
+    if result["report_ready"]:
+        result["template_saved"] = ExamTemplate.objects.filter(source_attempt=attempt).exists()
+        result["share_url"] = (
+            request.build_absolute_uri(reverse("bank:exam_share", args=[attempt.share_token]))
+            if attempt.share_token else None
+        )
+    return JsonResponse(result)
 
 
 @login_required

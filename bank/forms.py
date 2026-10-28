@@ -6,6 +6,108 @@ from django.forms.models import BaseInlineFormSet, inlineformset_factory
 from .models import ImageTarget, Option, Question, QuestionBank, QuestionImage
 
 
+class ExamTemplateForm(forms.Form):
+    name = forms.CharField(max_length=100, initial="My practice exam")
+    question_count = forms.IntegerField(min_value=1, max_value=200, initial=20)
+    mcq_percent = forms.IntegerField(min_value=0, max_value=100, initial=40, label="Multiple choice (%)")
+    tf_percent = forms.IntegerField(min_value=0, max_value=100, initial=20, label="True / False (%)")
+    descriptive_percent = forms.IntegerField(min_value=0, max_value=100, initial=20, label="Descriptive (%)")
+    identify_percent = forms.IntegerField(min_value=0, max_value=100, initial=20, label="Identify (%)")
+    time_limit_minutes = forms.IntegerField(
+        min_value=1, max_value=300, required=False, label="Time limit (minutes)",
+        help_text="Optional. Leave blank for an untimed exam.",
+    )
+
+    def __init__(
+        self, *args, banks=None, chapter_initials=None, show_publish=False,
+        publish_initial=False, **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.requires_chapters = banks is not None
+        self.show_publish = show_publish
+        chapter_initials = chapter_initials or {}
+        self.chapter_rows = []
+        static_names = (
+            "name", "question_count", "mcq_percent", "tf_percent",
+            "descriptive_percent", "identify_percent", "time_limit_minutes",
+        )
+        self.core_fields = [self[name] for name in static_names]
+        if show_publish:
+            self.fields["is_published"] = forms.BooleanField(
+                required=False,
+                initial=publish_initial,
+                label="Publish this template for all users",
+                help_text="Published templates appear in the shared templates section.",
+            )
+            self.publish_field = self["is_published"]
+        else:
+            self.publish_field = None
+        for bank in banks or []:
+            selected_name = f"chapter_{bank.pk}_selected"
+            percentage_name = f"chapter_{bank.pk}_percentage"
+            self.fields[selected_name] = forms.BooleanField(
+                required=False, initial=bank.pk in chapter_initials,
+            )
+            self.fields[percentage_name] = forms.IntegerField(
+                min_value=1, max_value=100, required=False,
+                widget=forms.NumberInput(attrs={"min": 1, "max": 100}),
+                initial=chapter_initials.get(bank.pk),
+            )
+            self.chapter_rows.append({
+                "bank": bank,
+                "selected": self[selected_name],
+                "percentage": self[percentage_name],
+            })
+
+    def clean_name(self):
+        name = self.cleaned_data["name"].strip()
+        if not name:
+            raise forms.ValidationError("Enter a name for this exam setup.")
+        return name
+
+    def clean(self):
+        cleaned = super().clean()
+        fields = ("mcq_percent", "tf_percent", "descriptive_percent", "identify_percent")
+        if all(field in cleaned for field in fields) and sum(cleaned[field] for field in fields) != 100:
+            raise forms.ValidationError("Question format percentages must add up to 100%.")
+        if self.requires_chapters:
+            selected = []
+            selected_count = 0
+            for row in self.chapter_rows:
+                bank = row["bank"]
+                if cleaned.get(f"chapter_{bank.pk}_selected"):
+                    selected_count += 1
+                    percentage = cleaned.get(f"chapter_{bank.pk}_percentage")
+                    if percentage is None:
+                        self.add_error(
+                            f"chapter_{bank.pk}_percentage",
+                            "Enter this chapter's percentage.",
+                        )
+                    else:
+                        selected.append((bank, percentage))
+            if not selected_count:
+                raise forms.ValidationError("Select at least one chapter for this exam.")
+            if len(selected) == selected_count and sum(percentage for _, percentage in selected) != 100:
+                raise forms.ValidationError("Selected chapter percentages must add up to 100%.")
+        return cleaned
+
+    def mix(self):
+        return {
+            "mcq": self.cleaned_data["mcq_percent"],
+            "tf": self.cleaned_data["tf_percent"],
+            "descriptive": self.cleaned_data["descriptive_percent"],
+            "identify": self.cleaned_data["identify_percent"],
+        }
+
+    def chapter_weights(self):
+        weights = []
+        for row in self.chapter_rows:
+            bank = row["bank"]
+            if self.cleaned_data.get(f"chapter_{bank.pk}_selected"):
+                weights.append((bank, self.cleaned_data[f"chapter_{bank.pk}_percentage"]))
+        return weights
+
+
 def validate_image_file(uploaded):
     if uploaded.size > 20 * 1024 * 1024:
         raise forms.ValidationError("Image must be 20 MB or smaller.")

@@ -1,0 +1,72 @@
+{% extends "bank/base.html" %}
+{% load static %}
+{% block title %}Edit exam template · {{ template.name }}{% endblock %}
+{% block content %}
+<main class="exam-page subject-exam-page">
+  <a class="mute" href="{{ cancel_url }}">← Back to templates</a>
+  <header class="exam-heading">
+    <div>
+      <p class="study-context">EDIT TEMPLATE · {% if subject %}{{ subject.name }}{% else %}{{ template.bank.title }}{% endif %}</p>
+      <h2>Edit {{ template.name }}</h2>
+      <p class="mute">Changes apply to future attempts. Any attempt already started keeps its original questions and settings.</p>
+    </div>
+  </header>
+
+  <section class="card exam-setup {% if subject %}subject-exam-setup{% endif %}">
+    {% if form.non_field_errors %}<div class="fb error">{{ form.non_field_errors }}</div>{% endif %}
+    <form method="post" {% if subject %}id="subject-exam-form"{% endif %}>
+      {% csrf_token %}
+      {% for field in form.core_fields %}
+        <div class="exam-field">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<small class="mute">{{ field.help_text }}</small>{% endif %}
+          {% for error in field.errors %}<small class="exam-error">{{ error }}</small>{% endfor %}
+        </div>
+      {% endfor %}
+      {% if form.publish_field %}
+      <div class="exam-field exam-publish-field">
+        <label for="{{ form.publish_field.id_for_label }}">{{ form.publish_field }} {{ form.publish_field.label }}</label>
+        <small class="mute">{{ form.publish_field.help_text }}</small>
+      </div>
+      {% endif %}
+      {% if subject %}
+      <fieldset class="exam-chapter-picker">
+        <legend>Chapters and exam share</legend>
+        <label class="exam-semester-filter" for="exam-semester-filter">
+          <span>Filter chapter list by semester</span>
+          <select id="exam-semester-filter">
+            <option value="all">All semesters</option>
+            {% for semester in semesters %}<option value="{{ semester }}">Semester {{ semester }}</option>{% endfor %}
+          </select>
+        </label>
+        <p class="mute">Filtering only changes which chapters are visible. Your selections remain intact.</p>
+        <div class="exam-chapter-list">
+          {% for row in chapter_rows %}
+          <div class="exam-chapter-row" data-semester="{{ row.bank.semester }}">
+            <label class="exam-chapter-select">
+              {{ row.selected }}
+              <span><strong>{{ row.bank.title }}</strong><small>Semester {{ row.bank.semester }}{% if row.bank.section %} · {{ row.bank.section.name }}{% endif %}</small></span>
+            </label>
+            <label class="exam-chapter-share">
+              <span>Share %</span>
+              {{ row.percentage }}
+            </label>
+            <small class="exam-chapter-counts">MCQ {{ row.question_counts.mcq }} · T/F {{ row.question_counts.tf }} · Descriptive {{ row.question_counts.descriptive }} · Identify {{ row.question_counts.identify }}</small>
+            {% for error in row.selected.errors %}<small class="exam-error">{{ error }}</small>{% endfor %}
+            {% for error in row.percentage.errors %}<small class="exam-error">{{ error }}</small>{% endfor %}
+          </div>
+          {% empty %}
+          <p class="mute">This subject has no chapters available.</p>
+          {% endfor %}
+        </div>
+        <p class="exam-chapter-total" id="exam-chapter-total" aria-live="polite">Selected chapter share: 0%</p>
+      </fieldset>
+      {% endif %}
+      <button class="btn pri" type="submit">Save template changes</button>
+      <a class="btn" href="{{ cancel_url }}">Cancel</a>
+    </form>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}{% if subject %}<script src="{% static 'bank/subject_exam.js' %}?v=1"></script>{% endif %}{% endblock %}

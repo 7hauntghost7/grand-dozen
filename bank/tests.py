@@ -2,6 +2,7 @@
 import json
 import io
 import tempfile
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -10,11 +11,12 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from .image_storage import delete_question_image, upload_question_image
 from .models import (
-    Comment, ImageTarget, Option, Question, QuestionBank, QuestionImage,
-    SavedQuestion, Subject, SubjectSection,
+    Comment, ExamAttempt, ExamTemplate, ExamTemplateChapter, ImageTarget, Option, Question, QuestionBank,
+    QuestionImage, SavedQuestion, Subject, SubjectSection,
 )
 from .subject_backup import validate_backup
 
@@ -984,6 +986,627 @@ class QuizApiTests(Base):
             4,
         )
 
+class MockExamTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.deck = self.import_sample()
+        self.mcq, self.tf = self.deck.questions.order_by("pk")
+        self.mcq.answer = "SECRET MCQ ANSWER"
+        self.mcq.explanation = "SECRET MCQ EXPLANATION"
+        self.mcq.save(update_fields=["answer", "explanation"])
+        self.descriptive = Question.objects.create(
+            bank=self.deck, kind=Question.DESC, stem="Explain this concept.",
+            answer="SECRET DESCRIPTIVE ANSWER", explanation="SECRET DESCRIPTIVE EXPLANATION",
+        )
+        self.identify = Question.objects.create(
+            bank=self.deck, kind=Question.IMAGE, image_answer_mode=Question.IMAGE_IDENTIFY,
+            stem="Identify the labelled structure.",
+        )
+        self.target = ImageTarget.objects.create(
+            question=self.identify, label="A", answer="SECRET TARGET ANSWER", order=0,
+        )
+        self.client.force_login(self.student)
+
+    def create_attempt(self, question_count=4, mix=None, time_limit_minutes=None):
+        mix = mix or {"mcq": 25, "tf": 25, "descriptive": 25, "identify": 25}
+        template = ExamTemplate.objects.create(
+            user=self.student, bank=self.deck, name="Balanced",
+            question_count=question_count, mix=mix,
+            time_limit_minutes=time_limit_minutes,
+        )
+        return _start_exam_for_test(template)
+
+    def test_answers_are_not_sent_before_submission_and_submission_scores_objective_questions(self):
+        attempt = self.create_attempt()
+        api_url = reverse("bank:api_exam_attempt", args=[attempt.pk])
+        initial = self.client.get(api_url)
+        self.assertEqual(initial.status_code, 200)
+        initial_data = initial.json()
+        self.assertFalse(initial_data["submitted"])
+        for item in initial_data["questions"]:
+            self.assertNotIn("answer", item)
+            self.assertNotIn("explanation", item)
+            self.assertNotIn("correct_ids", item)
+            self.assertNotIn("answer_key", item)
+        self.assertNotIn("SECRET", initial.content.decode())
+
+        mcq_item = next(item for item in initial_data["questions"] if item["id"] == self.mcq.pk)
+        tf_item = next(item for item in initial_data["questions"] if item["id"] == self.tf.pk)
+        desc_item = next(item for item in initial_data["questions"] if item["id"] == self.descriptive.pk)
+        identify_item = next(item for item in initial_data["questions"] if item["id"] == self.identify.pk)
+        self.assertEqual(desc_item["kind"], Question.DESC)
+        self.assertEqual(identify_item["kind"], Question.IMAGE_IDENTIFY)
+        correct_option = self.mcq.options.get(is_correct=True)
+        self.assertEqual(
+            self.post_json(reverse("bank:api_exam_answer", args=[attempt.pk]), {
+                "question_id": self.mcq.pk, "response": {"selected": correct_option.pk},
+            }).status_code,
+            200,
+        )
+        tf_answers = {
+            str(option.pk): option.is_correct for option in self.tf.options.all()
+        }
+        self.assertEqual(
+            self.post_json(reverse("bank:api_exam_answer", args=[attempt.pk]), {
+                "question_id": self.tf.pk, "response": {"answers": tf_answers},
+            }).status_code,
+            200,
+        )
+        self.assertEqual(len(mcq_item["options"]), 2)
+        self.assertEqual(len(tf_item["options"]), 2)
+        self.assertEqual(
+            self.post_json(reverse("bank:api_exam_answer", args=[attempt.pk]), {
+                "question_id": self.descriptive.pk,
+                "response": {"text": "My explanation attempt"},
+            }).status_code,
+            200,
+        )
+        self.assertEqual(
+            self.post_json(reverse("bank:api_exam_answer", args=[attempt.pk]), {
+                "question_id": self.identify.pk,
+                "response": {"targets": {str(self.target.pk): "My labelled answer"}},
+            }).status_code,
+            200,
+        )
+
+        submitted = self.post_json(reverse("bank:api_exam_submit", args=[attempt.pk]), {})
+        self.assertEqual(submitted.status_code, 200)
+        review = submitted.json()
+        self.assertTrue(review["submitted"])
+        self.assertFalse(review["report_ready"])
+        self.assertNotIn("score_percent", review)
+        descriptive = next(item for item in review["questions"] if item["id"] == self.descriptive.pk)
+        identify = next(item for item in review["questions"] if item["id"] == self.identify.pk)
+        self.assertEqual(descriptive["answer"], "SECRET DESCRIPTIVE ANSWER")
+        self.assertEqual(descriptive["response"]["text"], "My explanation attempt")
+        self.assertEqual(
+            identify["response"]["targets"][str(self.target.pk)], "My labelled answer",
+        )
+        self.assertEqual(identify["targets"][0]["answer"], "SECRET TARGET ANSWER")
+        self.assertEqual(
+            self.post_json(reverse("bank:api_exam_answer", args=[attempt.pk]), {
+                "question_id": self.descriptive.pk, "ratings": {"answer": "known"},
+            }).status_code,
+            200,
+        )
+        self.assertEqual(
+            self.post_json(reverse("bank:api_exam_answer", args=[attempt.pk]), {
+                "question_id": self.identify.pk, "ratings": {str(self.target.pk): "missed"},
+            }).status_code,
+            200,
+        )
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.responses[str(self.descriptive.pk)]["ratings"]["answer"], "known")
+        self.assertEqual(
+            attempt.responses[str(self.identify.pk)]["ratings"][str(self.target.pk)], "missed",
+        )
+        final_report = self.client.get(api_url).json()
+        self.assertTrue(final_report["report_ready"])
+        self.assertEqual(final_report["score_percent"], 75)
+        self.assertEqual(final_report["points_earned"], 3)
+        self.assertEqual(final_report["points_possible"], 4)
+        self.assertEqual([row["id"] for row in final_report["missed"]], [self.identify.pk])
+        self.assertEqual(
+            self.post_json(reverse("bank:api_exam_answer", args=[attempt.pk]), {
+                "question_id": self.mcq.pk, "response": {"selected": correct_option.pk},
+            }).status_code,
+            400,
+        )
+
+    def test_mix_uses_image_question_answer_formats_and_rejects_shortage(self):
+        from .views import _exam_question_counts
+
+        image_mcq = Question.objects.create(
+            bank=self.deck, kind=Question.IMAGE, image_answer_mode=Question.IMAGE_MCQ,
+            stem="Image MCQ.",
+        )
+        image_tf = Question.objects.create(
+            bank=self.deck, kind=Question.IMAGE, image_answer_mode=Question.TF,
+            stem="Image true/false.",
+        )
+        image_desc = Question.objects.create(
+            bank=self.deck, kind=Question.IMAGE, image_answer_mode=Question.DESC,
+            stem="Image descriptive.",
+        )
+        Question.objects.create(
+            bank=self.deck, kind=Question.IMAGE, image_answer_mode=Question.IMAGE_IDENTIFY,
+            stem="Identify question without configured targets.",
+        )
+        self.assertEqual(_exam_question_counts(self.deck), {
+            "mcq": 2, "tf": 2, "descriptive": 2, "identify": 1,
+        })
+        mix = {"mcq": 100, "tf": 0, "descriptive": 0, "identify": 0}
+        attempt = self.create_attempt(question_count=2, mix=mix)
+        self.assertEqual(len(attempt.question_ids), 2)
+        self.assertTrue(set(attempt.question_ids).issubset({self.mcq.pk, image_mcq.pk}))
+
+        response = self.client.post(reverse("bank:deck_exams", args=[self.deck.slug]), {
+            "name": "Too many",
+            "question_count": 8,
+            "mcq_percent": 100,
+            "tf_percent": 0,
+            "descriptive_percent": 0,
+            "identify_percent": 0,
+            "time_limit_minutes": "",
+        })
+        self.assertContains(response, "Not enough eligible questions")
+        self.assertFalse(ExamTemplate.objects.filter(name="Too many").exists())
+        self.assertEqual(
+            Question.objects.filter(pk__in=[image_tf.pk, image_desc.pk]).count(), 2,
+        )
+
+    def test_deck_form_saves_a_reusable_template_and_starts_an_attempt(self):
+        response = self.client.get(reverse("bank:deck_exams", args=[self.deck.slug]))
+        self.assertContains(response, "Mock exams")
+        self.assertContains(response, "Available questions")
+        started = self.client.post(reverse("bank:deck_exams", args=[self.deck.slug]), {
+            "name": "My timed test",
+            "question_count": 4,
+            "mcq_percent": 25,
+            "tf_percent": 25,
+            "descriptive_percent": 25,
+            "identify_percent": 25,
+            "time_limit_minutes": 10,
+            "is_published": "on",
+        })
+        self.assertEqual(started.status_code, 302)
+        template = ExamTemplate.objects.get(user=self.student, bank=self.deck)
+        self.assertFalse(template.is_published)
+        attempt = template.attempts.get()
+        edit_url = reverse("bank:exam_template_edit", args=[template.pk])
+        self.assertContains(self.client.get(edit_url), 'value="My timed test"')
+        changed = self.client.post(edit_url, {
+            "name": "Updated timed test",
+            "question_count": 4,
+            "mcq_percent": 25,
+            "tf_percent": 25,
+            "descriptive_percent": 25,
+            "identify_percent": 25,
+            "time_limit_minutes": 20,
+        })
+        self.assertEqual(changed.status_code, 302)
+        template.refresh_from_db()
+        self.assertEqual(template.name, "Updated timed test")
+        self.assertEqual(template.time_limit_minutes, 20)
+        self.assertEqual(template.attempts.count(), 1)
+        self.assertEqual(attempt.configuration["time_limit_minutes"], 10)
+        self.assertEqual(attempt.configuration["quotas"], {
+            "mcq": 1, "tf": 1, "descriptive": 1, "identify": 1,
+        })
+        self.assertEqual(attempt.configuration["time_limit_minutes"], 10)
+        self.assertEqual(started.url, reverse("bank:exam_attempt", args=[attempt.pk]))
+        setups_page = self.client.get(reverse("bank:deck_exams", args=[self.deck.slug]))
+        self.assertContains(setups_page, "Recent exam attempts")
+        self.assertContains(setups_page, "Resume")
+
+    def test_staff_can_publish_deck_template_for_users(self):
+        admin = User.objects.create_superuser("exam-admin", "admin@example.com", "secret")
+        self.client.force_login(admin)
+        published = self.client.post(reverse("bank:deck_exams", args=[self.deck.slug]), {
+            "name": "Official deck exam",
+            "question_count": 1,
+            "mcq_percent": 100,
+            "tf_percent": 0,
+            "descriptive_percent": 0,
+            "identify_percent": 0,
+            "time_limit_minutes": "",
+            "is_published": "on",
+        })
+        self.assertEqual(published.status_code, 302)
+        template = ExamTemplate.objects.get(name="Official deck exam")
+        self.assertTrue(template.is_published)
+
+        self.client.force_login(self.student)
+        page = self.client.get(reverse("bank:deck_exams", args=[self.deck.slug]))
+        self.assertContains(page, "Official deck exam")
+        self.assertContains(page, "Admin templates")
+        self.assertContains(page, "My templates")
+        self.assertLess(page.content.index(b"Admin templates"), page.content.index(b"My templates"))
+        self.assertLess(page.content.index(b"My templates"), page.content.index(b"Recent exam attempts"))
+        self.assertLess(page.content.index(b"Recent exam attempts"), page.content.index(b"Set up a new template"))
+        self.assertEqual(
+            self.client.get(reverse("bank:exam_template_edit", args=[template.pk])).status_code,
+            404,
+        )
+        started = self.client.post(reverse("bank:exam_template_start", args=[template.pk]))
+        self.assertEqual(started.status_code, 302)
+        self.assertTrue(
+            ExamAttempt.objects.filter(user=self.student, template=template).exists(),
+        )
+
+    def test_staff_published_subject_template_is_shared(self):
+        admin = User.objects.create_superuser("subject-exam-admin", "admin@example.com", "secret")
+        template = ExamTemplate.objects.create(
+            user=admin,
+            subject=self.subject,
+            name="Official subject exam",
+            question_count=1,
+            mix={"mcq": 100, "tf": 0, "descriptive": 0, "identify": 0},
+            is_published=True,
+        )
+        ExamTemplateChapter.objects.create(template=template, bank=self.deck, percentage=100)
+        self.client.force_login(self.student)
+        page = self.client.get(reverse("bank:subject_exams", args=[self.subject.slug]))
+        self.assertContains(page, "Official subject exam")
+        started = self.client.post(reverse("bank:exam_template_start", args=[template.pk]))
+        self.assertEqual(started.status_code, 302)
+        self.assertTrue(
+            ExamAttempt.objects.filter(user=self.student, template=template).exists(),
+        )
+
+    def test_subject_template_uses_chapter_shares_and_groups_questions_by_type(self):
+        second_deck = self.import_sample(title="Cardiology", semester=2)
+        Question.objects.create(
+            bank=second_deck, kind=Question.DESC,
+            stem="Explain cardiac output.", answer="A stored description.",
+        )
+        self.client.force_login(self.student)
+        response = self.client.get(reverse("bank:subject_exams", args=[self.subject.slug]))
+        self.assertContains(response, "Filter chapter list by semester")
+        self.assertContains(response, 'data-semester="1"')
+        self.assertContains(response, 'data-semester="2"')
+
+        started = self.client.post(reverse("bank:subject_exams", args=[self.subject.slug]), {
+            "name": "Intermediate Physiology",
+            "question_count": 4,
+            "mcq_percent": 50,
+            "tf_percent": 0,
+            "descriptive_percent": 50,
+            "identify_percent": 0,
+            "time_limit_minutes": "",
+            f"chapter_{self.deck.pk}_selected": "on",
+            f"chapter_{self.deck.pk}_percentage": 50,
+            f"chapter_{second_deck.pk}_selected": "on",
+            f"chapter_{second_deck.pk}_percentage": 50,
+        })
+        self.assertEqual(started.status_code, 302)
+        template = ExamTemplate.objects.get(user=self.student, subject=self.subject)
+        self.assertEqual(
+            set(template.chapters.values_list("bank_id", "percentage")),
+            {(self.deck.pk, 50), (second_deck.pk, 50)},
+        )
+        attempt = template.attempts.get()
+        self.assertEqual(attempt.subject, self.subject)
+        self.assertEqual(
+            attempt.configuration["chapter_quotas"],
+            {str(self.deck.pk): 2, str(second_deck.pk): 2},
+        )
+        attempt_data = self.client.get(
+            reverse("bank:api_exam_attempt", args=[attempt.pk]),
+        )
+        self.assertEqual(attempt_data.status_code, 200)
+        self.assertNotIn("A stored description.", attempt_data.content.decode())
+        self.assertNotIn("SECRET MCQ ANSWER", attempt_data.content.decode())
+        second_descriptive = second_deck.questions.get(kind=Question.DESC)
+        self.assertEqual(
+            self.post_json(reverse("bank:api_exam_answer", args=[attempt.pk]), {
+                "question_id": second_descriptive.pk,
+                "response": {"text": "My answer from another selected chapter."},
+            }).status_code,
+            200,
+        )
+        questions = list(Question.objects.filter(pk__in=attempt.question_ids))
+        question_by_id = {question.pk: question for question in questions}
+        kinds = [
+            question_by_id[question_id].kind
+            for question_id in attempt.question_ids
+        ]
+        self.assertEqual(kinds, [Question.MCQ, Question.MCQ, Question.DESC, Question.DESC])
+        self.assertEqual(
+            {question.bank_id for question in questions},
+            {self.deck.pk, second_deck.pk},
+        )
+        self.assertEqual(started.url, reverse("bank:exam_attempt", args=[attempt.pk]))
+        self.assertEqual(
+            self.client.get(reverse("bank:exam_attempt", args=[attempt.pk])).context["back_url"],
+            reverse("bank:subject_exams", args=[self.subject.slug]),
+        )
+        edit_url = reverse("bank:exam_template_edit", args=[template.pk])
+        edit_page = self.client.get(edit_url)
+        self.assertContains(edit_page, 'value="50"')
+        self.assertContains(edit_page, f'id="id_chapter_{self.deck.pk}_selected" checked')
+        self.assertContains(edit_page, f'id="id_chapter_{second_deck.pk}_selected" checked')
+        updated = self.client.post(edit_url, {
+            "name": "Updated Physiology",
+            "question_count": 4,
+            "mcq_percent": 50,
+            "tf_percent": 0,
+            "descriptive_percent": 50,
+            "identify_percent": 0,
+            "time_limit_minutes": 15,
+            f"chapter_{self.deck.pk}_selected": "on",
+            f"chapter_{self.deck.pk}_percentage": 60,
+            f"chapter_{second_deck.pk}_selected": "on",
+            f"chapter_{second_deck.pk}_percentage": 40,
+        })
+        self.assertEqual(updated.status_code, 302)
+        template.refresh_from_db()
+        self.assertEqual(template.name, "Updated Physiology")
+        self.assertEqual(template.time_limit_minutes, 15)
+        self.assertEqual(
+            set(template.chapters.values_list("bank_id", "percentage")),
+            {(self.deck.pk, 60), (second_deck.pk, 40)},
+        )
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.configuration["chapter_weights"][0]["percentage"], 50)
+        self.assertEqual(template.attempts.count(), 1)
+
+    def test_subject_template_rejects_chapter_shares_that_do_not_total_100(self):
+        second_deck = self.import_sample(title="Cardiology", semester=2)
+        self.client.force_login(self.student)
+        response = self.client.post(reverse("bank:subject_exams", args=[self.subject.slug]), {
+            "name": "Invalid shares",
+            "question_count": 4,
+            "mcq_percent": 100,
+            "tf_percent": 0,
+            "descriptive_percent": 0,
+            "identify_percent": 0,
+            "time_limit_minutes": "",
+            f"chapter_{self.deck.pk}_selected": "on",
+            f"chapter_{self.deck.pk}_percentage": 70,
+            f"chapter_{second_deck.pk}_selected": "on",
+            f"chapter_{second_deck.pk}_percentage": 20,
+        })
+        self.assertContains(response, "Selected chapter percentages must add up to 100%.")
+        self.assertFalse(ExamTemplate.objects.filter(name="Invalid shares").exists())
+
+    def test_saved_templates_and_attempts_are_private_and_timer_expires(self):
+        attempt = self.create_attempt(time_limit_minutes=1)
+        self.assertIsNotNone(attempt.expires_at)
+        other_user = User.objects.create_user("other-student", password="secret")
+        self.client.force_login(other_user)
+        self.assertEqual(
+            self.client.post(
+                reverse("bank:exam_template_start", args=[attempt.template_id]),
+            ).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse("bank:exam_template_delete", args=[attempt.template_id]),
+            ).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.get(
+                reverse("bank:exam_template_edit", args=[attempt.template_id]),
+            ).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.get(reverse("bank:api_exam_attempt", args=[attempt.pk])).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.get(reverse("bank:exam_attempt", args=[attempt.pk])).status_code,
+            404,
+        )
+        self.client.force_login(self.student)
+        attempt.expires_at = timezone.now() - timedelta(seconds=1)
+        attempt.save(update_fields=["expires_at"])
+        expired = self.client.get(reverse("bank:api_exam_attempt", args=[attempt.pk])).json()
+        self.assertTrue(expired["submitted"])
+        self.assertEqual(
+            self.post_json(reverse("bank:api_exam_answer", args=[attempt.pk]), {
+                "question_id": self.descriptive.pk, "response": {"text": "Late response"},
+            }).status_code,
+            409,
+        )
+
+    def test_active_exam_resume_context_is_only_available_until_submission(self):
+        attempt = self.create_attempt()
+        home = self.client.get(reverse("bank:home"))
+        self.assertContains(home, 'id="active-exam-resume-context"')
+        self.assertContains(home, f'data-id="{attempt.pk}"')
+        self.assertContains(home, reverse("bank:exam_attempt", args=[attempt.pk]))
+        attempt.submitted_at = timezone.now()
+        attempt.save(update_fields=["submitted_at"])
+        completed_home = self.client.get(reverse("bank:home"))
+        self.assertNotContains(completed_home, 'id="active-exam-resume-context"')
+
+    def test_completed_exam_link_starts_an_independent_practice_attempt(self):
+        attempt = self.create_attempt(
+            question_count=1,
+            mix={"mcq": 100, "tf": 0, "descriptive": 0, "identify": 0},
+        )
+        correct_option = self.mcq.options.get(is_correct=True)
+        attempt.responses = {
+            str(self.mcq.pk): {"selected": correct_option.pk},
+        }
+        attempt.submitted_at = timezone.now()
+        attempt.save(update_fields=["responses", "submitted_at"])
+        share_url = reverse("bank:api_exam_share", args=[attempt.pk])
+        created = self.post_json(share_url, {"action": "create"})
+        self.assertEqual(created.status_code, 200)
+        attempt.refresh_from_db()
+        self.assertIsNotNone(attempt.share_token)
+        public_url = reverse("bank:exam_share", args=[attempt.share_token])
+
+        self.client.logout()
+        anonymous = self.client.get(public_url)
+        self.assertEqual(anonymous.status_code, 302)
+        self.assertIn(reverse("bank:login"), anonymous.url)
+
+        recipient = User.objects.create_user("exam-recipient", "recipient@example.com", "secret")
+        self.client.force_login(recipient)
+        started = self.client.get(public_url)
+        self.assertEqual(started.status_code, 302)
+        practice = ExamAttempt.objects.get(user=recipient, shared_from=attempt)
+        self.assertEqual(started.url, reverse("bank:exam_attempt", args=[practice.pk]))
+        self.assertEqual(practice.question_ids, attempt.question_ids)
+        self.assertEqual(practice.configuration, attempt.configuration)
+        self.assertEqual(practice.responses, {})
+        self.assertContains(self.client.get(started.url), 'id="exam-runner"')
+        api_url = reverse("bank:api_exam_attempt", args=[practice.pk])
+        initial = self.client.get(api_url).json()
+        self.assertFalse(initial["submitted"])
+        self.assertEqual([question["id"] for question in initial["questions"]], attempt.question_ids)
+        self.assertNotIn("SECRET MCQ ANSWER", json.dumps(initial))
+        self.assertNotIn("SECRET MCQ EXPLANATION", json.dumps(initial))
+        self.assertNotIn("correct_ids", initial["questions"][0])
+
+        answered = self.post_json(
+            reverse("bank:api_exam_answer", args=[practice.pk]),
+            {"question_id": self.mcq.pk, "response": {"selected": correct_option.pk}},
+        )
+        self.assertEqual(answered.status_code, 200)
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.responses[str(self.mcq.pk)]["selected"], correct_option.pk)
+        self.assertEqual(self.client.get(public_url).url, started.url)
+
+        practice.submitted_at = timezone.now()
+        practice.save(update_fields=["submitted_at"])
+        practice_page = self.client.get(started.url)
+        self.assertEqual(
+            practice_page.context["practice_again_url"],
+            reverse("bank:exam_share_retry", args=[practice.pk]),
+        )
+        retry = self.client.post(reverse("bank:exam_share_retry", args=[practice.pk]))
+        self.assertEqual(retry.status_code, 302)
+        next_practice = attempt.shared_attempts.filter(user=recipient).exclude(
+            pk=practice.pk,
+        ).order_by("-started_at", "-pk").first()
+        self.assertIsNotNone(next_practice)
+        self.assertNotEqual(next_practice.pk, practice.pk)
+        self.assertEqual(next_practice.responses, {})
+
+        self.client.force_login(self.student)
+        revoked = self.post_json(share_url, {"action": "revoke"})
+        self.assertEqual(revoked.status_code, 200)
+        self.assertIsNone(revoked.json()["share_url"])
+        self.client.force_login(recipient)
+        self.assertEqual(self.client.get(public_url).status_code, 404)
+
+    def test_unfinished_exam_and_other_users_cannot_create_share_links(self):
+        attempt = self.create_attempt()
+        share_url = reverse("bank:api_exam_share", args=[attempt.pk])
+        unfinished = self.post_json(share_url, {"action": "create"})
+        self.assertEqual(unfinished.status_code, 409)
+        self.assertIsNone(attempt.share_token)
+
+        other_user = User.objects.create_user("exam-outsider", "outsider@example.com", "secret")
+        self.client.force_login(other_user)
+        unauthorized = self.post_json(share_url, {"action": "create"})
+        self.assertEqual(unauthorized.status_code, 404)
+
+    def test_completed_attempt_can_be_saved_as_unanswered_fixed_template(self):
+        attempt = self.create_attempt(
+            question_count=1,
+            mix={"mcq": 100, "tf": 0, "descriptive": 0, "identify": 0},
+        )
+        option = self.mcq.options.get(is_correct=True)
+        attempt.responses = {str(self.mcq.pk): {"selected": option.pk}}
+        attempt.submitted_at = timezone.now()
+        attempt.save(update_fields=["responses", "submitted_at"])
+
+        save_url = reverse("bank:api_exam_save_template", args=[attempt.pk])
+        saved = self.post_json(save_url, {})
+        self.assertEqual(saved.status_code, 200)
+        self.assertTrue(saved.json()["saved"])
+        self.assertTrue(saved.json()["created"])
+        template = ExamTemplate.objects.get(source_attempt=attempt)
+        attempt.refresh_from_db()
+        self.assertEqual(template.snapshot["question_ids"], attempt.question_ids)
+        self.assertEqual(template.snapshot["configuration"], attempt.configuration)
+        self.assertEqual(template.question_count, len(attempt.question_ids))
+        self.assertFalse(template.is_published)
+
+        saved_again = self.post_json(save_url, {})
+        self.assertEqual(saved_again.status_code, 200)
+        self.assertFalse(saved_again.json()["created"])
+        self.assertEqual(ExamTemplate.objects.filter(source_attempt=attempt).count(), 1)
+
+        started = self.client.post(reverse("bank:exam_template_start", args=[template.pk]))
+        self.assertEqual(started.status_code, 302)
+        new_attempt = ExamAttempt.objects.get(user=self.student, template=template)
+        self.assertEqual(new_attempt.question_ids, attempt.question_ids)
+        self.assertEqual(new_attempt.responses, {})
+        self.assertContains(self.client.get(reverse("bank:deck_exams", args=[self.deck.slug])), "Saved question set")
+
+    def test_saved_subject_attempt_keeps_its_chapter_selection(self):
+        template = ExamTemplate.objects.create(
+            user=self.student,
+            subject=self.subject,
+            name="Subject snapshot source",
+            question_count=1,
+            mix={"mcq": 100, "tf": 0, "descriptive": 0, "identify": 0},
+        )
+        ExamTemplateChapter.objects.create(template=template, bank=self.deck, percentage=100)
+        from .views import _start_exam
+        attempt = _start_exam(
+            self.student,
+            self.deck,
+            template.name,
+            template.question_count,
+            template.mix,
+            template=template,
+            chapter_weights=[(self.deck, 100)],
+            subject=self.subject,
+        )
+        attempt.responses = {
+            str(attempt.question_ids[0]): {"selected": self.mcq.options.get(is_correct=True).pk},
+        }
+        attempt.submitted_at = timezone.now()
+        attempt.save(update_fields=["responses", "submitted_at"])
+
+        saved = self.post_json(reverse("bank:api_exam_save_template", args=[attempt.pk]), {})
+        self.assertEqual(saved.status_code, 200)
+        snapshot_template = ExamTemplate.objects.get(source_attempt=attempt)
+        self.assertEqual(
+            list(snapshot_template.chapters.values_list("bank_id", "percentage")),
+            [(self.deck.pk, 100)],
+        )
+        started = self.client.post(
+            reverse("bank:exam_template_start", args=[snapshot_template.pk]),
+        )
+        self.assertEqual(started.status_code, 302)
+        replay = ExamAttempt.objects.get(user=self.student, template=snapshot_template)
+        self.assertEqual(replay.question_ids, attempt.question_ids)
+        self.assertEqual(replay.responses, {})
+
+    def test_attempt_owner_can_delete_attempt_and_other_users_cannot(self):
+        attempt = self.create_attempt()
+        delete_url = reverse("bank:exam_attempt_delete", args=[attempt.pk])
+        other_user = User.objects.create_user("attempt-delete-outsider", "outsider@example.com", "secret")
+        self.client.force_login(other_user)
+        self.assertEqual(self.client.post(delete_url).status_code, 404)
+        self.assertTrue(ExamAttempt.objects.filter(pk=attempt.pk).exists())
+
+        self.client.force_login(self.student)
+        deleted = self.client.post(delete_url)
+        self.assertEqual(deleted.status_code, 302)
+        self.assertEqual(deleted.url, reverse("bank:deck_exams", args=[self.deck.slug]))
+        self.assertFalse(ExamAttempt.objects.filter(pk=attempt.pk).exists())
+
+
+def _start_exam_for_test(template):
+    from .views import _start_exam
+    return _start_exam(
+        template.user, template.bank, template.name, template.question_count,
+        template.mix, template.time_limit_minutes, template=template,
+    )
+
+
 class SavedTests(Base):
     def test_save_toggle_and_saved_section(self):
         deck = self.import_sample()
@@ -1019,7 +1642,7 @@ class SavedTests(Base):
 
         page = self.client.get(reverse("bank:saved_quiz", args=[deck.slug]))
         self.assertContains(page, 'data-question-type="saved"')
-        self.assertContains(page, "?v=20261028-5")
+        self.assertContains(page, "?v=20261028-7")
 
         practice = self.client.get(reverse("bank:api_saved_questions", args=[deck.slug])).json()["questions"]
         self.assertEqual([item["id"] for item in practice], [question.pk])

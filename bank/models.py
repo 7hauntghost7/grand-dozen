@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -220,6 +222,87 @@ class SavedQuestion(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=["user", "question"], name="uniq_saved_question")]
         ordering = ["-created_at"]
+
+
+class ExamTemplate(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="exam_templates")
+    bank = models.ForeignKey(
+        QuestionBank, null=True, blank=True, on_delete=models.CASCADE, related_name="exam_templates",
+    )
+    subject = models.ForeignKey(
+        Subject, null=True, blank=True, on_delete=models.CASCADE, related_name="exam_templates",
+    )
+    name = models.CharField(max_length=100)
+    question_count = models.PositiveSmallIntegerField()
+    mix = models.JSONField(default=dict)
+    time_limit_minutes = models.PositiveSmallIntegerField(null=True, blank=True)
+    is_published = models.BooleanField(default=False)
+    snapshot = models.JSONField(null=True, blank=True)
+    source_attempt = models.OneToOneField(
+        "ExamAttempt", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="saved_template",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "bank", "name"], name="uniq_exam_template_user_bank_name"),
+            models.UniqueConstraint(
+                fields=["user", "subject", "name"],
+                condition=models.Q(subject__isnull=False),
+                name="uniq_exam_template_user_subject_name",
+            ),
+        ]
+
+    def __str__(self):
+        scope = self.bank.title if self.bank_id else self.subject.name
+        return f"{self.name} · {scope}"
+
+
+class ExamTemplateChapter(models.Model):
+    template = models.ForeignKey(ExamTemplate, on_delete=models.CASCADE, related_name="chapters")
+    bank = models.ForeignKey(QuestionBank, on_delete=models.CASCADE, related_name="exam_template_chapters")
+    percentage = models.PositiveSmallIntegerField()
+
+    class Meta:
+        ordering = ["bank__semester", "bank__title", "bank_id"]
+        constraints = [
+            models.UniqueConstraint(fields=["template", "bank"], name="uniq_exam_template_chapter"),
+            models.CheckConstraint(
+                condition=models.Q(percentage__gte=1, percentage__lte=100),
+                name="exam_template_chapter_percentage_range",
+            ),
+        ]
+
+
+class ExamAttempt(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="exam_attempts")
+    bank = models.ForeignKey(QuestionBank, on_delete=models.CASCADE, related_name="exam_attempts")
+    subject = models.ForeignKey(
+        Subject, null=True, blank=True, on_delete=models.CASCADE, related_name="exam_attempts",
+    )
+    shared_from = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="shared_attempts",
+    )
+    template = models.ForeignKey(
+        ExamTemplate, null=True, blank=True, on_delete=models.SET_NULL, related_name="attempts",
+    )
+    title = models.CharField(max_length=120)
+    configuration = models.JSONField(default=dict)
+    question_ids = models.JSONField(default=list)
+    responses = models.JSONField(default=dict)
+    share_token = models.UUIDField(null=True, blank=True, unique=True, editable=False)
+    started_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-started_at", "-id"]
+
+    def __str__(self):
+        return f"{self.title} · {self.user}"
 
 
 class Comment(models.Model):
