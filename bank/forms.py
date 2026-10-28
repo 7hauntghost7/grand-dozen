@@ -6,7 +6,36 @@ from django.forms.models import BaseInlineFormSet, inlineformset_factory
 from .models import ImageTarget, Option, Question, QuestionBank, QuestionImage
 
 
+def validate_image_file(uploaded):
+    if uploaded.size > 20 * 1024 * 1024:
+        raise forms.ValidationError("Image must be 20 MB or smaller.")
+    from PIL import Image, UnidentifiedImageError
+
+    try:
+        uploaded.seek(0)
+        image = Image.open(uploaded)
+        if image.format not in {"JPEG", "PNG", "WEBP", "GIF"}:
+            raise forms.ValidationError("Use a JPEG, PNG, WebP, or GIF image.")
+        if image.width * image.height > 80_000_000:
+            raise forms.ValidationError("Image dimensions are too large to process.")
+        image.verify()
+    except (UnidentifiedImageError, OSError) as error:
+        raise forms.ValidationError("The uploaded file is not a valid supported image.") from error
+    finally:
+        uploaded.seek(0)
+    return uploaded
+
+
 class QuestionForm(forms.ModelForm):
+    answer_image = forms.FileField(
+        required=False,
+        help_text="Optional image shown with the answer to descriptive questions (up to 20 MB).",
+        widget=forms.ClearableFileInput(attrs={
+            "accept": "image/jpeg,image/png,image/webp,image/gif",
+        }),
+    )
+    clear_answer_image = forms.BooleanField(required=False, label="Remove current answer image")
+
     class Meta:
         model = Question
         fields = ["bank", "number", "label", "kind", "stem", "answer", "explanation", "note"]
@@ -32,9 +61,21 @@ class QuestionForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        if cleaned.get("kind") == Question.DESC and not (cleaned.get("answer") or "").strip():
+        if (
+            cleaned.get("kind") == Question.DESC
+            and not (cleaned.get("answer") or "").strip()
+            and not cleaned.get("answer_image")
+            and (
+                not self.instance.answer_image_asset_id
+                or cleaned.get("clear_answer_image")
+            )
+        ):
             self.add_error("answer", "Enter the answer shown on the descriptive flashcard.")
         return cleaned
+
+    def clean_answer_image(self):
+        uploaded = self.cleaned_data.get("answer_image")
+        return validate_image_file(uploaded) if uploaded else uploaded
 
 
 class ImageUploadForm(forms.Form):
@@ -47,26 +88,14 @@ class ImageUploadForm(forms.Form):
 
     def clean_image(self):
         uploaded = self.cleaned_data["image"]
-        if uploaded.size > 20 * 1024 * 1024:
-            raise forms.ValidationError("Image must be 20 MB or smaller.")
-        from PIL import Image, UnidentifiedImageError
-
-        try:
-            uploaded.seek(0)
-            image = Image.open(uploaded)
-            if image.format not in {"JPEG", "PNG", "WEBP", "GIF"}:
-                raise forms.ValidationError("Use a JPEG, PNG, WebP, or GIF image.")
-            if image.width * image.height > 80_000_000:
-                raise forms.ValidationError("Image dimensions are too large to process.")
-            image.verify()
-        except (UnidentifiedImageError, OSError) as error:
-            raise forms.ValidationError("The uploaded file is not a valid supported image.") from error
-        finally:
-            uploaded.seek(0)
-        return uploaded
+        return validate_image_file(uploaded)
 
 
 class ImageQuestionForm(forms.Form):
+    def __init__(self, *args, has_answer_image=False, **kwargs):
+        self.has_answer_image = has_answer_image
+        super().__init__(*args, **kwargs)
+
     is_lab = forms.BooleanField(
         label="Import this question to Labs",
         required=False,
@@ -80,6 +109,14 @@ class ImageQuestionForm(forms.Form):
     ))
     stem = forms.CharField(label="Question / instructions", widget=forms.Textarea(attrs={"rows": 3}))
     answer = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
+    answer_image = forms.FileField(
+        required=False,
+        help_text="Optional image shown with this descriptive answer (up to 20 MB).",
+        widget=forms.ClearableFileInput(attrs={
+            "accept": "image/jpeg,image/png,image/webp,image/gif",
+        }),
+    )
+    clear_answer_image = forms.BooleanField(required=False, label="Remove current answer image")
     explanation = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
     note = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
     targets_json = forms.CharField(widget=forms.HiddenInput(), initial="[]")
@@ -153,9 +190,20 @@ class ImageQuestionForm(forms.Form):
             if mode == Question.MCQ and not any(option["is_correct"] for option in options):
                 self.add_error("options_json", "Mark at least one correct answer choice.")
             cleaned["options"] = options
-        elif not cleaned.get("answer", "").strip():
+        elif (
+            not cleaned.get("answer", "").strip()
+            and not cleaned.get("answer_image")
+            and (
+                not self.has_answer_image
+                or cleaned.get("clear_answer_image")
+            )
+        ):
             self.add_error("answer", "Enter the answer shown on the descriptive flashcard.")
         return cleaned
+
+    def clean_answer_image(self):
+        uploaded = self.cleaned_data.get("answer_image")
+        return validate_image_file(uploaded) if uploaded else uploaded
 
     @staticmethod
     def _valid_coordinates(x, y):

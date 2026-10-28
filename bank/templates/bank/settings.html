@@ -1,0 +1,60 @@
+{% extends "bank/base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<h2 class="pagetitle">Settings</h2>
+<section class="card settings-card">
+  <h3>Appearance</h3>
+  <p class="mute">Choose the theme for this browser.</p>
+  <button class="theme-toggle" type="button" aria-label="Switch to light mode" aria-pressed="true">
+    <span class="theme-icon" aria-hidden="true">☼</span>
+    <span class="theme-label">Light mode</span>
+  </button>
+</section>
+<section class="card settings-card">
+  <h3>ChatGPT response language</h3>
+  <p class="mute">Choose the language ChatGPT should use when explaining a quiz question. This preference is saved in this browser.</p>
+  <form id="settings-form" data-user="{{ request.user.pk }}">
+    <fieldset class="settings-language-options">
+      <legend>Response language</legend>
+      <label><input type="radio" name="ai-language" value="en"> English</label>
+      <label><input type="radio" name="ai-language" value="ar"> العربية</label>
+    </fieldset>
+    <button class="btn pri" type="submit">Save settings</button>
+    <span id="settings-status" class="mute" role="status" aria-live="polite"></span>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const form = document.getElementById("settings-form");
+  if (!form) return;
+  const key = `gd:settings:${form.dataset.user}`;
+  const status = document.getElementById("settings-status");
+  const controls = [...form.querySelectorAll('input[name="ai-language"]')];
+  try {
+    const saved = JSON.parse(localStorage.getItem(key) || "{}");
+    const language = saved.aiLanguage === "ar" ? "ar" : "en";
+    controls.find(control => control.value === language).checked = true;
+  } catch (error) {
+    controls.find(control => control.value === "en").checked = true;
+    status.textContent = "Could not read the saved preference; English is selected.";
+  }
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+    const selected = form.querySelector('input[name="ai-language"]:checked');
+    if (!selected) {
+      status.textContent = "Choose a response language.";
+      return;
+    }
+    try {
+      const saved = JSON.parse(localStorage.getItem(key) || "{}");
+      localStorage.setItem(key, JSON.stringify({...saved, aiLanguage: selected.value}));
+      status.textContent = "Settings saved.";
+    } catch (error) {
+      status.textContent = "Could not save settings. Check your browser storage permissions.";
+    }
+  });
+})();
+</script>
+{% endblock %}

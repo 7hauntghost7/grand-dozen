@@ -105,8 +105,8 @@ def serialize(questions, user, review=False, include_answers=False):
     for q in qs:
         opts = list(q.options.all())
         kind = (
-            Question.MCQ
-            if q.kind == Question.IMAGE and q.image_answer_mode == Question.IMAGE_MCQ
+            q.image_answer_mode
+            if q.kind == Question.IMAGE and q.image_answer_mode != Question.IMAGE_IDENTIFY
             else q.kind
         )
         question = {
@@ -122,6 +122,8 @@ def serialize(questions, user, review=False, include_answers=False):
                 "image_width": q.image_asset.width if q.image_asset_id else 0,
                 "image_height": q.image_asset.height if q.image_asset_id else 0,
             })
+        if q.answer_image_asset_id:
+            question["answer_image_url"] = q.answer_image_asset.secure_url
         if kind == Question.IMAGE:
             question.update({
                 "targets": [
@@ -234,7 +236,7 @@ def bank_detail(request, slug):
         image_count=Count(
             "id",
             filter=Q(kind=Question.IMAGE, image_answer_mode__in=[
-                Question.IMAGE_IDENTIFY, Question.IMAGE_MCQ,
+                choice[0] for choice in Question.IMAGE_ANSWER_CHOICES
             ]),
         ),
         uofk_mcq_tf_count=Count(
@@ -247,7 +249,7 @@ def bank_detail(request, slug):
         uofk_image_count=Count(
             "id",
             filter=Q(kind=Question.IMAGE, image_answer_mode__in=[
-                Question.IMAGE_IDENTIFY, Question.IMAGE_MCQ,
+                choice[0] for choice in Question.IMAGE_ANSWER_CHOICES
             ]) & uofk_filter,
         ),
     )
@@ -350,7 +352,7 @@ def saved_quiz(request, slug):
         request, title=f"Saved · {bank.title}", key=f"saved:{request.user.pk}:{bank.slug}",
         api=reverse("bank:api_saved_questions", args=[bank.slug]),
         back=reverse("bank:saved_deck", args=[bank.slug]), review=False, edit_api="",
-        can_sort=False, sort_api=""))
+        question_type="saved", can_sort=False, sort_api=""))
 
 
 @login_required
@@ -441,14 +443,10 @@ def api_questions(request, slug):
             is_lab=False,
         )
     elif quiz_type == "image":
-        qs = qs.filter(
-            kind=Question.IMAGE,
-            image_answer_mode__in=[Question.IMAGE_IDENTIFY, Question.IMAGE_MCQ],
-            is_lab=False,
-        )
+        qs = qs.filter(kind=Question.IMAGE, is_lab=False)
     elif quiz_type == "labs":
         qs = qs.filter(is_lab=True)
-    qs = qs.select_related("image_asset").prefetch_related("options", "image_targets")
+    qs = qs.select_related("image_asset", "answer_image_asset").prefetch_related("options", "image_targets")
     return JsonResponse({
         "title": bank.title,
         "questions": serialize(qs, request.user, review=review, include_answers=not review),
@@ -807,14 +805,14 @@ def api_question_review_bin(request, pk):
 @staff_required
 def api_sorting_bin_questions(request):
     questions = Question.objects.filter(is_in_sorting_bin=True).select_related(
-        "bank__subject", "image_asset").prefetch_related("options", "image_targets")
+        "bank__subject", "image_asset", "answer_image_asset").prefetch_related("options", "image_targets")
     return JsonResponse({"title": "Sorting bin", "questions": serialize(questions, request.user, review=True)})
 
 
 @staff_required
 def api_review_bin_questions(request):
     questions = Question.objects.filter(is_in_review_bin=True).select_related(
-        "bank__subject", "image_asset").prefetch_related("options", "image_targets")
+        "bank__subject", "image_asset", "answer_image_asset").prefetch_related("options", "image_targets")
     return JsonResponse({"title": "Review bin", "questions": serialize(questions, request.user, review=True)})
 
 
@@ -822,7 +820,7 @@ def api_review_bin_questions(request):
 @require_POST
 def api_question_edit(request, pk):
     question = get_object_or_404(
-        Question.objects.select_related("image_asset").prefetch_related("options", "image_targets"),
+        Question.objects.select_related("image_asset", "answer_image_asset").prefetch_related("options", "image_targets"),
         pk=pk,
     )
     data = json_body(request)
@@ -832,9 +830,12 @@ def api_question_edit(request, pk):
     if not isinstance(delete_question, bool):
         return JsonResponse({"error": "Invalid delete action."}, status=400)
     if delete_question:
-        image_id = question.image_asset_id
+        image_ids = {question.image_asset_id, question.answer_image_asset_id}
         question.delete()
-        cleanup_warning = _delete_unused_question_image(image_id)
+        cleanup_warning = "; ".join(
+            warning for image_id in image_ids
+            if (warning := _delete_unused_question_image(image_id))
+        )
         return JsonResponse({"deleted": True, "warning": cleanup_warning})
 
     kind = data.get("kind")
@@ -851,20 +852,17 @@ def api_question_edit(request, pk):
         return JsonResponse({"error": "Choose a valid question type."}, status=400)
     targets = data.get("targets", [])
     image_answer_mode = data.get("image_answer_mode", question.image_answer_mode)
-    image_mcq_review = (
+    image_format_review = (
         question.kind == Question.IMAGE
-        and question.image_answer_mode == Question.IMAGE_MCQ
-        and kind == Question.MCQ
-        and image_answer_mode == Question.IMAGE_MCQ
+        and question.image_answer_mode != Question.IMAGE_IDENTIFY
+        and kind in {Question.MCQ, Question.TF, Question.DESC}
     )
-    if question.kind == Question.IMAGE and kind != Question.IMAGE and not image_mcq_review:
+    if question.kind == Question.IMAGE and kind != Question.IMAGE and not image_format_review:
         return JsonResponse({"error": "Edit image questions using the image question editor."}, status=400)
-    if image_mcq_review:
-        kind = Question.IMAGE
     if kind == Question.IMAGE:
         if not question.image_asset_id:
             return JsonResponse({"error": "This image question has no associated image."}, status=400)
-        if image_answer_mode not in {Question.IMAGE_IDENTIFY, Question.IMAGE_MCQ}:
+        if image_answer_mode not in {choice[0] for choice in Question.IMAGE_ANSWER_CHOICES}:
             return JsonResponse({"error": "Choose an image answer style."}, status=400)
         if image_answer_mode == Question.IMAGE_IDENTIFY:
             if not isinstance(targets, list) or not 1 <= len(targets) <= 50:
@@ -921,7 +919,8 @@ def api_question_edit(request, pk):
         return JsonResponse({"error": "Label must be 100 characters or fewer."}, status=400)
     if kind == Question.DESC:
         if not answer.strip():
-            return JsonResponse({"error": "A descriptive question needs an answer."}, status=400)
+            if not question.answer_image_asset_id:
+                return JsonResponse({"error": "A descriptive question needs an answer or answer image."}, status=400)
         options = []
     elif kind == Question.IMAGE:
         pass
@@ -937,12 +936,14 @@ def api_question_edit(request, pk):
             return JsonResponse({"error": "Select at least one correct option."}, status=400)
 
     with transaction.atomic():
-        question.kind = kind
+        question.kind = Question.IMAGE if image_format_review else kind
+        if image_format_review:
+            question.image_answer_mode = kind
         question.stem = stem.strip()
         question.answer = answer.strip() if kind == Question.DESC else ""
         question.label = label.strip()
         question.is_lab = is_lab
-        if kind == Question.IMAGE:
+        if kind == Question.IMAGE and not image_format_review:
             question.image_answer_mode = image_answer_mode
         question.explanation = explanation.strip()
         question.note = note.strip()
@@ -979,7 +980,7 @@ def api_question_edit(request, pk):
                 )
         for option in existing_options[len(options):]:
             option.delete()
-        if kind == Question.IMAGE:
+        if kind == Question.IMAGE and not image_format_review:
             question.image_targets.all().delete()
             if image_answer_mode == Question.IMAGE_IDENTIFY:
                 ImageTarget.objects.bulk_create([
@@ -1017,7 +1018,7 @@ def api_image_target(request, pk, target_pk):
 def api_saved_questions(request, slug):
     bank = get_object_or_404(QuestionBank, slug=slug)
     qs = (bank.questions.filter(saved_by__user=request.user, is_in_sorting_bin=False, is_in_review_bin=False)
-          .select_related("image_asset").prefetch_related("options", "image_targets").order_by("id"))
+          .select_related("image_asset", "answer_image_asset").prefetch_related("options", "image_targets").order_by("id"))
     return JsonResponse({
         "title": bank.title,
         "questions": serialize(qs, request.user, include_answers=True),
@@ -1032,16 +1033,21 @@ def api_check(request, pk):
     data = json_body(request)
     if data is None:
         return JsonResponse({"error": "invalid JSON"}, status=400)
-    if q.kind == Question.IMAGE and q.image_answer_mode == Question.IMAGE_IDENTIFY:
+    kind = (
+        q.image_answer_mode
+        if q.kind == Question.IMAGE and q.image_answer_mode != Question.IMAGE_IDENTIFY
+        else q.kind
+    )
+    if q.kind == Question.IMAGE and kind == Question.IMAGE:
         return JsonResponse({"error": "Identify targets individually to record self-assessment."}, status=400)
     opts = list(q.options.all())
     out = {"explanation": q.explanation, "note": q.note, "correct": None}
     reveal = bool(data.get("reveal"))
-    if q.kind == Question.DESC:
+    if kind == Question.DESC:
         if not reveal:
             return JsonResponse({"error": "Descriptive answers can only be requested with reveal."}, status=400)
         out["answer"] = q.answer
-    elif q.kind == Question.TF:
+    elif kind == Question.TF:
         key = {str(o.id): o.is_correct for o in opts}
         out["key"] = key
         if not reveal:
@@ -1131,6 +1137,11 @@ def saved_remove(request, pk):
     return redirect(safe_next(request, reverse("bank:saved_home")))
 
 
+@login_required
+def user_settings(request):
+    return render(request, "bank/settings.html")
+
+
 # ---------------------------------------------------------------- editor pages
 @perm_required("bank.change_question")
 def manage_deck(request, slug):
@@ -1142,7 +1153,7 @@ def manage_deck(request, slug):
 
 def _edit_question(request, question, bank=None, is_new=False):
     Formset = option_formset(extra=4 if is_new else 2)
-    form = QuestionForm(request.POST or None, instance=question)
+    form = QuestionForm(request.POST or None, request.FILES or None, instance=question)
     formset = Formset(request.POST or None, instance=question)
     if request.method == "POST":
         v1 = form.is_valid()
@@ -1150,8 +1161,26 @@ def _edit_question(request, question, bank=None, is_new=False):
             formset.instance.kind = form.cleaned_data["kind"]
         v2 = formset.is_valid()
         if v1 and v2:
+            uploaded_answer_image = (
+                form.cleaned_data["answer_image"]
+                if form.cleaned_data["kind"] == Question.DESC else None
+            )
+            answer_image = None
+            if uploaded_answer_image:
+                try:
+                    answer_image = _create_question_image(question.bank, uploaded_answer_image)
+                except (ImageStorageError, ValueError, OSError) as error:
+                    form.add_error("answer_image", str(error))
+                    v1 = False
+            old_answer_image_id = question.answer_image_asset_id
+        if v1 and v2:
             with transaction.atomic():
-                q = form.save()
+                q = form.save(commit=False)
+                if answer_image:
+                    q.answer_image_asset = answer_image
+                elif q.kind == Question.DESC and form.cleaned_data["clear_answer_image"]:
+                    q.answer_image_asset = None
+                q.save()
                 formset.instance = q
                 if q.kind == Question.DESC:
                     q.options.all().delete()
@@ -1174,12 +1203,22 @@ def _edit_question(request, question, bank=None, is_new=False):
                 if ids and not is_new:
                     Comment.objects.filter(question=q, pk__in=ids, resolved=False).update(
                         resolved=True, resolved_by=request.user, resolved_at=timezone.now())
-            messages.success(request, "Question saved.")
+            cleanup_warning = (
+                _delete_unused_question_image(old_answer_image_id)
+                if old_answer_image_id and old_answer_image_id != q.answer_image_asset_id else ""
+            )
+            if cleanup_warning:
+                messages.warning(request, cleanup_warning)
+            else:
+                messages.success(request, "Question saved.")
             return redirect(safe_next(request, reverse("bank:manage_deck", args=[q.bank.slug])))
     comments = question.comments.select_related("user") if question.pk else []
     return render(request, "bank/question_edit.html", {
         "form": form, "formset": formset, "question": question, "is_new": is_new,
         "comments": comments, "next": request.GET.get("next", ""),
+        "answer_image": question.answer_image_asset if question.answer_image_asset_id else None,
+        "image_uploads_enabled": image_uploads_enabled(),
+        "local_image_uploads": settings.DEBUG,
     })
 
 
@@ -1213,6 +1252,7 @@ def _image_question_form(request, bank, image, question=None):
             ),
             "stem": question.stem,
             "answer": question.answer,
+            "answer_image": "",
             "explanation": question.explanation,
             "note": question.note,
             "targets_json": json.dumps([
@@ -1226,18 +1266,21 @@ def _image_question_form(request, bank, image, question=None):
                 for option in question.options.all()
             ]),
         }
-    requested_mode = request.GET.get("kind", Question.IMAGE_IDENTIFY)
+    requested_mode = request.GET.get(
+        "kind",
+        initial.get("answer_mode", Question.IMAGE_IDENTIFY),
+    )
     if requested_mode not in {
         Question.IMAGE_IDENTIFY, Question.MCQ, Question.TF, Question.DESC,
     }:
         requested_mode = Question.IMAGE_IDENTIFY
-    form = ImageQuestionForm(request.POST or None, initial=initial or {
+    form = ImageQuestionForm(request.POST or None, request.FILES or None, initial=initial or {
         "is_lab": request.GET.get("is_lab") == "1",
         "answer_mode": requested_mode,
         "answer": "",
         "targets_json": "[]",
         "options_json": "[]",
-    })
+    }, has_answer_image=bool(question and question.answer_image_asset_id))
     destination = request.POST.get(
         "destination",
         request.GET.get(
@@ -1250,15 +1293,33 @@ def _image_question_form(request, bank, image, question=None):
         destination = "regular"
     if request.method == "POST" and form.is_valid():
         answer_mode = form.cleaned_data["answer_mode"]
-        identify_mcq = answer_mode == Question.MCQ and destination == "identify"
-        stored_kind = (
-            Question.IMAGE
-            if answer_mode == Question.IMAGE_IDENTIFY or identify_mcq
-            else answer_mode
+        store_in_identify = destination == "identify" or answer_mode == Question.IMAGE_IDENTIFY
+        stored_kind = Question.IMAGE if store_in_identify else answer_mode
+        stored_image_mode = answer_mode if store_in_identify else Question.IMAGE_IDENTIFY
+        uploaded_answer_image = (
+            form.cleaned_data["answer_image"]
+            if answer_mode == Question.DESC else None
         )
-        stored_image_mode = (
-            Question.IMAGE_MCQ if identify_mcq else Question.IMAGE_IDENTIFY
-        )
+        answer_image = None
+        if uploaded_answer_image:
+            try:
+                answer_image = _create_question_image(bank, uploaded_answer_image)
+            except (ImageStorageError, ValueError, OSError) as error:
+                form.add_error("answer_image", str(error))
+        if form.errors:
+            return render(request, "bank/image_question_form.html", {
+                "bank": bank, "image": image, "question": question,
+                "form": form, "is_new": question is None,
+                "initial_targets": form["targets_json"].value() or "[]",
+                "initial_options": form["options_json"].value() or "[]",
+                "next_url": request.POST.get("next") or request.GET.get("next", ""),
+                "destination": destination,
+                "cancel_url": safe_next(request, bank.get_absolute_url()),
+                "answer_image": question.answer_image_asset if question and question.answer_image_asset_id else None,
+                "image_uploads_enabled": image_uploads_enabled(),
+                "local_image_uploads": settings.DEBUG,
+            })
+        old_answer_image_id = question.answer_image_asset_id if question else None
         with transaction.atomic():
             if question is None:
                 question = Question.objects.create(
@@ -1276,17 +1337,18 @@ def _image_question_form(request, bank, image, question=None):
             question.image_answer_mode = stored_image_mode
             question.answer = (
                 form.cleaned_data["answer"].strip()
-                if question.kind == Question.DESC else ""
+                if answer_mode == Question.DESC else ""
             )
+            if answer_image:
+                question.answer_image_asset = answer_image
+            elif answer_mode == Question.DESC and form.cleaned_data["clear_answer_image"]:
+                question.answer_image_asset = None
             question.explanation = form.cleaned_data["explanation"].strip()
             question.note = form.cleaned_data["note"].strip()
             question.save()
             question.options.all().delete()
             question.image_targets.all().delete()
-            if question.kind in {Question.MCQ, Question.TF} or (
-                question.kind == Question.IMAGE
-                and question.image_answer_mode == Question.IMAGE_MCQ
-            ):
+            if answer_mode in {Question.MCQ, Question.TF}:
                 Option.objects.bulk_create([
                     Option(
                         question=question, text=option["text"].strip(),
@@ -1294,7 +1356,7 @@ def _image_question_form(request, bank, image, question=None):
                     )
                     for index, option in enumerate(form.cleaned_data["options"])
                 ])
-            elif question.kind == Question.IMAGE:
+            elif answer_mode == Question.IMAGE_IDENTIFY:
                 ImageTarget.objects.bulk_create([
                     ImageTarget(
                         question=question, label=target["label"].strip(),
@@ -1305,6 +1367,12 @@ def _image_question_form(request, bank, image, question=None):
                     )
                     for index, target in enumerate(form.cleaned_data["targets"])
                 ])
+        cleanup_warning = (
+            _delete_unused_question_image(old_answer_image_id)
+            if old_answer_image_id and old_answer_image_id != question.answer_image_asset_id else ""
+        )
+        if cleanup_warning:
+            messages.warning(request, cleanup_warning)
         if request.POST.get("add_another") == "1":
             messages.success(request, "Question saved. Add another separate question using the same image.")
             next_url = request.POST.get("next") or request.GET.get("next", "")
@@ -1320,8 +1388,12 @@ def _image_question_form(request, bank, image, question=None):
             return redirect(add_url)
         if question.is_lab:
             success_message = "Image question saved to Labs."
-        elif question.kind == Question.IMAGE and question.image_answer_mode == Question.IMAGE_MCQ:
+        elif question.kind == Question.IMAGE and question.image_answer_mode == Question.MCQ:
             success_message = "Image MCQ saved to Identify."
+        elif question.kind == Question.IMAGE and question.image_answer_mode == Question.TF:
+            success_message = "Image True / False question saved to Identify."
+        elif question.kind == Question.IMAGE and question.image_answer_mode == Question.DESC:
+            success_message = "Image descriptive question saved to Identify."
         elif question.kind == Question.IMAGE:
             success_message = "Image identification question saved to Identify."
         elif question.kind == Question.MCQ:
@@ -1340,7 +1412,22 @@ def _image_question_form(request, bank, image, question=None):
         "next_url": request.POST.get("next") or request.GET.get("next", ""),
         "destination": destination,
         "cancel_url": safe_next(request, bank.get_absolute_url()),
+        "answer_image": question.answer_image_asset if question and question.answer_image_asset_id else None,
+        "image_uploads_enabled": image_uploads_enabled(),
+        "local_image_uploads": settings.DEBUG,
     })
+
+
+def _create_question_image(bank, uploaded):
+    result = upload_question_image(uploaded)
+    return QuestionImage.objects.create(
+        bank=bank,
+        public_id=result["public_id"],
+        secure_url=result["secure_url"],
+        original_name=uploaded.name[:255],
+        width=result["width"],
+        height=result["height"],
+    )
 
 
 @perm_required("bank.add_question")
@@ -1363,18 +1450,10 @@ def image_question_upload(request, slug):
     if request.method == "POST" and form.is_valid():
         uploaded = form.cleaned_data["image"]
         try:
-            result = upload_question_image(uploaded)
+            image = _create_question_image(bank, uploaded)
         except (ImageStorageError, ValueError, OSError) as error:
             form.add_error("image", str(error))
         else:
-            image = QuestionImage.objects.create(
-                bank=bank,
-                public_id=result["public_id"],
-                secure_url=result["secure_url"],
-                original_name=uploaded.name[:255],
-                width=result["width"],
-                height=result["height"],
-            )
             add_url = reverse("bank:image_question_add", args=[bank.slug, image.pk])
             answer_mode = requested_mode
             if answer_mode in {Question.MCQ, Question.TF, Question.DESC}:
@@ -1410,12 +1489,12 @@ def _delete_unused_question_image(image_id):
     if image_id is None:
         return ""
     image = QuestionImage.objects.filter(pk=image_id).first()
-    if image is None or image.questions.exists():
+    if image is None or image.questions.exists() or image.answer_questions.exists():
         return ""
     try:
         delete_question_image(image.public_id)
     except (ImageStorageError, ValueError, OSError) as error:
-        return f"The question was deleted, but its unused image could not be removed from storage: {error}"
+        return f"The unused image could not be removed from storage: {error}"
     image.delete()
     return ""
 
@@ -1425,9 +1504,12 @@ def _delete_unused_question_image(image_id):
 def question_delete(request, pk):
     q = get_object_or_404(Question, pk=pk)
     slug = q.bank.slug
-    image_id = q.image_asset_id
+    image_ids = {q.image_asset_id, q.answer_image_asset_id}
     q.delete()
-    cleanup_warning = _delete_unused_question_image(image_id)
+    cleanup_warning = "; ".join(
+        warning for image_id in image_ids
+        if (warning := _delete_unused_question_image(image_id))
+    )
     if cleanup_warning:
         messages.warning(request, cleanup_warning)
     else:

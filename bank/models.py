@@ -123,6 +123,8 @@ class Question(models.Model):
     IMAGE_ANSWER_CHOICES = [
         (IMAGE_IDENTIFY, "Identify image targets"),
         (IMAGE_MCQ, "Multiple-choice question"),
+        (TF, "True / False question"),
+        (DESC, "Descriptive question"),
     ]
 
     bank = models.ForeignKey(QuestionBank, on_delete=models.CASCADE, related_name="questions",
@@ -142,6 +144,10 @@ class Question(models.Model):
     )
     image_asset = models.ForeignKey(
         "QuestionImage", null=True, blank=True, on_delete=models.PROTECT, related_name="questions",
+    )
+    answer_image_asset = models.ForeignKey(
+        "QuestionImage", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="answer_questions",
     )
     image_answer_mode = models.CharField(
         max_length=8, choices=IMAGE_ANSWER_CHOICES, default=IMAGE_IDENTIFY,

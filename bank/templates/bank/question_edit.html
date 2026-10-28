@@ -17,12 +17,25 @@
 </div>
 {% endif %}
 
-<form method="post" class="card" id="qform">
+<form method="post" enctype="multipart/form-data" class="card" id="qform">
   {% csrf_token %}
   <input type="hidden" name="next" value="{{ next }}">
   {{ form.non_field_errors }}
   {% for f in form %}
-  <div class="field" data-field="{{ f.name }}">{{ f.label_tag }}{{ f }}{{ f.errors }}{% if f.help_text %}<span class="mute">{{ f.help_text }}</span>{% endif %}</div>
+  <div class="field" data-field="{{ f.name }}">
+    {{ f.label_tag }}{{ f }}{{ f.errors }}
+    {% if f.name == "answer_image" and answer_image %}
+      <a class="review-image-preview" href="{{ answer_image.secure_url }}" target="_blank" rel="noopener">
+        <img src="{{ answer_image.secure_url }}" alt="Current answer image">
+      </a>
+    {% endif %}
+    {% if f.help_text %}<span class="mute">{{ f.help_text }}</span>{% endif %}
+    {% if f.name == "answer_image" and not image_uploads_enabled %}
+      <span class="mute">Image hosting is not configured. Configure image storage before uploading an answer image.</span>
+    {% elif f.name == "answer_image" and local_image_uploads %}
+      <span class="mute">Development uploads are stored locally and will not be available in deployment.</span>
+    {% endif %}
+  </div>
   {% endfor %}
 
   <div id="options-section">
@@ -68,10 +81,14 @@
   const total = document.querySelector('[name$="-TOTAL_FORMS"]');
   const kind = document.getElementById('id_kind');
   const answer = document.querySelector('[data-field="answer"]');
+  const answerImage = document.querySelector('[data-field="answer_image"]');
+  const clearAnswerImage = document.querySelector('[data-field="clear_answer_image"]');
   const options = document.getElementById('options-section');
   const updateKind = () => {
     const descriptive = kind.value === 'desc';
     answer.hidden = !descriptive;
+    answerImage.hidden = !descriptive;
+    clearAnswerImage.hidden = !descriptive;
     options.hidden = descriptive;
   };
   kind.addEventListener('change', updateKind);

@@ -6,7 +6,7 @@
 <h2 class="pagetitle">{% if is_new %}Add a question for this image{% else %}Edit image question {{ question.number }}{% endif %}</h2>
 <p class="mute">Choose the quiz category for this question. It will appear alongside text-only questions in that category, with this image attached.</p>
 
-<form method="post" class="card image-question-form" id="image-question-form"
+<form method="post" enctype="multipart/form-data" class="card image-question-form" id="image-question-form"
       data-targets="{{ initial_targets|escape }}" data-options="{{ initial_options|escape }}">
   {% csrf_token %}
   <input type="hidden" name="next" value="{{ next_url }}">
@@ -55,6 +55,18 @@
 
   <section id="answer-section" class="field">
     {{ form.answer.label_tag }}{{ form.answer }}{{ form.answer.errors }}
+    {{ form.answer_image.label_tag }}{{ form.answer_image }}{{ form.answer_image.errors }}
+    {% if answer_image %}
+      <a class="review-image-preview" href="{{ answer_image.secure_url }}" target="_blank" rel="noopener">
+        <img src="{{ answer_image.secure_url }}" alt="Current answer image">
+      </a>
+      {{ form.clear_answer_image }} {{ form.clear_answer_image.label_tag }}
+    {% endif %}
+    {% if not image_uploads_enabled %}
+      <span class="mute">Image hosting is not configured. Configure image storage before uploading an answer image.</span>
+    {% elif local_image_uploads %}
+      <span class="mute">Development uploads are stored locally and will not be available in deployment.</span>
+    {% endif %}
   </section>
 
   <div class="field">

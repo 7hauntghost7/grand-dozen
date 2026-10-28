@@ -4,10 +4,14 @@
   const root = document.getElementById("quiz");
   if (!root) return;
   const D = root.dataset;
+  const QUESTION_TYPE = D.questionType;
   const KEY = "gd:" + D.key;
+  const AI_SETTINGS_KEY = `gd:settings:${D.userId}`;
   const AUTH = D.auth === "1";
   const BLOCK_SIZE = 50;
   const esc = s => String(s).replace(/[&<>\"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  const answerImage = q => q.answer_image_url
+    ? `<figure class="answer-image-figure"><img src="${esc(q.answer_image_url)}" alt="Answer image"></figure>` : "";
   const isUofKLabel = label => /^u\s*of\s*k$/i.test(String(label || "").trim());
   const csrf = () => (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || "";
   const url = (tpl, id) => tpl.replace("/0/", "/" + id + "/");
@@ -119,7 +123,6 @@
     };
     save();
     render();
-    scrollToAnswerAction();
   }
 
   function revealAllImageTargets(questionId) {
@@ -137,7 +140,6 @@
     }
     save();
     render();
-    scrollToAnswerAction();
   }
 
   function gradeImageTarget(questionId, targetId, grade) {
@@ -146,6 +148,12 @@
     S.a[questionId].targets[targetId].grade = grade;
     save();
     render();
+    const targets = byId[questionId].targets || [];
+    if (targets.length && targets.every(target =>
+      ["known", "missed"].includes(S.a[questionId].targets[target.id]?.grade)
+    )) {
+      scrollToAnswerAction();
+    }
   }
 
   async function toggleSave(id) {
@@ -180,13 +188,16 @@
         Block ${b + 1}<span class="mute"> · ${ids.length}</span>${done ? " ✓" : ""}
         <span class="mute"> (${t.ok}/${ids.length})</span></button>`;
     }).join(" ");
-    const mcqTfNav = D.questionType === "mcq_tf";
+    const mcqTfNav = QUESTION_TYPE === "mcq_tf";
     const navStyle = mcqTfNav ? "" : ' style="margin:0 0 10px;justify-content:flex-start;gap:6px;flex-wrap:wrap"';
     return `<div class="row${mcqTfNav ? " quiz-block-nav" : ""}"${navStyle}>
       <span class="mute">Blocks:</span>${toggle}${blockNavOpen ? buttons : summary}${resetBlock}</div>`;
   }
 
   function render() {
+    const currentQuestion = view === "quiz" ? byId[list[pos]] : null;
+    root.dataset.questionType = QUESTION_TYPE === "saved" && currentQuestion?.kind === "desc"
+      ? "descriptive" : QUESTION_TYPE;
     root.innerHTML = view === "results" ? results() : question();
     if (view === "quiz") {
       const ta = root.querySelector("textarea.cmt");
@@ -207,14 +218,89 @@
     window.scrollTo({top: Math.max(0, scrollTop), behavior: "smooth"});
   }
 
+  function chatGptLink(q, a, target) {
+    let responseLanguage = "en";
+    try {
+      responseLanguage = JSON.parse(localStorage.getItem(AI_SETTINGS_KEY) || "{}").aiLanguage === "ar"
+        ? "ar" : "en";
+    } catch (error) {
+      console.warn("Could not read the ChatGPT response-language preference; using English.", error);
+    }
+    const lines = [
+      "I am studying medicine with a self-study quiz. Help me understand the underlying topic, not just memorize the answer.",
+      "Do not mention, identify, or promote the website or quiz platform this question came from.",
+      "Explain clearly and educationally. If the supplied explanation is incomplete or appears inaccurate, point that out and give the accurate reasoning.",
+      responseLanguage === "ar"
+        ? "Write your entire response in Arabic. Keep medical terms in English in parentheses where useful."
+        : "Write your entire response in English.",
+    ];
+    if (target) {
+      lines.push(
+        "Question type: Image identification.",
+        `Question: ${q.stem}`,
+        `Revealed identification answer — ${target.label}: ${target.answer}`,
+        `Quiz explanation: ${q.explanation || "None provided."}`,
+      );
+    } else if (q.kind === "desc") {
+      lines.push(
+        "Question type: Descriptive.",
+        `Question: ${q.stem}`,
+        `Suggested answer: ${a.res.answer || q.answer || "No written answer was provided."}`,
+        `Quiz explanation: ${a.res.explanation || q.explanation || "None provided."}`,
+      );
+    } else if (q.kind === "tf") {
+      lines.push(
+        "Question type: True/False statements.",
+        `Question: ${q.stem}`,
+        "For each statement, explain why it is true or false. For false statements, briefly give a corrected version.",
+        "Statements and answer key:",
+        ...q.options.map(option => {
+          const truth = a.res.key[option.id] ? "TRUE" : "FALSE";
+          const selected = a.payload.answers && a.payload.answers[option.id] !== undefined
+            ? ` (I selected ${a.payload.answers[option.id] ? "True" : "False"})` : "";
+          return `${option.letter}. ${option.text} — Correct answer: ${truth}${selected}`;
+        }),
+        `Quiz explanation: ${a.res.explanation || q.explanation || "None provided."}`,
+      );
+    } else {
+      const correctIds = a.res.correct_ids || q.correct_ids || [];
+      lines.push(
+        "Question type: Multiple choice.",
+        `Question: ${q.stem}`,
+        "Explain why each option is correct or incorrect, and teach the concept being tested.",
+        "Options and answer key:",
+        ...q.options.map(option => {
+          const correctness = correctIds.includes(option.id) ? "CORRECT" : "INCORRECT";
+          const selected = a.payload.selected === option.id ? " (I selected this option)" : "";
+          return `${option.letter}. ${option.text} — ${correctness}${selected}`;
+        }),
+        `Quiz explanation: ${a.res.explanation || q.explanation || "None provided."}`,
+      );
+    }
+    if (a.res.note || q.note) lines.push(`Quiz note: ${a.res.note || q.note}`);
+    if (q.image_url || q.kind === "image" || target) {
+      lines.push("No question image is attached or being sent. Do not guess visual details; explain only what can be inferred from the text.");
+    }
+    lines.push("This is for learning only, not for personal diagnosis or treatment.");
+    const chatUrl = new URL("https://chatgpt.com/");
+    chatUrl.searchParams.set("q", lines.join("\n\n"));
+    return `<a class="btn" href="${esc(chatUrl.href)}" target="_blank" rel="noopener noreferrer">اتونس 😁 ↗</a>`;
+  }
+
   function feedback(q, a) {
     const r = a.res;
     if (q.kind === "desc") {
-      if (a.revealed) return "";
+      if (a.revealed) {
+        return `<div class="fb info">` +
+          (r.explanation ? `<p><b>Explanation:</b> ${esc(r.explanation)}</p>` : "") +
+          (r.note ? `<p class="note">Note: ${esc(r.note)}</p>` : "") +
+          `<div class="ai-question-actions">${chatGptLink(q, a)}</div></div>`;
+      }
       const result = r.correct ? "✓ Marked as known." : "✗ Marked to review.";
       return `<div class="fb ${r.correct ? "ok" : "bad"}"><b>${result}</b>` +
         (r.explanation ? `<p>${esc(r.explanation)}</p>` : "") +
-        (r.note ? `<p class="note">⚠ ${esc(r.note)}</p>` : "") + "</div>";
+        (r.note ? `<p class="note">⚠ ${esc(r.note)}</p>` : "") +
+        `<div class="ai-question-actions">${chatGptLink(q, a)}</div></div>`;
     }
     let head;
     if (a.revealed) head = '<div class="fb info"><b>Answer shown.</b>';
@@ -227,7 +313,7 @@
     }
     if (r.explanation) head += "<p>" + esc(r.explanation) + "</p>";
     if (r.note) head += '<p class="note">⚠ ' + esc(r.note) + "</p>";
-    return head + "</div>";
+    return head + `<div class="ai-question-actions">${chatGptLink(q, a)}</div></div>`;
   }
 
   function commentBox(id) {
@@ -287,6 +373,9 @@
       (draft.targets.length < 50 ? '<button class="btn" type="button" data-act="add-target">+ Add target</button>' : "") +
       "</div>" : "";
     const imageDetails = q.image_url ? `<div class="review-image-preview"><img src="${esc(q.image_url)}" alt="Question image"></div>` : "";
+    const answerImageEditor = draft.kind === "desc"
+      ? `${q.answer_image_url ? `<div class="review-image-preview"><img src="${esc(q.answer_image_url)}" alt="Answer image"></div>` : ""}
+        <a class="btn" href="${esc(editUrl(id))}">Manage answer image</a>` : "";
     const imageTargetsEditor = draft.kind === "image" ? `<label>Image answer style<select data-field="image_answer_mode">
       <option value="identify" ${draft.image_answer_mode === "identify" ? "selected" : ""}>Identification targets</option>
       <option value="mcq" ${draft.image_answer_mode === "mcq" ? "selected" : ""}>Image multiple choice</option>
@@ -297,7 +386,7 @@
       <label>Question<textarea rows="3" data-field="stem">${esc(draft.stem)}</textarea></label>
       <label>Label<input type="text" maxlength="100" data-field="label" value="${esc(draft.label)}"></label>
       ${imageDetails}
-      ${draft.kind === "desc" ? `<label>Answer<textarea rows="3" data-field="answer">${esc(draft.answer)}</textarea></label>` : draft.kind === "image" ? imageTargetsEditor + options : options}
+      ${draft.kind === "desc" ? `<label>Answer<textarea rows="3" data-field="answer">${esc(draft.answer)}</textarea></label>${answerImageEditor}` : draft.kind === "image" ? imageTargetsEditor + options : options}
       <label><input type="checkbox" data-field="is_lab" ${draft.is_lab ? "checked" : ""}> Include in Labs</label>
       <label>Explanation<textarea rows="3" data-field="explanation">${esc(draft.explanation)}</textarea></label>
       <label>Note<textarea rows="2" data-field="note">${esc(draft.note)}</textarea></label>
@@ -579,7 +668,11 @@
             : state.grade
               ? `<span class="tag">${state.grade === "known" ? "Self-rated: identified" : "Self-rated: missed"}</span>` : "";
           const answer = state.revealed
-            ? `<div class="image-answer">${esc(state.answer || "No answer recorded.")}</div>`
+            ? `<div class="image-answer">${esc(state.answer || "No answer recorded.")}</div>
+              <div class="ai-question-actions">${chatGptLink(question, {
+                res: {answer: state.answer, explanation: question.explanation, note: question.note},
+                payload: {},
+              }, target)}</div>`
             : `<div class="image-answer image-answer-hidden" aria-label="Answer hidden"><span>Answer hidden</span></div>`;
           return `<section class="image-target-answer"><div class="image-target-title"><strong>${esc(target.label)}</strong>${answer}</div>
             ${state.revealed ? gradeButtons : revealButton}</section>`;
@@ -623,7 +716,7 @@
       }).join("")}</div>`;
     } else {
       body = a && a.res.answer !== undefined
-        ? `<div class="flash-answer"><b>Answer</b><div>${esc(a.res.answer)}</div></div>` : "";
+        ? `<div class="flash-answer"><b>Answer</b><div>${esc(a.res.answer)}</div>${answerImage(q)}</div>` : "";
     }
     const allSet = q.kind === "tf" && q.options.every(o => (tfPending[id] || {})[o.id] !== undefined);
     const extra = review || imageIdentify ? "" : st === "new"
@@ -643,9 +736,13 @@
     const loginNote = notice[id] === "login"
       ? `<div class="fb info"><a href="${esc(D.login)}">Log in</a> to save questions and send comments.</div>` : "";
     const finishLabel = lastInBlock ? "Finish block" : "";
+    const descriptiveRated = q.kind === "desc" && (st === "ok" || st === "bad");
     const next = review
       ? (pos < list.length - 1 ? `<button class="btn pri" data-act="go" data-p="${pos + 1}">Next →</button>` : "")
-      : q.kind === "desc" ? "" : lastInBlock
+      : descriptiveRated && pos < list.length - 1
+      ? `<button class="btn pri" data-act="go" data-p="${pos + 1}">Next →</button>`
+      : q.kind === "desc" && !descriptiveRated ? ""
+      : lastInBlock
       ? `<button class="btn pri" data-act="finish">${finishLabel} →</button>`
       : `<button class="btn pri" data-act="go" data-p="${pos + 1}">Next →</button>`;
     const prev = review
@@ -658,7 +755,7 @@
       : "";
     const scopeLabel = review ? "" : retryMode ? "" : ` · Block ${b + 1}/${blockCount()}`;
     const reviewAnswer = review ? `<div class="fb info review-answer"><b>Answer</b>
-      ${q.kind === "desc" ? `<p>${esc(q.answer || "No answer recorded.")}</p>` :
+      ${q.kind === "desc" ? `${q.answer ? `<p>${esc(q.answer)}</p>` : !q.answer_image_url ? "<p>No answer recorded.</p>" : ""}${answerImage(q)}` :
       q.kind === "image" && q.image_answer_mode === "identify"
         ? `<p>${(q.targets || []).map(target => `${esc(target.label)}. ${esc(target.answer)}`).join("<br>") || "No targets recorded."}</p>`
         : `<p>${q.kind === "tf"
@@ -745,9 +842,13 @@
         label: target.label,
       })));
     const imageMcqs = ids.filter(id => byId[id].kind === "mcq");
-    const imageReport = D.questionType === "image"
+    const imageTrueFalse = ids.filter(id => byId[id].kind === "tf");
+    const imageDescriptive = ids.filter(id => byId[id].kind === "desc");
+    const imageReport = QUESTION_TYPE === "image"
       ? `<div class="image-report">
           ${imageMcqs.length ? `<p><strong>Image MCQs:</strong> ${imageMcqs.filter(id => status(id) === "ok").length} correct · ${imageMcqs.filter(id => status(id) === "bad").length} wrong · ${imageMcqs.filter(id => ["new", "rev"].includes(status(id))).length} unanswered / revealed</p>` : ""}
+          ${imageTrueFalse.length ? `<p><strong>Image True / False:</strong> ${imageTrueFalse.filter(id => status(id) === "ok").length} correct · ${imageTrueFalse.filter(id => status(id) === "bad").length} wrong · ${imageTrueFalse.filter(id => ["new", "rev"].includes(status(id))).length} unanswered / revealed</p>` : ""}
+          ${imageDescriptive.length ? `<p><strong>Image descriptive:</strong> ${imageDescriptive.filter(id => status(id) === "ok").length} known · ${imageDescriptive.filter(id => status(id) === "bad").length} missed · ${imageDescriptive.filter(id => ["new", "rev"].includes(status(id))).length} unanswered / revealed</p>` : ""}
           <p><strong>Identification (self-assessed):</strong> ${identificationTargets.filter(target => target.grade === "known").length} identified · ${identificationTargets.filter(target => target.grade === "missed").length} missed · ${identificationTargets.filter(target => !target.grade).length} not self-rated</p>
         </div>` : "";
     const wrong = ids.filter(i => status(i) === "bad");
@@ -766,9 +867,9 @@
     const allBlocks = retryMode
       ? '<button class="btn" data-act="all-blocks">Return to full quiz</button>' : "";
     const moved = S.removed || [];
-    return `${blockNav()}<div class="card quiz-report${D.questionType === "descriptive" ? " descriptive-report" : ""}"><div class="quiz-report-summary">${D.questionType === "image" ? "" : `<div class="big quiz-score">${pct}%</div>`}
+    return `${blockNav()}<div class="card quiz-report${QUESTION_TYPE === "descriptive" ? " descriptive-report" : ""}"><div class="quiz-report-summary">${QUESTION_TYPE === "image" ? "" : `<div class="big quiz-score">${pct}%</div>`}
       <div><h2 class="quiz-report-title">${retryMode ? "Retry set report" : `Block ${resultBlock + 1} report`}</h2>
-      ${D.questionType === "image" ? imageReport : `<div class="quiz-report-stats">${t.ok} correct · ${t.bad} wrong · ${left.length} unanswered / revealed</div>`}</div>
+      ${QUESTION_TYPE === "image" ? imageReport : `<div class="quiz-report-stats">${t.ok} correct · ${t.bad} wrong · ${left.length} unanswered / revealed</div>`}</div>
       </div><div class="quiz-report-content">
       ${moved.length ? `<div class="fb info">${moved.length} question${moved.length === 1 ? "" : "s"} moved to the sorting bin during this quiz and excluded from scoring.</div>
         <ul class="w quiz-report-list">${moved.map(item => `<li>${esc(item.stem)} <span>${movedQuestionStatus(item)}</span></li>`).join("")}</ul>` : ""}

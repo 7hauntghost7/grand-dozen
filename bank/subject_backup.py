@@ -48,7 +48,7 @@ def export_backup():
                 Prefetch(
                     "questions",
                     queryset=Question.objects.order_by("pk").select_related(
-                        "image_asset",
+                    "image_asset", "answer_image_asset",
                     ).prefetch_related(
                         Prefetch("options", queryset=Option.objects.order_by("order", "pk")),
                         Prefetch("image_targets", queryset=ImageTarget.objects.order_by("order", "pk")),
@@ -114,6 +114,7 @@ def export_backup():
                     "note": question.note,
                     "is_lab": question.is_lab,
                     "image_asset_id": question.image_asset_id,
+                    "answer_image_asset_id": question.answer_image_asset_id,
                     "image_answer_mode": question.image_answer_mode,
                     "image_targets": [
                         {
@@ -310,6 +311,7 @@ def validate_backup(raw):
                 if not isinstance(question.get("options"), list):
                     raise BackupError(f"Question {question_id} must contain an options list.")
                 image_asset_id = question.get("image_asset_id")
+                answer_image_asset_id = question.get("answer_image_asset_id")
                 image_answer_mode = question.get("image_answer_mode", Question.IMAGE_IDENTIFY)
                 image_targets = question.get("image_targets", [])
                 if version == 1 and kind == Question.IMAGE:
@@ -321,6 +323,12 @@ def validate_backup(raw):
                     _positive_id(image_asset_id, "Question image ID")
                     if image_deck_ids.get(image_asset_id) != deck_id:
                         raise BackupError(f"Question {question_id} refers to an image from another deck.")
+                if answer_image_asset_id is not None:
+                    _positive_id(answer_image_asset_id, "Question answer image ID")
+                    if image_deck_ids.get(answer_image_asset_id) != deck_id:
+                        raise BackupError(
+                            f"Question {question_id} refers to an answer image from another deck."
+                        )
                 if image_answer_mode not in valid_image_modes:
                     raise BackupError(f"Question {question_id} has an invalid image answer mode.")
                 if not isinstance(image_targets, list):
@@ -357,6 +365,7 @@ def validate_backup(raw):
                     explanation=explanation, note=note,
                     is_lab=is_lab,
                     image_asset_id=image_asset_id,
+                    answer_image_asset_id=answer_image_asset_id,
                     image_answer_mode=image_answer_mode,
                     image_targets=image_targets,
                 )
@@ -480,6 +489,7 @@ def import_backup(payload):
                     "answer": question["answer"], "explanation": question["explanation"],
                     "note": question["note"], "is_lab": question["is_lab"],
                     "image_asset_id": question["image_asset_id"],
+                    "answer_image_asset_id": question["answer_image_asset_id"],
                     "image_answer_mode": question["image_answer_mode"],
                 }
                 if _find_or_plan(
@@ -543,6 +553,7 @@ def import_backup(payload):
             label=question["label"],
             is_lab=question["is_lab"],
             image_asset_id=question["image_asset_id"],
+            answer_image_asset_id=question["answer_image_asset_id"],
             image_answer_mode=question["image_answer_mode"],
         )
     for question_id, option in additions["options"]:

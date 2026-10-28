@@ -55,4 +55,5 @@ urlpatterns = [
 
     path("accounts/login/", views.SingleSessionLoginView.as_view(), name="login"),
     path("accounts/logout/", views.logout_view, name="logout"),
+    path("settings/", views.user_settings, name="settings"),
 ]

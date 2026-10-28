@@ -73,6 +73,13 @@ class SubjectBackupTests(Base):
             answer="A voltage difference at rest.", explanation="Explanation text.",
             note="Source note.", label="U of K", is_lab=True,
         )
+        answer_image = QuestionImage.objects.create(
+            bank=deck, public_id="supabase:answer-diagram.png",
+            secure_url="https://example.supabase.co/answer-diagram.png",
+            original_name="answer-diagram.png", width=640, height=480,
+        )
+        descriptive.answer_image_asset = answer_image
+        descriptive.save(update_fields=["answer_image_asset"])
         second_subject = Subject.objects.create(name="Anatomy")
         second_deck = QuestionBank.objects.create(
             subject=second_subject, semester=2, title="Anatomy basics",
@@ -108,6 +115,12 @@ class SubjectBackupTests(Base):
         self.assertEqual(
             next(q for q in deck_data["questions"] if q["stem"] == descriptive.stem)["label"],
             "U of K",
+        )
+        self.assertEqual(
+            next(q for q in deck_data["questions"] if q["stem"] == descriptive.stem)[
+                "answer_image_asset_id"
+            ],
+            answer_image.pk,
         )
         self.assertTrue(
             next(q for q in deck_data["questions"] if q["stem"] == descriptive.stem)["is_lab"],
@@ -315,10 +328,25 @@ class PwaTests(TestCase):
         self.assertContains(home, 'id="pwa-install"')
         self.assertContains(home, "Install Rawasi 101")
         self.assertContains(home, 'alt="Rawasi — Batch 101"')
-        self.assertContains(home, 'class="theme-toggle"')
+        self.assertNotContains(home, 'class="theme-toggle"')
+        self.assertContains(home, reverse("bank:settings"))
         bank = QuestionBank.objects.create(subject=Subject.objects.create(name="PWA"), title="Install test")
         deck = self.client.get(bank.get_absolute_url())
         self.assertNotContains(deck, 'id="pwa-install"')
+
+
+class UserSettingsTests(Base):
+    def test_settings_page_is_authenticated_and_has_language_choices(self):
+        url = reverse("bank:settings")
+        self.assertEqual(self.client.get(url).status_code, 302)
+        self.client.force_login(self.student)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="theme-toggle"')
+        self.assertContains(response, "ChatGPT response language")
+        self.assertContains(response, 'value="en"')
+        self.assertContains(response, 'value="ar"')
+        self.assertContains(response, f'data-user="{self.student.pk}"')
 
 
 class SubjectSectionSeedTests(TestCase):
@@ -891,11 +919,27 @@ class QuizApiTests(Base):
     def test_descriptive_practice_api_includes_answer_and_filters_by_type(self):
         deck = self.import_sample()
         question = Question.objects.create(
-            bank=deck, kind=Question.DESC, stem="Describe resting potential.", answer="A voltage difference at rest.")
+            bank=deck, kind=Question.DESC, stem="Describe resting potential.",
+            answer="A voltage difference at rest.", explanation="Ions are distributed unequally.",
+            note="Remember the membrane is selectively permeable.",
+        )
         self.client.force_login(self.editor)
         descriptive = self.client.get(reverse("bank:api_questions", args=[deck.slug]) + "?type=descriptive").json()
         self.assertEqual([q["id"] for q in descriptive["questions"]], [question.pk])
         self.assertEqual(descriptive["questions"][0]["answer"], question.answer)
+        self.assertEqual(descriptive["questions"][0]["explanation"], question.explanation)
+        self.assertEqual(descriptive["questions"][0]["note"], question.note)
+        lab_question = Question.objects.create(
+            bank=deck, kind=Question.DESC, stem="Describe this lab finding.",
+            answer="Lab answer.", explanation="Lab explanation.", note="Lab note.", is_lab=True,
+        )
+        labs = self.client.get(
+            reverse("bank:api_questions", args=[deck.slug]), {"type": "labs"},
+        ).json()["questions"]
+        self.assertEqual(
+            (labs[0]["answer"], labs[0]["explanation"], labs[0]["note"]),
+            (lab_question.answer, lab_question.explanation, lab_question.note),
+        )
         mcq_tf = self.client.get(reverse("bank:api_questions", args=[deck.slug]) + "?type=mcq_tf").json()
         self.assertEqual({q["kind"] for q in mcq_tf["questions"]}, {Question.MCQ, Question.TF})
         check_url = reverse("bank:api_check", args=[question.pk])
@@ -962,6 +1006,27 @@ class SavedTests(Base):
         self.assertContains(practice, f'data-api="{reverse("bank:api_saved_questions", args=[deck.slug])}"')
         self.assertFalse(self.post_json(url, {}).json()["saved"])          # toggles off
         self.assertEqual(SavedQuestion.objects.count(), 0)
+
+    def test_saved_descriptive_practice_uses_quiz_mode_and_includes_feedback(self):
+        deck = self.import_sample()
+        question = Question.objects.create(
+            bank=deck, kind=Question.DESC, stem="Describe resting potential.",
+            answer="A voltage difference at rest.", explanation="Ions are distributed unequally.",
+            note="Remember selective permeability.",
+        )
+        self.client.force_login(self.student)
+        self.post_json(reverse("bank:api_save", args=[question.pk]), {})
+
+        page = self.client.get(reverse("bank:saved_quiz", args=[deck.slug]))
+        self.assertContains(page, 'data-question-type="saved"')
+        self.assertContains(page, "?v=20261028-5")
+
+        practice = self.client.get(reverse("bank:api_saved_questions", args=[deck.slug])).json()["questions"]
+        self.assertEqual([item["id"] for item in practice], [question.pk])
+        self.assertEqual(
+            (practice[0]["answer"], practice[0]["explanation"], practice[0]["note"]),
+            (question.answer, question.explanation, question.note),
+        )
 
     def test_saved_are_per_user(self):
         deck = self.import_sample()
@@ -1304,6 +1369,58 @@ class ImageQuestionTests(Base):
         self.assertEqual(mcq.image_asset, image)
         self.assertEqual(image.questions.count(), 2)
 
+    def test_answer_image_can_be_added_to_regular_and_identify_descriptive_questions(self):
+        self.client.force_login(self.editor)
+        upload_result = {
+            "public_id": "supabase:answer-diagram.png",
+            "secure_url": "https://example.supabase.co/answer-diagram.png",
+            "width": 640,
+            "height": 480,
+        }
+        regular_url = reverse("bank:question_add", args=[self.deck.slug])
+        with patch("bank.views.upload_question_image", return_value=upload_result):
+            regular_response = self.client.post(regular_url, {
+                "bank": self.deck.pk, "number": "", "label": "", "kind": Question.DESC,
+                "stem": "Describe this structure.", "answer": "", "answer_image": self.image_file(),
+                "explanation": "", "note": "",
+                "options-TOTAL_FORMS": "4", "options-INITIAL_FORMS": "0",
+                "options-MIN_NUM_FORMS": "0", "options-MAX_NUM_FORMS": "1000",
+            })
+        self.assertEqual(regular_response.status_code, 302)
+        regular_question = Question.objects.get(kind=Question.DESC)
+        self.assertEqual(regular_question.answer, "")
+        self.assertEqual(regular_question.answer_image_asset.secure_url, upload_result["secure_url"])
+
+        prompt_image = self.make_image()
+        identify_url = reverse("bank:image_question_add", args=[self.deck.slug, prompt_image.pk])
+        with patch("bank.views.upload_question_image", return_value={
+            **upload_result, "public_id": "supabase:identify-answer.png",
+            "secure_url": "https://example.supabase.co/identify-answer.png",
+        }):
+            identify_response = self.client.post(
+                identify_url + "?kind=desc&destination=identify",
+                {
+                    "destination": "identify", "answer_mode": Question.DESC,
+                    "stem": "Describe the marked image.", "answer": "",
+                    "answer_image": self.image_file(), "targets_json": "[]", "options_json": "[]",
+                },
+            )
+        self.assertRedirects(identify_response, self.deck.get_absolute_url())
+        identify_question = Question.objects.get(kind=Question.IMAGE)
+        self.assertEqual(identify_question.image_answer_mode, Question.DESC)
+        self.assertEqual(
+            identify_question.answer_image_asset.secure_url,
+            "https://example.supabase.co/identify-answer.png",
+        )
+
+        self.client.force_login(self.student)
+        api_url = reverse("bank:api_questions", args=[self.deck.slug])
+        regular_data = self.client.get(api_url, {"type": "descriptive"}).json()["questions"]
+        self.assertEqual(regular_data[0]["answer_image_url"], upload_result["secure_url"])
+        identify_data = self.client.get(api_url, {"type": "image"}).json()["questions"]
+        self.assertEqual(identify_data[0]["kind"], Question.DESC)
+        self.assertEqual(identify_data[0]["answer_image_url"], "https://example.supabase.co/identify-answer.png")
+
     def test_lab_destination_survives_image_upload_and_question_creation(self):
         self.client.force_login(self.editor)
         upload_url = reverse("bank:image_question_upload", args=[self.deck.slug])
@@ -1365,7 +1482,26 @@ class ImageQuestionTests(Base):
             ]),
         })
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(Question.objects.filter(kind=Question.TF, image_asset=image).exists())
+        image_tf = Question.objects.get(kind=Question.TF, image_asset=image)
+        edit_page = self.client.get(reverse("bank:question_edit", args=[image_tf.pk]))
+        self.assertContains(edit_page, 'name="destination" value="regular"')
+        edited = self.client.post(
+            reverse("bank:question_edit", args=[image_tf.pk]),
+            {
+                "destination": "regular",
+                "answer_mode": Question.TF,
+                "stem": image_tf.stem,
+                "targets_json": "[]",
+                "options_json": json.dumps([
+                    {"text": option.text, "is_correct": option.is_correct}
+                    for option in image_tf.options.all()
+                ]),
+            },
+            follow=True,
+        )
+        self.assertContains(edited, "Image True / False question saved to MCQs")
+        image_tf.refresh_from_db()
+        self.assertEqual(image_tf.kind, Question.TF)
 
         response = self.client.post(add_url, {
             "answer_mode": Question.DESC,
@@ -1404,6 +1540,102 @@ class ImageQuestionTests(Base):
         self.assertEqual(descriptive_api[0]["answer"], "The answer is shown here.")
         lab_api = self.client.get(api_url, {"type": "labs"}).json()["questions"]
         self.assertEqual([question["id"] for question in lab_api], [lab_image_question.pk])
+
+    def test_identify_destination_keeps_image_tf_and_descriptive_questions_in_identify(self):
+        image = self.make_image()
+        self.client.force_login(self.editor)
+        add_url = reverse("bank:image_question_add", args=[self.deck.slug, image.pk])
+
+        tf_response = self.client.post(add_url + "?kind=tf&destination=identify", {
+            "destination": "identify",
+            "answer_mode": Question.TF,
+            "stem": "Assess the statements about this image.",
+            "targets_json": "[]",
+            "options_json": json.dumps([
+                {"text": "The marked structure is present.", "is_correct": True},
+                {"text": "The structure is absent.", "is_correct": False},
+            ]),
+        })
+        self.assertEqual(tf_response.status_code, 302)
+        image_tf = Question.objects.get(stem="Assess the statements about this image.")
+        self.assertEqual(image_tf.kind, Question.IMAGE)
+        self.assertEqual(image_tf.image_answer_mode, Question.TF)
+        self.assertEqual(image_tf.options.count(), 2)
+        identify_edit_page = self.client.get(reverse("bank:question_edit", args=[image_tf.pk]))
+        self.assertContains(identify_edit_page, 'name="destination" value="identify"')
+
+        desc_response = self.client.post(add_url + "?kind=desc&destination=identify", {
+            "destination": "identify",
+            "answer_mode": Question.DESC,
+            "stem": "Describe the marked structure.",
+            "answer": "It is the example structure.",
+            "targets_json": "[]",
+            "options_json": "[]",
+        })
+        self.assertEqual(desc_response.status_code, 302)
+        image_desc = Question.objects.get(stem="Describe the marked structure.")
+        self.assertEqual(image_desc.kind, Question.IMAGE)
+        self.assertEqual(image_desc.image_answer_mode, Question.DESC)
+        self.assertEqual(image_desc.answer, "It is the example structure.")
+
+        self.client.force_login(self.student)
+        api_url = reverse("bank:api_questions", args=[self.deck.slug])
+        identify_questions = self.client.get(api_url, {"type": "image"}).json()["questions"]
+        self.assertEqual(
+            {item["id"]: item["kind"] for item in identify_questions},
+            {image_tf.pk: Question.TF, image_desc.pk: Question.DESC},
+        )
+        self.assertTrue(all(item["image_url"] == image.secure_url for item in identify_questions))
+        self.assertEqual(
+            self.client.get(api_url, {"type": "mcq_tf"}).json()["questions"],
+            [],
+        )
+        self.assertEqual(
+            self.client.get(api_url, {"type": "descriptive"}).json()["questions"],
+            [],
+        )
+        deck_page = self.client.get(self.deck.get_absolute_url())
+        self.assertContains(deck_page, "2</strong> image questions")
+
+        checked = self.post_json(reverse("bank:api_check", args=[image_tf.pk]), {
+            "answers": {
+                str(image_tf.options.first().pk): True,
+                str(image_tf.options.last().pk): False,
+            },
+        })
+        self.assertEqual(checked.status_code, 200)
+        self.assertTrue(checked.json()["correct"])
+        revealed = self.post_json(reverse("bank:api_check", args=[image_desc.pk]), {"reveal": True})
+        self.assertEqual(revealed.json()["answer"], image_desc.answer)
+
+        reviewer = User.objects.create_user("identify-format-reviewer", "test-password", is_staff=True)
+        self.client.force_login(reviewer)
+        edited = self.post_json(reverse("bank:api_question_edit", args=[image_tf.pk]), {
+            "kind": Question.TF,
+            "image_answer_mode": Question.TF,
+            "stem": "Updated statements about this image.",
+            "options": [
+                {"text": "Updated true statement.", "is_correct": True},
+                {"text": "Updated false statement.", "is_correct": False},
+            ],
+        })
+        self.assertEqual(edited.status_code, 200)
+        image_tf.refresh_from_db()
+        self.assertEqual(image_tf.kind, Question.IMAGE)
+        self.assertEqual(image_tf.image_answer_mode, Question.TF)
+        self.assertEqual(image_tf.stem, "Updated statements about this image.")
+
+        edited_desc = self.post_json(reverse("bank:api_question_edit", args=[image_desc.pk]), {
+            "kind": Question.DESC,
+            "image_answer_mode": Question.DESC,
+            "stem": "Updated description prompt.",
+            "answer": "Updated descriptive answer.",
+        })
+        self.assertEqual(edited_desc.status_code, 200)
+        image_desc.refresh_from_db()
+        self.assertEqual(image_desc.kind, Question.IMAGE)
+        self.assertEqual(image_desc.image_answer_mode, Question.DESC)
+        self.assertEqual(image_desc.answer, "Updated descriptive answer.")
 
     def test_debug_upload_saves_locally_and_removes_file_after_last_question(self):
         self.client.force_login(self.editor)
