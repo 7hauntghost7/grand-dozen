@@ -2,6 +2,7 @@
   const root = document.getElementById("exam-runner");
   if (!root) return;
 
+  const examPageTitle = document.title;
   const status = document.getElementById("exam-status");
   const questionElement = document.getElementById("exam-question");
   const navigation = document.getElementById("exam-navigation");
@@ -21,6 +22,11 @@
   const ratingSaves = new Map();
   let countdown = null;
   let expiresAt = null;
+  let aiPollTimer = null;
+  let assessmentResult = null;
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && state.finalized) document.title = examPageTitle;
+  });
 
   const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, character => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -44,7 +50,20 @@
         ...(options.headers || {}),
       },
     });
-    const data = await response.json();
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      throw new Error(
+        response.status >= 500
+          ? "The server could not load your exam results. Please contact support if this continues."
+          : "Your session may have expired. Refresh the page and sign in again."
+      );
+    }
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error("The server returned an invalid response. Please refresh the page and try again.");
+    }
     if (!response.ok) throw new Error(data.error || "Unable to save the exam.");
     return data;
   };
@@ -554,6 +573,7 @@
   }
 
   function showSubmissionReview(result) {
+    assessmentResult = result;
     state.allQuestions = result.questions;
     state.questions = state.allQuestions.filter(question =>
       isAssessmentQuestion(question) && !questionAssessmentComplete(question));
@@ -566,26 +586,180 @@
     clock.textContent = "Submitted";
     root.classList.add("is-assessing");
     navigation.setAttribute("aria-label", "Assessment question navigation");
-    navigation.hidden = false;
-    previous.hidden = false;
-    next.hidden = false;
     document.getElementById("exam-assessment-heading").hidden = false;
-    document.getElementById("exam-stage-title").textContent = "Self-assessment";
     updateAssessmentProgress();
     state.current = 0;
-    if (!state.questions.length) {
-      if (result.report_ready) {
-        showResults(result);
-      } else {
-        renderAssessmentComplete();
-        submit.disabled = true;
-        status.textContent = "No assessable answers remain, but the report is not ready. Please contact support.";
-      }
+    if (result.report_ready) {
+      showResults(result);
       return;
     }
+    if (result.ai_assessment_status === "queued" || result.ai_assessment_status === "processing") {
+      showAiAssessmentProgress(result.queue_position);
+      pollAiAssessment();
+      return;
+    }
+    if (result.ai_assessment_status === "completed") {
+      startManualAssessment(result);
+      return;
+    }
+    if (result.ai_assessment_status === "failed") {
+      renderAssessmentChoice(result, result.error);
+      return;
+    }
+    if (result.ai_assessment_status === "cancelled") {
+      renderAssessmentChoice(result);
+      return;
+    }
+    renderAssessmentChoice(result);
+  }
+
+  function renderAssessmentChoice(result, errorMessage = "") {
+    navigation.hidden = true;
+    navigation.parentElement.hidden = true;
+    previous.hidden = true;
+    next.hidden = true;
+    position.hidden = true;
+    progressBar.parentElement.hidden = true;
+    submit.hidden = true;
+    document.getElementById("exam-stage-title").textContent = "Choose assessment";
+    const hasDescriptive = state.allQuestions.some(question =>
+      question.kind === "desc" && !questionAssessmentComplete(question));
+    const aiAvailable = hasDescriptive;
+    questionElement.className = "card exam-assessment-choice-screen";
+    questionElement.innerHTML = `<h2>Choose how to assess your descriptive answers</h2>
+      <p>If you choose AI marking, this exam’s descriptive questions, suggested answers, and your written responses will be sent to Google Gemini.</p>
+      <div class="exam-assessment-mode-options">
+        <button class="btn pri" type="button" data-assessment-ai ${aiAvailable ? "" : "disabled"}>
+          Assess descriptive answers with AI
+        </button>
+        <button class="btn" type="button" data-assessment-manual>Assess manually</button>
+      </div>
+      <p class="exam-assessment-mode-status" data-assessment-mode-status role="status">${escapeHtml(errorMessage || (aiAvailable ? "" : "This exam has no descriptive answers for AI marking."))}</p>`;
+    const aiButton = questionElement.querySelector("[data-assessment-ai]");
+    const manualButton = questionElement.querySelector("[data-assessment-manual]");
+    const modeStatus = questionElement.querySelector("[data-assessment-mode-status]");
+    aiButton.addEventListener("click", async () => {
+      try {
+        await fetchJson(root.dataset.aiAssess, {
+          method: "POST",
+          body: "{}",
+        });
+        showAiAssessmentProgress();
+        pollAiAssessment();
+      } catch (error) {
+        modeStatus.textContent = `${error.message} You can still assess manually.`;
+        status.textContent = "AI assessment is unavailable. Manual assessment is still available.";
+      }
+    });
+    manualButton.addEventListener("click", () => {
+      cancelQueuedAiAssessment();
+      startManualAssessment(result);
+    });
+    status.textContent = errorMessage || (aiAvailable
+      ? "Choose AI or manual assessment to continue."
+      : "This exam has no descriptive answers for AI marking.");
+  }
+
+  function showAiAssessmentProgress(queuePosition = 0) {
+    navigation.hidden = true;
+    navigation.parentElement.hidden = true;
+    previous.hidden = true;
+    next.hidden = true;
+    position.hidden = true;
+    progressBar.parentElement.hidden = true;
+    submit.hidden = true;
+    document.getElementById("exam-stage-title").textContent = "AI assessment";
+    const queueMessage = queuePosition > 1
+      ? `There ${queuePosition - 1 === 1 ? "is" : "are"} ${queuePosition - 1} ${queuePosition - 1 === 1 ? "request" : "requests"} ahead of you.`
+      : queuePosition === 1
+        ? "Your request is at the front of the queue."
+        : "Your request is joining the queue.";
+    questionElement.className = "card exam-ai-loading-screen";
+    questionElement.innerHTML = `<div class="exam-ai-loader" role="status" aria-label="AI assessment in progress"></div>
+      <h2>Preparing your results</h2>
+      <p data-ai-queue-message>${queueMessage}</p>
+      <p class="exam-ai-loader-note">We’ll show your results here as soon as your answers have been assessed. Keep this page open; you can also switch to manual assessment.</p>
+      <button class="btn" type="button" data-ai-manual>Continue with manual assessment</button>`;
+    questionElement.querySelector("[data-ai-manual]").addEventListener("click", () => {
+      if (aiPollTimer) clearTimeout(aiPollTimer);
+      aiPollTimer = null;
+      cancelQueuedAiAssessment();
+      startManualAssessment(assessmentResult);
+    });
+    status.textContent = "Your AI assessment is in the queue.";
+  }
+
+  function cancelQueuedAiAssessment() {
+    fetchJson(root.dataset.aiAssess, {
+      method: "POST",
+      body: JSON.stringify({ action: "cancel" }),
+    }).catch(error => console.warn("Unable to cancel the queued AI assessment.", error));
+  }
+
+  function pollAiAssessment() {
+    if (aiPollTimer) clearTimeout(aiPollTimer);
+    const check = async () => {
+      try {
+        const result = await fetchJson(root.dataset.aiAssess);
+        if (result.assessment_status === "completed") {
+          aiPollTimer = null;
+          if (result.report_ready) showResults(result);
+          else startManualAssessment(result);
+          return;
+        }
+        if (result.assessment_status === "failed") {
+          aiPollTimer = null;
+          renderAssessmentChoice(assessmentResult, result.error || "AI assessment couldn’t be completed. You can try again or assess manually.");
+          return;
+        }
+        const message = questionElement.querySelector("[data-ai-queue-message]");
+        if (message) {
+          message.textContent = result.assessment_status === "processing"
+            ? "Gemini is assessing your descriptive answers now."
+            : result.queue_position > 1
+              ? `There are ${result.queue_position - 1} requests ahead of you.`
+              : "Your request is at the front of the queue.";
+        }
+        aiPollTimer = setTimeout(check, 4000);
+      } catch (error) {
+        const message = questionElement.querySelector("[data-ai-queue-message]");
+        if (message) message.textContent = `${error.message} Reconnecting…`;
+        aiPollTimer = setTimeout(check, 5000);
+      }
+    };
+    aiPollTimer = setTimeout(check, 250);
+  }
+
+  function startManualAssessment(result) {
+    state.allQuestions = result.questions;
+    state.questions = state.allQuestions.filter(question =>
+      isAssessmentQuestion(question) && !questionAssessmentComplete(question));
+    state.assessmentMode = true;
+    submit.hidden = false;
+    submit.disabled = false;
+    submit.textContent = "View detailed results";
+    document.getElementById("exam-assessment-heading").querySelector("h1").textContent =
+      "Assess your answers";
+    document.getElementById("exam-assessment-heading").querySelector("p").textContent =
+      "Compare each response with the suggested answer, then choose honestly.";
+    navigation.hidden = false;
+    navigation.parentElement.hidden = false;
+    previous.hidden = false;
+    next.hidden = false;
+    position.hidden = false;
+    progressBar.parentElement.hidden = false;
+    document.getElementById("exam-stage-title").textContent = "Manual assessment";
     renderNavigation();
     renderNavigationState();
-    status.textContent = "Review the suggested answers and rate each item. MCQ and True / False questions are not shown here.";
+    updateAssessmentProgress();
+    if (!state.questions.length) {
+      renderAssessmentComplete();
+      submit.disabled = true;
+      status.textContent = "No manual assessments remain, but the report is not ready. Please contact support.";
+      return;
+    }
+    status.textContent = "Compare each response with the suggested answer, then rate your answer.";
+    renderQuestion();
   }
 
   function showResults(result) {
@@ -596,6 +770,21 @@
     state.reportQuestionReview = false;
     state.finalized = true;
     state.finishing = false;
+    const aiMarkedResults = (result.report || []).some(row => row.reason.startsWith("AI marked"));
+    if (aiMarkedResults && document.hidden) {
+      document.title = `Results ready · ${examPageTitle}`;
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        try {
+          new Notification("Your AI assessment is ready", {
+            body: "Return to your exam page to view the results.",
+          });
+        } catch (error) {
+          console.warn("Unable to show the AI assessment notification.", error);
+        }
+      }
+    } else {
+      document.title = examPageTitle;
+    }
     if (countdown) clearInterval(countdown);
     clock.textContent = "Results";
     root.classList.remove("is-assessing");
@@ -624,7 +813,7 @@
       <div class="big quiz-score">${result.score_percent}<span>%</span></div>
       <div><h2 class="quiz-report-title">Mock exam results</h2>
         <p><strong>${result.points_earned} / ${result.points_possible}</strong> points earned · ${result.question_count} questions</p>
-        <p>MCQ and True / False were scored automatically. Descriptive and Identify marks use your self-assessment.</p>
+        <p>MCQ and True / False were scored automatically. Descriptive answers use AI marking or self-assessment; Identify answers use self-assessment.</p>
       </div>
     </div>
     <h3 class="quiz-report-list-title">${wrong.length ? `Questions to review (${wrong.length})` : "No questions to review — excellent work!"}</h3>

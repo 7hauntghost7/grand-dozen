@@ -21,9 +21,10 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 
 from . import parser, services
+from . import ai_marking
 from .forms import (
     ExamTemplateForm, ImageQuestionForm, ImageUploadForm, QuestionForm, option_formset,
 )
@@ -31,7 +32,7 @@ from .image_storage import (
     ImageStorageError, delete_question_image, image_uploads_enabled, upload_question_image,
 )
 from .models import (
-    Comment, ImageTarget, Option, Question, QuestionBank, QuestionImage,
+    AIExamAssessment, Comment, ImageTarget, Option, Question, QuestionBank, QuestionImage,
     ExamAttempt, ExamTemplate, ExamTemplateChapter, SavedQuestion, Subject, SubjectSection,
     SEMESTER_CHOICES,
 )
@@ -846,6 +847,7 @@ def exam_attempt(request, attempt_id):
         "api_url": reverse("bank:api_exam_attempt", args=[attempt.pk]),
         "answer_url": reverse("bank:api_exam_answer", args=[attempt.pk]),
         "submit_url": reverse("bank:api_exam_submit", args=[attempt.pk]),
+        "ai_assess_url": reverse("bank:api_exam_ai_assess", args=[attempt.pk]),
         "share_url": reverse("bank:api_exam_share", args=[attempt.pk]),
         "save_template_url": reverse("bank:api_exam_save_template", args=[attempt.pk]),
         "delete_attempt_url": reverse("bank:exam_attempt_delete", args=[attempt.pk]),
@@ -1068,7 +1070,10 @@ def _exam_review_data(attempt):
                 reason = "Awaiting self-assessment"
             else:
                 earned = float(rating == "known")
-                reason = "Self-rated as known" if earned else "Self-rated as missed"
+                if response.get("assessment_source") == "ai":
+                    reason = "AI marked correct" if earned else "AI marked incorrect"
+                else:
+                    reason = "Self-rated as known" if earned else "Self-rated as missed"
         elif attempt.submitted_at and kind == Question.IMAGE_IDENTIFY:
             ratings = response.get("ratings", {})
             target_ids = [str(target["id"]) for target in item.get("targets", [])]
@@ -1125,6 +1130,9 @@ def api_exam_attempt(request, attempt_id):
     )
     _expire_exam_if_needed(attempt)
     result = _exam_review_data(attempt)
+    if attempt.submitted_at is not None:
+        task = AIExamAssessment.objects.filter(attempt=attempt).first()
+        result["ai_assessment_status"] = task.status if task else "not_requested"
     if result["report_ready"]:
         result["template_saved"] = ExamTemplate.objects.filter(source_attempt=attempt).exists()
     if result["report_ready"]:
@@ -1185,6 +1193,8 @@ def api_exam_answer(request, attempt_id):
         ):
             return JsonResponse({"error": "Enter a response before rating a target as known."}, status=400)
         current["ratings"] = ratings
+        if kind == Question.DESC:
+            current["assessment_source"] = "manual"
     else:
         if not isinstance(response, dict):
             return JsonResponse({"error": "Answer must be an object."}, status=400)
@@ -1236,6 +1246,54 @@ def api_exam_submit(request, attempt_id):
             if attempt.share_token else None
         )
     return JsonResponse(result)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def api_exam_ai_assess(request, attempt_id):
+    attempt = get_object_or_404(ExamAttempt, pk=attempt_id, user=request.user)
+    if attempt.submitted_at is None:
+        return JsonResponse({"error": "Submit the exam before requesting AI assessment."}, status=409)
+    if request.method == "GET":
+        task = AIExamAssessment.objects.filter(attempt=attempt).first()
+        if task and task.status in {AIExamAssessment.QUEUED, AIExamAssessment.PROCESSING}:
+            ai_marking.process_next_queued_assessment()
+            task.refresh_from_db()
+        payload = {"assessment_status": task.status if task else "not_requested"}
+        if task and task.status == AIExamAssessment.QUEUED:
+            payload["queue_position"] = AIExamAssessment.objects.filter(
+                status=AIExamAssessment.QUEUED,
+            ).filter(
+                Q(created_at__lt=task.created_at)
+                | Q(created_at=task.created_at, pk__lte=task.pk)
+            ).count()
+        elif task and task.status == AIExamAssessment.FAILED:
+            payload["error"] = task.error_message
+        elif task and task.status == AIExamAssessment.COMPLETED:
+            result = _exam_review_data(attempt)
+            payload.update(result)
+            if result["report_ready"]:
+                payload["template_saved"] = ExamTemplate.objects.filter(source_attempt=attempt).exists()
+                payload["share_url"] = (
+                    request.build_absolute_uri(reverse("bank:exam_share", args=[attempt.share_token]))
+                    if attempt.share_token else None
+                )
+        return JsonResponse(payload)
+
+    data = json_body(request)
+    if isinstance(data, dict) and data.get("action") == "cancel":
+        AIExamAssessment.objects.filter(
+            attempt=attempt,
+            status__in=[AIExamAssessment.QUEUED, AIExamAssessment.PROCESSING],
+        ).update(status=AIExamAssessment.CANCELLED)
+        return JsonResponse({"cancelled": True})
+
+    task, created = AIExamAssessment.objects.get_or_create(attempt=attempt)
+    if not created and task.status in {AIExamAssessment.FAILED, AIExamAssessment.CANCELLED}:
+        task.status = AIExamAssessment.QUEUED
+        task.error_message = ""
+        task.save(update_fields=["status", "error_message", "updated_at"])
+    return JsonResponse({"assessment_status": task.status}, status=202)
 
 
 @login_required

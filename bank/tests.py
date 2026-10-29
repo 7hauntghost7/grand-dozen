@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from .image_storage import delete_question_image, upload_question_image
 from .models import (
-    Comment, ExamAttempt, ExamTemplate, ExamTemplateChapter, ImageTarget, Option, Question, QuestionBank,
+    AIExamAssessment, AIRequestQuota, Comment, ExamAttempt, ExamTemplate, ExamTemplateChapter, ImageTarget, Option, Question, QuestionBank,
     QuestionImage, SavedQuestion, Subject, SubjectSection,
 )
 from .subject_backup import validate_backup
@@ -1112,6 +1112,110 @@ class MockExamTests(Base):
             }).status_code,
             400,
         )
+
+    @override_settings(GEMINI_API_KEY="test-key")
+    @patch("bank.ai_marking._gemini_generate", return_value="1.C")
+    def test_ai_assessment_marks_descriptive_answers_and_leaves_identify_manual(self, generate):
+        attempt = self.create_attempt()
+        self.post_json(reverse("bank:api_exam_answer", args=[attempt.pk]), {
+            "question_id": self.descriptive.pk,
+            "response": {"text": "My explanation attempt"},
+        })
+        self.post_json(reverse("bank:api_exam_submit", args=[attempt.pk]), {})
+
+        assess_url = reverse("bank:api_exam_ai_assess", args=[attempt.pk])
+        queued = self.post_json(assess_url, {})
+        self.assertEqual(queued.status_code, 202)
+        self.assertEqual(queued.json()["assessment_status"], "queued")
+        result = self.client.get(assess_url)
+        self.assertEqual(result.status_code, 200)
+        self.assertFalse(result.json()["report_ready"])
+        self.assertEqual(result.json()["assessment_status"], "completed")
+        self.assertEqual(generate.call_count, 1)
+        prompt = generate.call_args.args[0]
+        self.assertIn("Suggested answer: SECRET DESCRIPTIVE ANSWER", prompt)
+        self.assertIn("Student answer: My explanation attempt", prompt)
+        attempt.refresh_from_db()
+        self.assertEqual(
+            attempt.responses[str(self.descriptive.pk)]["ratings"]["answer"], "known",
+        )
+        self.assertEqual(
+            attempt.responses[str(self.descriptive.pk)]["assessment_source"], "ai",
+        )
+        self.assertEqual(
+            self.post_json(reverse("bank:api_exam_answer", args=[attempt.pk]), {
+                "question_id": self.identify.pk,
+                "ratings": {str(self.target.pk): "missed"},
+            }).status_code,
+            200,
+        )
+        report = self.client.get(reverse("bank:api_exam_attempt", args=[attempt.pk])).json()
+        self.assertTrue(report["report_ready"])
+        self.assertEqual(
+            next(row for row in report["report"] if row["id"] == self.descriptive.pk)["reason"],
+            "AI marked correct",
+        )
+
+    @override_settings(GEMINI_API_KEY="test-key")
+    @patch("bank.ai_marking._gemini_generate")
+    def test_ai_assessment_waits_in_queue_when_shared_quota_is_exhausted(self, generate):
+        attempt = self.create_attempt()
+        self.post_json(reverse("bank:api_exam_answer", args=[attempt.pk]), {
+            "question_id": self.descriptive.pk,
+            "response": {"text": "My explanation attempt"},
+        })
+        self.post_json(reverse("bank:api_exam_submit", args=[attempt.pk]), {})
+        AIRequestQuota.objects.filter(name="gemini-exam-marking").update(
+            request_timestamps=[timezone.now().timestamp()] * 15,
+        )
+        assess_url = reverse("bank:api_exam_ai_assess", args=[attempt.pk])
+        queued = self.post_json(assess_url, {})
+        self.assertEqual(queued.status_code, 202)
+        self.assertEqual(queued.json()["assessment_status"], "queued")
+        result = self.client.get(assess_url).json()
+        self.assertEqual(result["assessment_status"], "queued")
+        self.assertEqual(result["queue_position"], 1)
+        generate.assert_not_called()
+
+    @override_settings(GEMINI_API_KEY="test-key")
+    @patch("bank.ai_marking._gemini_generate")
+    def test_ai_queue_requests_are_idempotent_and_manual_choice_cancels_pending_job(self, generate):
+        attempt = self.create_attempt()
+        self.post_json(reverse("bank:api_exam_submit", args=[attempt.pk]), {})
+        assess_url = reverse("bank:api_exam_ai_assess", args=[attempt.pk])
+        first = self.post_json(assess_url, {})
+        second = self.post_json(assess_url, {})
+        self.assertEqual(first.status_code, 202)
+        self.assertEqual(second.status_code, 202)
+        self.assertEqual(AIExamAssessment.objects.filter(attempt=attempt).count(), 1)
+
+        cancelled = self.post_json(assess_url, {"action": "cancel"})
+        self.assertTrue(cancelled.json()["cancelled"])
+        self.assertEqual(
+            AIExamAssessment.objects.get(attempt=attempt).status,
+            AIExamAssessment.CANCELLED,
+        )
+        self.assertEqual(
+            self.client.get(assess_url).json()["assessment_status"],
+            AIExamAssessment.CANCELLED,
+        )
+        generate.assert_not_called()
+
+    @override_settings(GEMINI_API_KEY="test-key")
+    @patch("bank.ai_marking._gemini_generate", return_value="1.C\n2.W")
+    def test_invalid_ai_response_does_not_save_any_marks(self, generate):
+        attempt = self.create_attempt()
+        self.post_json(reverse("bank:api_exam_answer", args=[attempt.pk]), {
+            "question_id": self.descriptive.pk,
+            "response": {"text": "My explanation attempt"},
+        })
+        self.post_json(reverse("bank:api_exam_submit", args=[attempt.pk]), {})
+        assess_url = reverse("bank:api_exam_ai_assess", args=[attempt.pk])
+        self.post_json(assess_url, {})
+        result = self.client.get(assess_url).json()
+        self.assertEqual(result["assessment_status"], "failed")
+        attempt.refresh_from_db()
+        self.assertNotIn("ratings", attempt.responses[str(self.descriptive.pk)])
 
     def test_mix_uses_image_question_answer_formats_and_rejects_shortage(self):
         from .views import _exam_question_counts

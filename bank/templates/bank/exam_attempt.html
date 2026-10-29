@@ -7,6 +7,7 @@
        data-api="{{ api_url }}"
        data-answer="{{ answer_url }}"
        data-submit="{{ submit_url }}"
+       data-ai-assess="{{ ai_assess_url }}"
        data-share="{{ share_url }}"
        data-save-template="{{ save_template_url }}"
        data-delete-attempt="{{ delete_attempt_url }}"
@@ -21,9 +22,9 @@
     </div>
     <section id="exam-assessment-heading" class="exam-assessment-heading" hidden>
       <div class="exam-assessment-heading-copy">
-        <span class="exam-assessment-kicker">THE LAST STEP</span>
-        <h1>Time to assess yourself</h1>
-        <p>Compare your response with the suggested answer, then choose honestly. This is just for you.</p>
+        <span class="exam-assessment-kicker">ASSESSMENT</span>
+        <h1>Choose how to assess</h1>
+        <p>Select AI marking for descriptive answers or assess them yourself. Identify questions are always assessed manually.</p>
       </div>
       <div class="exam-assessment-counter" aria-live="polite">
         <strong id="exam-assessment-remaining">—</strong>
@@ -45,4 +46,4 @@
   </div>
 </main>
 {% endblock %}
-{% block scripts %}<script src="{% static 'bank/exam.js' %}?v=20261028-26"></script>{% endblock %}
+{% block scripts %}<script src="{% static 'bank/exam.js' %}?v=20261029-29"></script>{% endblock %}

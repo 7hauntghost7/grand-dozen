@@ -305,6 +305,35 @@ class ExamAttempt(models.Model):
         return f"{self.title} · {self.user}"
 
 
+class AIRequestQuota(models.Model):
+    name = models.CharField(max_length=40, primary_key=True)
+    request_timestamps = models.JSONField(default=list)
+
+
+class AIExamAssessment(models.Model):
+    QUEUED, PROCESSING, COMPLETED, FAILED, CANCELLED = (
+        "queued", "processing", "completed", "failed", "cancelled",
+    )
+    STATUS_CHOICES = [
+        (QUEUED, "Queued"),
+        (PROCESSING, "Processing"),
+        (COMPLETED, "Completed"),
+        (FAILED, "Failed"),
+        (CANCELLED, "Cancelled"),
+    ]
+
+    attempt = models.OneToOneField(
+        ExamAttempt, on_delete=models.CASCADE, related_name="ai_assessment",
+    )
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default=QUEUED)
+    error_message = models.CharField(max_length=240, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+
+
 class Comment(models.Model):
     """Private message from a user to the admins about a question."""
     question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="comments")

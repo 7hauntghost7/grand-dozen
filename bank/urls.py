@@ -54,6 +54,7 @@ urlpatterns = [
     path("api/exams/<int:attempt_id>/", views.api_exam_attempt, name="api_exam_attempt"),
     path("api/exams/<int:attempt_id>/answer/", views.api_exam_answer, name="api_exam_answer"),
     path("api/exams/<int:attempt_id>/submit/", views.api_exam_submit, name="api_exam_submit"),
+    path("api/exams/<int:attempt_id>/ai-assess/", views.api_exam_ai_assess, name="api_exam_ai_assess"),
     path("api/exams/<int:attempt_id>/share/", views.api_exam_share, name="api_exam_share"),
     path("api/exams/<int:attempt_id>/save-template/", views.api_exam_save_template, name="api_exam_save_template"),
     path("api/saved/deck/<slug:slug>/questions/", views.api_saved_questions, name="api_saved_questions"),

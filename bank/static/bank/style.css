@@ -2758,6 +2758,73 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding
   white-space:nowrap;
 }
 #exam-runner.is-assessing .exam-rating button[data-rating="known"] span{color:var(--ok)}
+#exam-runner.is-assessing .exam-assessment-choice-screen{
+  max-width:760px;
+  margin:20px auto;
+  padding:clamp(20px,4vw,34px);
+  border:1px solid var(--line);
+  border-top:3px solid var(--brand-gold);
+  border-radius:12px;
+  background:var(--card);
+  color:var(--ink);
+}
+#exam-runner.is-assessing .exam-assessment-choice-screen h2{
+  margin:0 0 10px;
+  color:var(--brand-brown);
+}
+#exam-runner.is-assessing .exam-assessment-choice-screen p{
+  color:var(--mute);
+  line-height:1.6;
+}
+#exam-runner.is-assessing .exam-assessment-mode-options{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin:20px 0;
+}
+#exam-runner.is-assessing .exam-assessment-mode-options button:disabled{
+  cursor:not-allowed;
+  opacity:.5;
+}
+#exam-runner.is-assessing .exam-assessment-mode-status{
+  min-height:1.4em;
+  margin-bottom:0;
+}
+#exam-runner.is-assessing .exam-ai-loading-screen{
+  max-width:620px;
+  margin:20px auto;
+  padding:clamp(24px,5vw,44px);
+  border:1px solid var(--line);
+  border-top:3px solid var(--brand-gold);
+  border-radius:12px;
+  background:var(--card);
+  color:var(--ink);
+  text-align:center;
+}
+#exam-runner.is-assessing .exam-ai-loader{
+  width:58px;
+  height:58px;
+  margin:0 auto 22px;
+  border:4px solid color-mix(in srgb,var(--brand-gold) 23%,transparent);
+  border-top-color:var(--brand-gold);
+  border-radius:50%;
+  animation:exam-ai-spin .9s linear infinite;
+}
+#exam-runner.is-assessing .exam-ai-loading-screen h2{
+  margin:0 0 9px;
+  color:var(--brand-brown);
+}
+#exam-runner.is-assessing .exam-ai-loading-screen p{
+  color:var(--mute);
+  line-height:1.6;
+}
+#exam-runner.is-assessing .exam-ai-loading-screen [data-ai-queue-message]{
+  color:var(--brand-rust);
+  font-weight:700;
+}
+#exam-runner.is-assessing .exam-ai-loader-note{font-size:.9rem}
+#exam-runner.is-assessing .exam-ai-loading-screen button{margin-top:8px}
+@keyframes exam-ai-spin{to{transform:rotate(360deg)}}
 #exam-runner.is-assessing .exam-rating button[data-rating="missed"] span{color:var(--brand-orange)}
 #exam-runner.is-assessing .exam-rating button[data-rating="known"].selected{
   border-color:var(--ok);
