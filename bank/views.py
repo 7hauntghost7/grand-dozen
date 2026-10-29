@@ -1270,6 +1270,7 @@ def api_exam_ai_assess(request, attempt_id):
         elif task and task.status == AIExamAssessment.FAILED:
             payload["error"] = task.error_message
         elif task and task.status == AIExamAssessment.COMPLETED:
+            attempt.refresh_from_db()
             result = _exam_review_data(attempt)
             payload.update(result)
             if result["report_ready"]:

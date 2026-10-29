@@ -1131,6 +1131,14 @@ class MockExamTests(Base):
         self.assertEqual(result.status_code, 200)
         self.assertFalse(result.json()["report_ready"])
         self.assertEqual(result.json()["assessment_status"], "completed")
+        marked_descriptive = next(
+            item for item in result.json()["questions"] if item["id"] == self.descriptive.pk
+        )
+        self.assertEqual(marked_descriptive["response"]["ratings"]["answer"], "known")
+        self.assertEqual(
+            [item["id"] for item in result.json()["questions"] if item["kind"] == Question.DESC],
+            [self.descriptive.pk],
+        )
         self.assertEqual(generate.call_count, 1)
         prompt = generate.call_args.args[0]
         self.assertIn("Suggested answer: SECRET DESCRIPTIVE ANSWER", prompt)
