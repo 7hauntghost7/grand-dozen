@@ -112,9 +112,35 @@ def _gemini_generate(prompt, item_count):
         with urlopen(request, timeout=25) as response:
             data = json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
-        logger.warning("Gemini exam marking request failed with HTTP %s.", exc.code)
+        try:
+            error_data = json.loads(exc.read().decode("utf-8"))
+            api_message = error_data.get("error", {}).get("message", "")
+        except (UnicodeDecodeError, json.JSONDecodeError, AttributeError):
+            api_message = ""
+        if not isinstance(api_message, str):
+            api_message = ""
+        api_message = api_message.replace(api_key, "[redacted]")[:500]
+        logger.warning(
+            "Gemini exam marking request failed with HTTP %s: %s",
+            exc.code,
+            api_message or "No error details provided.",
+        )
+        if exc.code == 404:
+            raise AIMarkingUnavailable(
+                f"Google Gemini could not find model '{model}'. Check the GEMINI_MODEL "
+                "setting and make sure that model supports generateContent."
+            ) from exc
+        if exc.code == 429:
+            raise AIMarkingUnavailable(
+                "Google Gemini's project quota or rate limit was reached. Please try again later."
+            ) from exc
+        if exc.code in {401, 403}:
+            raise AIMarkingUnavailable(
+                "Google Gemini rejected the API key or its permissions. Check GEMINI_API_KEY."
+            ) from exc
         raise AIMarkingUnavailable(
-            "Sorry, automatic assessment is not available right now. Please use manual assessment."
+            f"Google Gemini returned HTTP {exc.code}. "
+            f"{api_message or 'Please use manual assessment and check the server logs.'}"
         ) from exc
     except (URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         logger.warning("Gemini exam marking request failed (%s).", type(exc).__name__)

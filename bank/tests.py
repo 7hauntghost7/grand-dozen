@@ -1225,6 +1225,24 @@ class MockExamTests(Base):
         attempt.refresh_from_db()
         self.assertNotIn("ratings", attempt.responses[str(self.descriptive.pk)])
 
+    @override_settings(GEMINI_API_KEY="test-key", GEMINI_MODEL="missing-model")
+    @patch("bank.ai_marking.urlopen")
+    def test_gemini_404_reports_model_configuration_error(self, urlopen):
+        from urllib.error import HTTPError
+        from io import BytesIO
+
+        urlopen.side_effect = HTTPError(
+            url="https://generativelanguage.googleapis.com/",
+            code=404,
+            msg="Not Found",
+            hdrs=None,
+            fp=BytesIO(b'{"error":{"message":"model not found"}}'),
+        )
+        from .ai_marking import AIMarkingUnavailable, _gemini_generate
+
+        with self.assertRaisesRegex(AIMarkingUnavailable, "could not find model 'missing-model'"):
+            _gemini_generate("prompt", 1)
+
     def test_mix_uses_image_question_answer_formats_and_rejects_shortage(self):
         from .views import _exam_question_counts
 
