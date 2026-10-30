@@ -1016,6 +1016,52 @@ class MockExamTests(Base):
         )
         return _start_exam_for_test(template)
 
+    def test_submit_saves_all_exam_answers_in_one_request(self):
+        attempt = self.create_attempt()
+        tf_answers = {
+            str(option.pk): option.is_correct for option in self.tf.options.all()
+        }
+        payload = {
+            "responses": {
+                str(self.mcq.pk): {"selected": self.mcq.options.get(is_correct=True).pk},
+                str(self.tf.pk): {"answers": tf_answers},
+                str(self.descriptive.pk): {"text": "My final written response"},
+                str(self.identify.pk): {"targets": {str(self.target.pk): "My final target answer"}},
+            },
+        }
+        submitted = self.post_json(reverse("bank:api_exam_submit", args=[attempt.pk]), payload)
+        self.assertEqual(submitted.status_code, 200)
+        attempt.refresh_from_db()
+        self.assertIsNotNone(attempt.submitted_at)
+        self.assertEqual(
+            attempt.responses[str(self.mcq.pk)]["selected"],
+            self.mcq.options.get(is_correct=True).pk,
+        )
+        self.assertEqual(
+            attempt.responses[str(self.tf.pk)]["answers"], tf_answers,
+        )
+        self.assertEqual(
+            attempt.responses[str(self.descriptive.pk)]["text"],
+            "My final written response",
+        )
+        self.assertEqual(
+            attempt.responses[str(self.identify.pk)]["targets"][str(self.target.pk)],
+            "My final target answer",
+        )
+
+    def test_invalid_bulk_answer_does_not_submit_or_save_partial_responses(self):
+        attempt = self.create_attempt()
+        submitted = self.post_json(reverse("bank:api_exam_submit", args=[attempt.pk]), {
+            "responses": {
+                str(self.descriptive.pk): {"text": "x" * 10001},
+                str(self.mcq.pk): {"selected": self.mcq.options.get(is_correct=True).pk},
+            },
+        })
+        self.assertEqual(submitted.status_code, 400)
+        attempt.refresh_from_db()
+        self.assertIsNone(attempt.submitted_at)
+        self.assertEqual(attempt.responses, {})
+
     def test_answers_are_not_sent_before_submission_and_submission_scores_objective_questions(self):
         attempt = self.create_attempt()
         api_url = reverse("bank:api_exam_attempt", args=[attempt.pk])

@@ -1152,6 +1152,41 @@ def _exam_question_for_attempt(attempt, question_id):
     )
 
 
+def _validated_exam_response(question, response):
+    if not isinstance(response, dict):
+        raise ValueError("Answer must be an object.")
+    kind = question.image_answer_mode if question.kind == Question.IMAGE else question.kind
+    if kind == Question.MCQ:
+        selected = response.get("selected")
+        valid_ids = {option.pk for option in question.options.all()}
+        if selected is not None and (
+            isinstance(selected, bool) or not isinstance(selected, int) or selected not in valid_ids
+        ):
+            raise ValueError("Choose a valid option.")
+        return {"selected": selected}
+    if kind == Question.TF:
+        answers = response.get("answers", {})
+        valid_ids = {str(option.pk) for option in question.options.all()}
+        if not isinstance(answers, dict) or any(
+            key not in valid_ids or not isinstance(value, bool) for key, value in answers.items()
+        ):
+            raise ValueError("Choose True or False for valid statements.")
+        return {"answers": answers}
+    if kind == Question.DESC:
+        text = response.get("text", "")
+        if not isinstance(text, str) or len(text) > 10000:
+            raise ValueError("Descriptive responses must be 10,000 characters or fewer.")
+        return {"text": text}
+    targets = response.get("targets", {})
+    valid_ids = {str(target.pk) for target in question.image_targets.all()}
+    if not isinstance(targets, dict) or any(
+        key not in valid_ids or not isinstance(value, str) or len(value) > 1000
+        for key, value in targets.items()
+    ):
+        raise ValueError("Enter valid answers for the labelled targets.")
+    return {"targets": targets}
+
+
 @login_required
 @require_POST
 def api_exam_answer(request, attempt_id):
@@ -1196,36 +1231,10 @@ def api_exam_answer(request, attempt_id):
         if kind == Question.DESC:
             current["assessment_source"] = "manual"
     else:
-        if not isinstance(response, dict):
-            return JsonResponse({"error": "Answer must be an object."}, status=400)
-        if kind == Question.MCQ:
-            selected = response.get("selected")
-            valid_ids = set(question.options.values_list("pk", flat=True))
-            if selected is not None and (isinstance(selected, bool) or selected not in valid_ids):
-                return JsonResponse({"error": "Choose a valid option."}, status=400)
-            current["selected"] = selected
-        elif kind == Question.TF:
-            answers = response.get("answers", {})
-            valid_ids = {str(option_id) for option_id in question.options.values_list("pk", flat=True)}
-            if not isinstance(answers, dict) or any(
-                key not in valid_ids or not isinstance(value, bool) for key, value in answers.items()
-            ):
-                return JsonResponse({"error": "Choose True or False for valid statements."}, status=400)
-            current["answers"] = answers
-        elif kind == Question.DESC:
-            text = response.get("text", "")
-            if not isinstance(text, str) or len(text) > 10000:
-                return JsonResponse({"error": "Descriptive responses must be 10,000 characters or fewer."}, status=400)
-            current["text"] = text
-        else:
-            targets = response.get("targets", {})
-            valid_ids = {str(target_id) for target_id in question.image_targets.values_list("pk", flat=True)}
-            if not isinstance(targets, dict) or any(
-                key not in valid_ids or not isinstance(value, str) or len(value) > 1000
-                for key, value in targets.items()
-            ):
-                return JsonResponse({"error": "Enter valid answers for the labelled targets."}, status=400)
-            current["targets"] = targets
+        try:
+            current.update(_validated_exam_response(question, response))
+        except ValueError as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
     attempt.responses[str(question.pk)] = current
     attempt.save(update_fields=["responses"])
     return JsonResponse({"saved": True})
@@ -1235,9 +1244,47 @@ def api_exam_answer(request, attempt_id):
 @require_POST
 def api_exam_submit(request, attempt_id):
     attempt = get_object_or_404(ExamAttempt, pk=attempt_id, user=request.user)
+    data = json_body(request)
+    if not isinstance(data, dict):
+        return JsonResponse({"error": "Invalid exam submission."}, status=400)
+    submitted_responses = data.get("responses")
+    if submitted_responses is not None:
+        if not isinstance(submitted_responses, dict):
+            return JsonResponse({"error": "Exam answers must be an object."}, status=400)
+        allowed_ids = {str(question_id) for question_id in attempt.question_ids}
+        if any(question_id not in allowed_ids for question_id in submitted_responses):
+            return JsonResponse({"error": "This exam contains an unknown question."}, status=400)
+        questions = {
+            str(question.pk): question
+            for question in Question.objects.filter(pk__in=attempt.question_ids)
+            .prefetch_related("options", "image_targets")
+        }
+        validated_responses = {}
+        try:
+            for question_id, response in submitted_responses.items():
+                question = questions.get(question_id)
+                if question is None:
+                    return JsonResponse({"error": "This question is no longer available."}, status=400)
+                validated_responses[question_id] = _validated_exam_response(question, response)
+        except ValueError as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
+        if attempt.submitted_at is None:
+            attempt.responses = {
+                **attempt.responses,
+                **{
+                    question_id: {
+                        **attempt.responses.get(question_id, {}),
+                        **response,
+                    }
+                    for question_id, response in validated_responses.items()
+                },
+            }
     if attempt.submitted_at is None:
         attempt.submitted_at = min(timezone.now(), attempt.expires_at) if attempt.expires_at else timezone.now()
-        attempt.save(update_fields=["submitted_at"])
+        update_fields = ["submitted_at"]
+        if submitted_responses is not None:
+            update_fields.append("responses")
+        attempt.save(update_fields=update_fields)
     result = _exam_review_data(attempt)
     if result["report_ready"]:
         result["template_saved"] = ExamTemplate.objects.filter(source_attempt=attempt).exists()

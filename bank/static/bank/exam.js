@@ -15,9 +15,6 @@
   const submit = document.getElementById("exam-submit");
   const state = { questions: [], allQuestions: [], current: 0, submitted: false, assessmentMode: false, reportQuestionReview: false, finalized: false, finishing: false };
   const markedQuestions = new Set();
-  const dirty = new Set();
-  const timers = new Map();
-  const saving = new Map();
   const ratingTimers = new Map();
   const ratingSaves = new Map();
   let countdown = null;
@@ -198,8 +195,7 @@
       button.setAttribute("aria-label", state.assessmentMode
         ? `Go to assessment question ${examQuestionNumber(question)}`
         : `${markedQuestions.has(question.id) ? "Marked for review, " : ""}Go to question ${index + 1}`);
-      button.addEventListener("click", async () => {
-        if (!state.submitted) await persistQuestion(getQuestion().id);
+      button.addEventListener("click", () => {
         state.current = index;
         renderQuestion();
       });
@@ -218,42 +214,8 @@
     }
   }
 
-  async function persistQuestion(questionId) {
-    const timer = timers.get(questionId);
-    if (timer) {
-      clearTimeout(timer);
-      timers.delete(questionId);
-    }
-    if (saving.has(questionId)) await saving.get(questionId);
-    if (!dirty.has(questionId)) return;
-    dirty.delete(questionId);
-    const question = state.questions.find(item => item.id === questionId);
-    const pending = fetchJson(root.dataset.answer, {
-      method: "POST",
-      body: JSON.stringify({ question_id: questionId, response: question.response || {} }),
-    });
-    saving.set(questionId, pending);
-    try {
-      await pending;
-      status.textContent = "All changes saved.";
-    } catch (error) {
-      dirty.add(questionId);
-      status.textContent = error.message;
-      throw error;
-    } finally {
-      saving.delete(questionId);
-    }
-    if (dirty.has(questionId)) await persistQuestion(questionId);
-  }
-
-  function markDirty(question) {
-    dirty.add(question.id);
-    status.textContent = "Saving…";
-    const existing = timers.get(question.id);
-    if (existing) clearTimeout(existing);
-    timers.set(question.id, setTimeout(() => {
-      persistQuestion(question.id).catch(() => {});
-    }, 350));
+  function recordAnswer(question) {
+    status.textContent = "Answer recorded on this page. It will be sent when you submit the exam.";
     renderNavigationState();
   }
 
@@ -304,7 +266,7 @@
     } else {
       return;
     }
-    markDirty(question);
+    recordAnswer(question);
   });
   questionElement.addEventListener("input", event => {
     if (state.submitted) return;
@@ -317,7 +279,7 @@
     } else {
       return;
     }
-    markDirty(question);
+    recordAnswer(question);
   });
   function persistRatings(question) {
     const timer = ratingTimers.get(question.id);
@@ -420,13 +382,11 @@
     }
   });
 
-  previous.addEventListener("click", async () => {
-    if (!state.submitted) await persistQuestion(getQuestion().id);
+  previous.addEventListener("click", () => {
     state.current = Math.max(0, state.current - 1);
     renderQuestion();
   });
-  next.addEventListener("click", async () => {
-    if (!state.submitted) await persistQuestion(getQuestion().id);
+  next.addEventListener("click", () => {
     state.current = Math.min(state.questions.length - 1, state.current + 1);
     renderQuestion();
   });
@@ -546,18 +506,14 @@
     submit.disabled = true;
     questionElement.querySelectorAll("input, textarea").forEach(input => { input.disabled = true; });
     try {
-      if (force) {
-        timers.forEach(timer => clearTimeout(timer));
-        timers.clear();
-        dirty.clear();
-        await Promise.all([...saving.values()].map(request => request.catch(() => {})));
-      } else {
-        while (dirty.size || saving.size) {
-          await Promise.all([...saving.values()]);
-          await Promise.all([...dirty].map(id => persistQuestion(id)));
-        }
-      }
-      const result = await fetchJson(root.dataset.submit, { method: "POST", body: "{}" });
+      const responses = Object.fromEntries(state.allQuestions.map(question => [
+        String(question.id),
+        question.response || {},
+      ]));
+      const result = await fetchJson(root.dataset.submit, {
+        method: "POST",
+        body: JSON.stringify({ responses }),
+      });
       if (result.report_ready) showResults(result);
       else showSubmissionReview(result);
     } catch (error) {
@@ -998,13 +954,14 @@
     .then(result => {
       if (!result.questions.length) throw new Error("This exam has no available questions.");
       state.questions = result.questions;
+      state.allQuestions = result.questions;
       state.submitted = result.submitted;
       renderNavigation();
       renderNavigationState();
       if (result.submitted && result.report_ready) showResults(result);
       else if (result.submitted) showSubmissionReview(result);
       else {
-        status.textContent = "Your answers are saved as you work.";
+        status.textContent = "Answers stay on this page and are sent when you submit. Refreshing may lose them.";
         startClock(result.expires_at);
       }
     })
