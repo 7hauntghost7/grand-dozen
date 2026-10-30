@@ -100,7 +100,7 @@ ul.msgs{margin:4px 0 0;padding-left:16px;font-size:.82rem}
   --ink:#2d2d2d;
   --mute:#71675c;
   --line:#e7decb;
-  --acc:#481d10;
+  --acc:#471d10;
   --acc-soft:#f2e5db;
   --ok:#2f6a45;
   --ok-soft:#e7f1e8;
@@ -114,7 +114,7 @@ ul.msgs{margin:4px 0 0;padding-left:16px;font-size:.82rem}
   --flash-answer:#b54a2a;
   --brand-charcoal:#2d2d2d;
   --brand-gold:#e9ab11;
-  --brand-brown:#481d10;
+  --brand-brown:#471d10;
   --brand-amber:#ffcc5e;
   --brand-sand:#e4cc85;
   --brand-rust:#7e331c;
@@ -145,7 +145,7 @@ ul.msgs{margin:4px 0 0;padding-left:16px;font-size:.82rem}
 }
 body{
   background:var(--bg);
-  font-family:"Poppins","Avenir Next","Century Gothic",Arial,sans-serif;
+  font-family:"Montaser Arabic","Noto Sans Arabic","Segoe UI",Tahoma,sans-serif;
 }
 :root[data-theme="dark"] .brand-logo-light{display:none}
 :root:not([data-theme="dark"]) .brand-logo-dark{display:none}
@@ -3399,4 +3399,77 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding
   .exam-share-controls,
   .exam-save-controls{padding:14px}
   .exam-share-actions>*{flex:1 1 130px}
+}
+
+/* ---- Rawasi visual identity guide ---- */
+:root{
+  --acc:#471d10;
+  --brand-brown:#471d10;
+  --brand-charcoal:#2d2d2d;
+  --brand-gold:#e9ab11;
+  --brand-amber:#ffcc5e;
+  --brand-sand:#e4cc85;
+  --brand-rust:#7e331c;
+  --brand-orange:#b54a2a;
+  --font-display:"29LT Riawaya",Georgia,"Times New Roman",serif;
+  --font-body:"Montaser Arabic","Noto Sans Arabic","Segoe UI",Tahoma,sans-serif;
+}
+:root[data-theme="dark"]{
+  --acc:#ffcc5e;
+  --brand-brown:#ffcc5e;
+  --brand-charcoal:#2d2d2d;
+}
+body{font-family:var(--font-body)}
+h1,h2,h3,.pagetitle,.deck-title,.session-heading h2,.quiz-report-title,
+.exam-assessment-heading h1,.login-title{
+  font-family:var(--font-display);
+  letter-spacing:normal;
+}
+:lang(ar),.home-poem blockquote{
+  font-family:"Montaser Arabic","Noto Naskh Arabic","Noto Sans Arabic",Tahoma,sans-serif;
+}
+.wrap{max-width:1140px}
+.site-header{
+  position:relative;
+  padding-top:10px;
+  border-bottom-color:var(--brand-sand);
+}
+.site-header::after{
+  position:absolute;
+  right:0;
+  bottom:-1px;
+  width:clamp(54px,9vw,100px);
+  height:3px;
+  background:var(--brand-gold);
+  content:"";
+}
+button,.btn{border-radius:5px}
+.card,.set,.block,.deck-cover,.quiz-report,.exam-question{
+  border-radius:5px;
+}
+.section-title{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.section-title::before{
+  width:15px;
+  height:13px;
+  flex:none;
+  background:var(--brand-gold);
+  clip-path:polygon(0 100%,38% 30%,55% 60%,76% 0,100% 100%);
+  content:"";
+}
+.section-title::after{
+  height:1px;
+  flex:1;
+  background:var(--brand-sand);
+  content:"";
+}
+.set,.block{
+  border-radius:5px;
+}
+:root[data-theme="dark"] .site-header::after{background:var(--brand-gold)}
+@media(max-width:640px){
+  .wrap{padding:14px 16px 40px}
 }
