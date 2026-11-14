@@ -40,7 +40,7 @@ def sync_chunks(subject, size=DEFAULT_CHUNK):
     have = set()
     for ids in ReviewChunk.objects.filter(subject=subject).values_list("question_ids", flat=True):
         have.update(ids)
-    new = [pk for pk in _live_questions(subject).filter(image_asset__isnull=True).order_by("bank__semester", "bank__title", "id")
+    new = [pk for pk in _live_questions(subject).filter(image_asset__isnull=True, book_chapter__isnull=True).order_by("bank__semester", "bank__title", "id")
            .values_list("pk", flat=True) if pk not in have]
     if not new:
         return 0

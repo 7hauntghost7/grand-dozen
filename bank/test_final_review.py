@@ -26,6 +26,9 @@ class FinalReviewTests(TestCase):
         return reverse(f"bank:{name}", args=args)
 
     def test_chunks_cover_every_question_and_copy_text_has_chapters_and_ids(self):
+        from .models import Book, BookChapter
+        chapter = BookChapter.objects.create(book=Book.objects.create(title="Gray"), number=1, title="Thorax")
+        Question.objects.create(bank=self.thorax, stem="Library only", book_chapter=chapter)
         final_review.sync_chunks(self.subject, size=2)
         chunks = list(ReviewChunk.objects.filter(subject=self.subject))
         self.assertEqual([len(c.question_ids) for c in chunks], [2, 2, 1])
