@@ -608,3 +608,53 @@ class Block(models.Model):
             models.CheckConstraint(condition=~models.Q(blocker=models.F("blocked")), name="no_self_block"),
         ]
         ordering = ["-created_at"]
+
+
+class ReviewChunk(models.Model):
+    """A slice of one subject's questions that a teammate copies into an AI to check."""
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="review_chunks")
+    number = models.PositiveIntegerField()
+    question_ids = models.JSONField(default=list)
+    copied_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    copied_at = models.DateTimeField(null=True, blank=True)
+    answered_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["subject", "number"]
+        constraints = [models.UniqueConstraint(fields=["subject", "number"], name="unique_review_chunk")]
+
+
+class ReviewFlag(models.Model):
+    """One problem an AI reported about a question, waiting for a person to act on it."""
+    MOVE, KEY, TF, WRONG, BROKEN = "MOVE", "KEY", "TF", "WRONG", "BROKEN"
+    KIND_CHOICES = [(MOVE, "Wrong chapter"), (KEY, "Wrong answer"), (TF, "Several answers correct"),
+                    (WRONG, "Academic error"), (BROKEN, "Distorted")]
+    OPEN, FIXED, DISMISSED, SORTED, REVIEWED = "open", "fixed", "ok", "sorted", "reviewed"
+    STATUS_CHOICES = [(OPEN, "Open"), (FIXED, "Fixed"), (DISMISSED, "Marked OK"),
+                      (SORTED, "Sent to sorting bin"), (REVIEWED, "Sent to review bin")]
+
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="review_flags")
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="review_flags")
+    kind = models.CharField(max_length=8, choices=KIND_CHOICES)
+    value = models.CharField(max_length=200, blank=True)
+    reason = models.TextField(blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=OPEN)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["subject", "id"]
+        constraints = [models.UniqueConstraint(fields=["question", "kind", "value"], name="unique_review_flag")]
+
+
+class ReviewBlock(models.Model):
+    """A group of 100 flags of one subject that one teammate claims and works through."""
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name="review_blocks")
+    number = models.PositiveIntegerField()
+    claimed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    claimed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["subject", "number"], name="unique_review_block")]

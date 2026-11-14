@@ -38,7 +38,7 @@
 <link rel="manifest" href="{% url 'bank:manifest' %}">
 <link rel="icon" type="image/svg+xml" href="{% static 'bank/icons/app-101.svg' %}">
 <link rel="apple-touch-icon" href="{% static 'bank/icons/app-101-192.png' %}">
-<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20261113-1">
+<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20261114-1">
 {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -71,6 +71,7 @@
         <a href="{% url 'bank:push_admin' %}"{% if here == "push_admin" %} aria-current="page"{% endif %}>Notifications</a>
         <a href="{% url 'bank:duplicate_questions' %}"{% if here == "duplicate_questions" %} aria-current="page"{% endif %}>Duplicates</a>
         <a href="{% url 'bank:move_questions' %}"{% if here == "move_questions" %} aria-current="page"{% endif %}>Move questions</a>
+        <a href="{% url 'bank:final_review' %}"{% if here == "final_review" %} aria-current="page"{% endif %}>Final review</a>
         <a href="{% url 'admin:index' %}">Admin</a>{% endif %}
       </div>
       {% endif %}

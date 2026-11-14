@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import final_review, views
 
 app_name = "bank"
 
@@ -94,5 +94,10 @@ urlpatterns = [
     path("push/admin/", views.push_admin, name="push_admin"),
     path("tools/duplicates/", views.duplicate_questions, name="duplicate_questions"),
     path("tools/move/", views.move_questions, name="move_questions"),
+    path("final-review/", final_review.home, name="final_review"),
+    path("final-review/flag/<int:pk>/", final_review.flag_action, name="final_review_flag"),
+    path("final-review/<slug:slug>/", final_review.subject_page, name="final_review_subject"),
+    path("final-review/<slug:slug>/chunk/<int:number>/copy/", final_review.chunk_copy, name="final_review_chunk_copy"),
+    path("final-review/<slug:slug>/block/<int:number>/", final_review.block_page, name="final_review_block"),
     path("push/tick/<str:key>/", views.push_tick, name="push_tick"),
 ]

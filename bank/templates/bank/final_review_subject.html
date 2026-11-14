@@ -1,0 +1,118 @@
+{% extends "bank/base.html" %}
+{% block title %}Final review · {{ subject.name }}{% endblock %}
+{% block content %}
+<main class="study-page fr-page">
+  <section class="page-hero">
+    {% include "bank/_hero_peaks.html" %}
+    <p class="page-eyebrow"><a href="{% url 'bank:final_review' %}">Final review</a></p>
+    <h2 class="page-title">{{ subject.name }}</h2>
+    <div class="page-stats">
+      <span><b>{{ n_questions }}</b> questions</span>
+      <span><b>{{ n_copied }}/{{ chunks|length }}</b> chunks copied</span>
+      <span><b>{{ n_answered }}</b> answered</span>
+      <span><b>{{ n_open }}</b> open of {{ n_flags }} flags</span>
+    </div>
+  </section>
+
+  <section class="exam-section">
+    <h3 class="section-title">Step 1 · Send a chunk to an AI</h3>
+    <p class="mute">“Copy for AI” copies the instructions, this subject’s chapter names and {{ size }} questions. Paste it into a new chat in Claude, ChatGPT or Gemini and send. Take a chunk nobody has copied yet.</p>
+    <div class="fr-chunks">
+      {% for c in chunks %}
+      <div class="fr-chunk{% if c.answered_at %} is-answered{% elif c.copied_at %} is-copied{% endif %}">
+        <b>Chunk {{ c.number }}</b>
+        <small>{{ c.question_ids|length }} questions</small>
+        <small class="fr-chunk-state">{% if c.answered_at %}✓ answered{% elif c.copied_at %}copied by {{ c.copied_by|default:"someone" }}{% else %}not copied{% endif %}</small>
+        <button class="exam-chip-btn fr-copy" type="button" data-url="{% url 'bank:final_review_chunk_copy' subject.slug c.number %}">Copy for AI</button>
+      </div>
+      {% endfor %}
+    </div>
+    <form method="post" class="fr-resize">
+      {% csrf_token %}<input type="hidden" name="action" value="resize">
+      <label>Questions per chunk
+        <select name="size">{% for n in sizes %}<option value="{{ n }}"{% if n == size %} selected{% endif %}>{{ n }}</option>{% endfor %}</select>
+      </label>
+      <button class="exam-chip-btn" type="submit">Apply to chunks nobody copied yet</button>
+    </form>
+  </section>
+
+  <section class="exam-section">
+    <h3 class="section-title">Step 2 · Paste the AI’s reply</h3>
+    <p class="mute">Paste the whole reply, starting from the <code>CHUNK</code> line. You can paste several replies at once. Lines pasted twice are ignored.</p>
+    <form method="post">
+      {% csrf_token %}<input type="hidden" name="action" value="paste">
+      <textarea class="fr-paste" name="text" rows="8" spellcheck="false" placeholder="CHUNK 3&#10;12345 | MOVE | Lower Limb | it is about the femoral nerve&#10;12346 | KEY | D | …" required></textarea>
+      <div class="push-actions"><button class="exam-card-start" type="submit">Add flags</button></div>
+    </form>
+    {% if report %}
+    <div class="fb {% if report.errors %}warning{% else %}success{% endif %}">
+      Added <b>{{ report.added }}</b> flag{{ report.added|pluralize }}{% if report.repeats %}, {{ report.repeats }} already there{% endif %}{% if report.chunks %} · chunk{{ report.chunks|length|pluralize }} {{ report.chunks|join:", " }} marked answered{% endif %}.
+      {% if report.errors %}<br>{{ report.errors|length }} line{{ report.errors|length|pluralize }} skipped:
+      <ul class="fr-errors">{% for n, raw, why in report.errors %}<li><code>{{ raw|truncatechars:90 }}</code>: {{ why }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="exam-section">
+    <h3 class="section-title">Step 3 · Fix the flagged questions</h3>
+    {% if blocks %}
+    <div class="fr-blocks">
+      {% for b in blocks %}
+      <a class="fr-block{% if b.done == b.total %} is-done{% endif %}" href="{% url 'bank:final_review_block' subject.slug b.number %}">
+        <b>Block {{ b.number }}</b>
+        <span class="fr-bar"><span style="width:{% widthratio b.done b.total 100 %}%"></span></span>
+        <small>{{ b.done }}/{{ b.total }} done</small>
+        <small>{% if b.claim.claimed_by %}{{ b.claim.claimed_by }}{% else %}free to claim{% endif %}</small>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}<p class="mute">No flags yet. They appear here, 100 per block, as replies are pasted.</p>{% endif %}
+  </section>
+</main>
+
+<dialog class="fr-dialog" id="fr-dialog">
+  <p><b>Copy this text</b> and paste it into the AI chat (your browser blocked automatic copying).</p>
+  <textarea rows="12" readonly></textarea>
+  <div class="push-actions"><button class="exam-chip-btn" type="button" data-close>Close</button></div>
+</dialog>
+<script>
+(() => {
+  const csrf = document.querySelector("[name=csrfmiddlewaretoken]").value;
+  const dialog = document.getElementById("fr-dialog");
+  dialog.querySelector("[data-close]").addEventListener("click", () => dialog.close());
+  document.querySelectorAll(".fr-copy").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const card = button.closest(".fr-chunk");
+      const state = card.querySelector(".fr-chunk-state");
+      const wasCopied = card.classList.contains("is-copied") || card.classList.contains("is-answered");
+      if (wasCopied && !confirm("Someone already copied this chunk. Copy it again anyway?")) return;
+      button.disabled = true;
+      button.textContent = "Copying…";
+      try {
+        const response = await fetch(button.dataset.url, {method: "POST", headers: {"X-CSRFToken": csrf}});
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        try {
+          await navigator.clipboard.writeText(data.text);
+          button.textContent = "Copied ✓";
+        } catch (e) {
+          const area = dialog.querySelector("textarea");
+          area.value = data.text;
+          dialog.showModal();
+          area.focus();
+          area.select();
+          button.textContent = "Copy for AI";
+        }
+        if (!card.classList.contains("is-answered")) {
+          card.classList.add("is-copied");
+          state.textContent = "copied by " + data.by;
+        }
+      } catch (e) {
+        button.textContent = "Try again";
+      }
+      button.disabled = false;
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -39,6 +39,8 @@ MODELS = [
     "bank.Profile", "bank.FriendRequest", "bank.Friendship", "bank.Block",
     # Notifications: admin messages and settings, each student's choice and their devices.
     "bank.PushPhrase", "bank.PushSettings", "bank.PushPreference", "bank.PushSubscription",
+    # Final review: chunks sent to AIs, the flags they found and who claimed which block.
+    "bank.ReviewChunk", "bank.ReviewFlag", "bank.ReviewBlock",
 ]
 PRIVATE_MODELS = ["bank.QuestionNote", "bank.Comment"]
 # Emptied on replace but never backed up: they would point at the old accounts.

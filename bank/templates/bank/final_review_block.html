@@ -1,0 +1,94 @@
+{% extends "bank/base.html" %}
+{% block title %}Block {{ number }} · {{ subject.name }} review{% endblock %}
+{% block content %}
+<main class="study-page fr-page">
+  <section class="page-hero">
+    {% include "bank/_hero_peaks.html" %}
+    <p class="page-eyebrow"><a href="{% url 'bank:final_review' %}">Final review</a> › <a href="{% url 'bank:final_review_subject' subject.slug %}">{{ subject.name }}</a></p>
+    <h2 class="page-title">Block {{ number }}</h2>
+    <div class="page-stats">
+      <span><b id="fr-done">{{ done }}</b>/{{ flags|length }} done</span>
+      <span>{% if block.claimed_by %}Claimed by <b>{{ block.claimed_by }}</b>{% else %}Not claimed{% endif %}</span>
+    </div>
+    <form method="post" class="push-actions">
+      {% csrf_token %}
+      {% if block.claimed_by_id != user.pk %}<button class="exam-card-start" name="action" value="claim">{% if block.claimed_by %}Take over this block{% else %}Claim this block{% endif %}</button>
+      {% else %}<button class="exam-chip-btn" name="action" value="release">Release</button>{% endif %}
+      {% if has_prev %}<a class="exam-chip-btn" href="{% url 'bank:final_review_block' subject.slug number|add:'-1' %}">← Block {{ number|add:"-1" }}</a>{% endif %}
+      {% if has_next %}<a class="exam-chip-btn" href="{% url 'bank:final_review_block' subject.slug number|add:'1' %}">Block {{ number|add:"1" }} →</a>{% endif %}
+    </form>
+  </section>
+
+  <label class="fr-hide"><input type="checkbox" id="fr-hide-done"> Hide finished</label>
+
+  <section class="fr-cards">
+    {% for f in flags %}
+    {% with q=f.question %}
+    <article class="fr-card is-{{ f.status }}" id="flag-{{ f.pk }}" data-url="{% url 'bank:final_review_flag' f.pk %}">
+      <header class="fr-card-head">
+        <span class="fr-tag fr-tag-{{ f.kind|lower }}">{{ f.get_kind_display }}{% if f.kind == "MOVE" %} → {{ f.value }}{% elif f.kind == "KEY" %} → {{ f.value }}{% endif %}</span>
+        <small>#{{ q.pk }} · {{ q.bank.title }}{% if q.number %} · No. {{ q.number }}{% endif %}{% if q.is_in_sorting_bin %} · in sorting bin{% elif q.is_in_review_bin %} · in review bin{% endif %}</small>
+      </header>
+      {% if f.reason %}<p class="fr-reason">AI: {{ f.reason }}</p>{% endif %}
+      {% if q.image_asset_id %}<p class="mute">This question has an image; open Edit to see it.</p>{% endif %}
+      <p class="fr-stem">{{ q.stem|linebreaksbr }}</p>
+      {% if f.options %}
+      <ol class="fr-options">
+        {% for letter, o in f.options %}<li class="{% if o.is_correct %}is-correct{% endif %}"><b>{{ letter }}.</b> {{ o.text }}{% if o.is_correct %} <span class="fr-check">{% if q.kind == "tf" %}True{% else %}✓ key{% endif %}</span>{% endif %}</li>{% endfor %}
+      </ol>
+      {% elif q.answer %}<p class="fr-answer"><b>Answer:</b> {{ q.answer|linebreaksbr }}</p>{% endif %}
+      {% if q.explanation %}<details class="fr-expl"><summary>Explanation</summary>{{ q.explanation|linebreaksbr }}</details>{% endif %}
+      <div class="fr-actions">
+        {% if f.kind == "MOVE" %}<button class="exam-card-start" data-action="apply">Move to {{ f.value }}</button>
+        {% elif f.kind == "KEY" %}<button class="exam-card-start" data-action="apply">Set key to {{ f.value }}</button>
+        {% elif f.kind == "TF" and q.kind == "mcq" %}<button class="exam-card-start" data-action="apply">Make True/False</button>{% endif %}
+        <button class="exam-chip-btn" data-action="ok">OK, nothing wrong</button>
+        <a class="exam-chip-btn" href="{% url 'bank:question_edit' q.pk %}?next={{ request.path|urlencode }}%23flag-{{ f.pk }}">Edit</a>
+        <button class="exam-chip-btn" data-action="done">Fixed it</button>
+        <button class="exam-chip-btn" data-action="sort">Sort</button>
+        <button class="exam-chip-btn" data-action="review">Review</button>
+      </div>
+      <p class="fr-status">{% if f.status != "open" %}{{ f.get_status_display }}{% if f.resolved_by %} by {{ f.resolved_by }}{% endif %} · <button class="fr-link" data-action="reopen">undo</button>{% endif %}</p>
+    </article>
+    {% endwith %}
+    {% endfor %}
+  </section>
+</main>
+<script>
+(() => {
+  const csrf = document.querySelector("[name=csrfmiddlewaretoken]").value;
+  const doneCount = document.getElementById("fr-done");
+  const hide = document.getElementById("fr-hide-done");
+  try { hide.checked = localStorage.getItem("fr-hide-done") === "1"; } catch (e) {}
+  const applyHide = () => document.body.classList.toggle("fr-hiding", hide.checked);
+  hide.addEventListener("change", () => { try { localStorage.setItem("fr-hide-done", hide.checked ? "1" : "0"); } catch (e) {} applyHide(); });
+  applyHide();
+  const count = () => { doneCount.textContent = document.querySelectorAll(".fr-card:not(.is-open)").length; };
+
+  document.querySelector(".fr-cards").addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-action]");
+    if (!button) return;
+    const card = button.closest(".fr-card");
+    const action = button.dataset.action;
+    if ((action === "sort" || action === "review") && !confirm(`Send this question to the ${action === "sort" ? "sorting" : "review"} bin?`)) return;
+    card.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+    try {
+      const response = await fetch(card.dataset.url, {
+        method: "POST", headers: {"X-CSRFToken": csrf, "Content-Type": "application/x-www-form-urlencoded"},
+        body: "action=" + encodeURIComponent(action),
+      });
+      if (!response.ok) { alert(await response.text()); return; }
+      const data = await response.json();
+      card.className = "fr-card is-" + data.status;
+      card.querySelector(".fr-status").innerHTML = data.status === "open" ? "" :
+        `${data.label} by ${data.by} · <button class="fr-link" data-action="reopen">undo</button>`;
+      count();
+    } catch (e) {
+      alert("Could not save. Check your connection and try again.");
+    } finally {
+      card.querySelectorAll("button").forEach((b) => { b.disabled = false; });
+    }
+  });
+})();
+</script>
+{% endblock %}

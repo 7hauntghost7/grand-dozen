@@ -1,0 +1,26 @@
+{% extends "bank/base.html" %}
+{% block title %}Final review{% endblock %}
+{% block content %}
+<main class="study-page fr-page">
+  <section class="page-hero">
+    {% include "bank/_hero_peaks.html" %}
+    <h2 class="page-title">Final review</h2>
+    <p class="page-lede">Check every question with any free AI chat, then fix what it finds. Pick a subject.</p>
+  </section>
+  <section class="exam-section fr-steps">
+    <ol>
+      <li><b>Copy a chunk</b> with “Copy for AI” and paste it into Claude, ChatGPT or Gemini.</li>
+      <li><b>Paste the AI’s reply</b> into the subject’s box. Anyone can paste any chunk, in any order.</li>
+      <li><b>Claim a block</b> of 100 flagged questions and fix each one with a single click.</li>
+    </ol>
+  </section>
+  <section class="fr-subjects">
+    {% for s in subjects %}
+    <a class="fr-subject" href="{% url 'bank:final_review_subject' s.slug %}">
+      <b>{{ s.name }}</b>
+      <span>{% if s.n_flags %}{{ s.n_open }} open of {{ s.n_flags }} flags{% else %}Not started{% endif %}</span>
+    </a>
+    {% endfor %}
+  </section>
+</main>
+{% endblock %}
