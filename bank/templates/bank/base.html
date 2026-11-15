@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#fffaec">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <script>
+  // A page restored from the browser's back/forward memory is reloaded, so the server can send a
+  // signed-out device (e.g. after signing in on another phone) to the login page.
+  window.addEventListener("pageshow", (event) => { if (event.persisted) location.reload(); });
+</script>
+<script>
   (() => {
     const root = document.documentElement;
     const preference = window.matchMedia("(prefers-color-scheme: dark)");

@@ -118,3 +118,17 @@ class LoginPageTests(TestCase):
         self.client.force_login(user)
         response = self.client.get(reverse("bank:login") + "?next=/saved/")
         self.assertRedirects(response, "/saved/", fetch_redirect_response=False)
+
+    def test_pages_are_never_stored_by_the_browser_and_old_phone_is_signed_out(self):
+        from django.test import Client
+        User.objects.create_user("phone", password="pw")
+        a, b = Client(), Client()
+        a.post(reverse("bank:login"), {"username": "phone", "password": "pw"})
+        home = a.get("/")
+        self.assertIn("no-store", home["Cache-Control"])
+        self.assertIn("no-store", a.get(reverse("bank:login") + "?x=1", follow=True)["Cache-Control"])
+        b.post(reverse("bank:login"), {"username": "phone", "password": "pw"})
+        response = a.get("/")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response["Location"])
+        self.assertNotContains(a.get(reverse("bank:login")), "resume-activity")

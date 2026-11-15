@@ -4,6 +4,7 @@ from django.contrib.auth.views import redirect_to_login
 from django.contrib.sessions.models import Session
 from django.core.cache import cache
 from django.http import HttpResponseNotFound
+from django.utils.cache import add_never_cache_headers
 
 
 class SingleSessionMiddleware:
@@ -52,7 +53,13 @@ class SingleSessionMiddleware:
             if current_key and not active_key:
                 cache.set(cache_key, current_key, None)
 
-        return self.get_response(request)
+        response = self.get_response(request)
+        # Pages must never be kept by the browser: a phone that was signed out (for example because
+        # the account signed in on another phone) would otherwise show stored copies of quiz pages
+        # on Back or when the app reopens, as if it were still signed in.
+        if "text/html" in response.get("Content-Type", "") and not path.startswith(static_prefix):
+            add_never_cache_headers(response)
+        return response
 
 
 class PushTickMiddleware:
