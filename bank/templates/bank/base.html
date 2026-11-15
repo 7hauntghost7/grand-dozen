@@ -220,7 +220,7 @@
      data-url="{{ active_exam_resume.url }}"
      data-updated-at="{{ active_exam_resume.started_at }}"></div>
 {% endif %}
-{% if user.is_authenticated %}
+{% block resume_activity %}{% if user.is_authenticated %}
 <aside id="resume-activity" class="resume-activity" aria-label="Active quiz" data-user-id="{{ user.pk }}" hidden>
   <div class="resume-activity-copy">
     <strong id="resume-activity-title"></strong>
@@ -229,7 +229,7 @@
   <a id="resume-activity-return" class="btn pri" href="#">Go back to quiz</a>
   <button id="resume-activity-exit" class="btn" type="button">Exit quiz</button>
 </aside>
-{% endif %}
+{% endif %}{% endblock %}
 {% block scripts %}{% endblock %}
 <script src="{% static 'bank/drop-files.js' %}?v=1"></script>
 {% if user.is_authenticated %}<script src="{% static 'bank/resume_activity.js' %}?v=3"></script>{% endif %}

@@ -3703,6 +3703,9 @@ def import_questions(request):
 # ---------------------------------------------------------------- accounts
 class SingleSessionLoginView(LoginView):
     template_name = "bank/login.html"
+    # Someone already signed in who opens the login page goes straight on, instead of seeing a
+    # login form next to the "Go back to quiz" reminder (which worked only because they were signed in).
+    redirect_authenticated_user = True
 
     def form_valid(self, form):
         user = form.get_user()

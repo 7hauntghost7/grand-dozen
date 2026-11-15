@@ -109,3 +109,12 @@ CHUNK 1
     def test_students_cannot_open_it(self):
         self.client.force_login(User.objects.create_user("stu", password="pw"))
         self.assertEqual(self.client.get(self.url("final_review")).status_code, 403)
+
+
+class LoginPageTests(TestCase):
+    def test_signed_in_user_skips_the_login_page_and_it_never_shows_the_quiz_reminder(self):
+        user = User.objects.create_user("stu2", password="pw")
+        self.assertNotContains(self.client.get(reverse("bank:login")), "resume-activity")
+        self.client.force_login(user)
+        response = self.client.get(reverse("bank:login") + "?next=/saved/")
+        self.assertRedirects(response, "/saved/", fetch_redirect_response=False)
