@@ -70,7 +70,8 @@ BROKEN | - | text is cut off, garbled, options missing or repeated, or it makes 
 
 Rules:
 - Flag only when you are confident; most questions are fine.
-- For MOVE, copy the chapter name exactly as written in the list, without the part in brackets.
+- For MOVE, decide by the "contains" description of each chapter and by what the question mainly tests. Copy the chapter name exactly as written in the list, without the part in brackets.
+- Do not suggest MOVE when the question fits its current chapter's description.
 - A question may get more than one line. Never rewrite the questions.
 - Skip questions that depend on an image you cannot see.
 - Start your reply with the line CHUNK {number}. If nothing is wrong, reply CHUNK {number} then NONE.
@@ -108,9 +109,14 @@ def _question_text(q):
 
 
 def chunk_text(chunk):
-    chapters = chapter_names(chunk.subject)
-    example = chapters[0] if chapters else "Chapter name"
-    head = PROMPT.format(subject=chunk.subject.name, number=chunk.number, chapters="\n".join(f"- {c}" for c in chapters),
+    decks = list(QuestionBank.objects.filter(subject=chunk.subject).select_related("section")
+                 .order_by("section__name", "semester", "title"))
+    example = decks[0].title if decks else "Chapter name"
+    listing = "\n".join(
+        f"- {d.title}   ({d.section.name + ', ' if d.section else ''}semester {d.semester})"
+        + (f"\n    contains: {' '.join(d.review_guide.split())}" if d.review_guide.strip() else "")
+        for d in decks)
+    head = PROMPT.format(subject=chunk.subject.name, number=chunk.number, chapters=listing,
                          example_chapter=example, example_chapter_lower=example.lower())
     qs = (Question.objects.filter(pk__in=chunk.question_ids).select_related("bank")
           .prefetch_related("options").order_by("bank__semester", "bank__title", "id"))

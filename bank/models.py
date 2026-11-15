@@ -80,6 +80,8 @@ class QuestionBank(models.Model):
     title = models.CharField("deck title", max_length=200)
     slug = models.SlugField(max_length=220, unique=True, blank=True)
     description = models.TextField(blank=True)
+    review_guide = models.TextField(
+        blank=True, help_text="Final review only: what belongs in this chapter, so the AI can tell when a question is in the wrong one.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
