@@ -22,15 +22,24 @@
         savedTheme = saved;
         root.dataset.themePreference = saved;
       }
+      // The look ("skin"): the classic Rawasi look, or Dune. Picked in Settings, kept per browser.
+      if (window.localStorage.getItem("rawasi-skin") === "dune") root.dataset.skin = "dune";
     } catch (error) {
       console.warn("Unable to read the saved Rawasi theme preference.", error);
     }
 
+    // The phone's status-bar colour follows the look and the light/dark mode.
+    window.rawasiBarColor = () => {
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (!meta) return;
+      const dark = root.dataset.theme === "dark";
+      meta.content = root.dataset.skin === "dune" ? (dark ? "#120804" : "#471d10") : (dark ? "#2d2d2d" : "#fffaec");
+    };
+
     const applyTheme = theme => {
       root.dataset.theme = theme;
       root.style.colorScheme = theme;
-      const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-      if (metaThemeColor) metaThemeColor.content = theme === "dark" ? "#2d2d2d" : "#fffaec";
+      window.rawasiBarColor();
     };
 
     applyTheme(savedTheme || (preference.matches ? "dark" : "light"));
@@ -43,7 +52,8 @@
 <link rel="manifest" href="{% url 'bank:manifest' %}">
 <link rel="icon" type="image/svg+xml" href="{% static 'bank/icons/app-101.svg' %}">
 <link rel="apple-touch-icon" href="{% static 'bank/icons/app-101-192.png' %}">
-<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20261114-1">
+<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20261116-2">
+<link rel="stylesheet" href="{% static 'bank/skin-dune.css' %}?v=20261116-1">
 {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -118,7 +128,6 @@
     const toggle = document.querySelector(".theme-toggle");
     const label = toggle && toggle.querySelector(".theme-label");
     const icon = toggle && toggle.querySelector(".theme-icon");
-    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (!toggle || !label || !icon) return;
 
     const render = () => {
@@ -128,7 +137,7 @@
       icon.textContent = isDark ? "☼" : "☾";
       toggle.setAttribute("aria-label", `Switch to ${nextTheme} mode`);
       toggle.setAttribute("aria-pressed", String(isDark));
-      if (metaThemeColor) metaThemeColor.content = isDark ? "#2d2d2d" : "#fffaec";
+      window.rawasiBarColor();
     };
 
     render();

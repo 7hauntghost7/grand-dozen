@@ -3730,6 +3730,21 @@ button,.btn{border-radius:5px}
 .ridge-front path{stroke:#e9ab11;stroke-opacity:.35;stroke-width:1.2;vector-effect:non-scaling-stroke}
 .hero-content{position:relative;padding:28px 28px 34px;display:grid;gap:14px;max-width:640px}
 .hero-greeting{margin:0;color:#e4cc85;font-weight:700;letter-spacing:.02em;animation:home-rise .6s .15s both}
+/* Faculty line: gold Ruqaa script between two fading rules, with a slow shine passing over it */
+.hero-faculty{position:absolute;top:24px;right:30px;z-index:1;margin:0;display:flex;align-items:center;gap:12px;
+  animation:faculty-in .9s .05s cubic-bezier(.2,.7,.2,1) both}
+.hf-text{font-family:"Aref Ruqaa","Noto Naskh Arabic","Amiri",serif;font-weight:700;white-space:nowrap;
+  font-size:clamp(1.15rem,2.4vw,1.4rem);line-height:1.5;letter-spacing:.01em;
+  background:linear-gradient(100deg,#e4cc85 0%,#ffcc5e 30%,#fff3cf 46%,#ffcc5e 60%,#e9ab11 100%);background-size:250% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 1px 8px rgba(233,171,17,.25));animation:faculty-shine 7s ease-in-out 1.2s infinite}
+.hf-star{display:inline-block;margin:0 .55em;font-size:.6em;vertical-align:.25em;color:#e9ab11;-webkit-text-fill-color:#e9ab11;
+  animation:hero-twinkle 3.4s ease-in-out infinite}
+/* The line is right-to-left: the first rule sits to the right of the words, the last one to the left. */
+.hf-rule{flex:none;display:none;width:96px;height:1px;background:linear-gradient(90deg,rgba(233,171,17,.85),rgba(233,171,17,0))}
+.hf-rule:last-child{display:block;background:linear-gradient(90deg,rgba(233,171,17,0),rgba(233,171,17,.85))}
+@keyframes faculty-in{from{opacity:0;letter-spacing:.2em;filter:blur(4px)}to{opacity:1;letter-spacing:normal;filter:none}}
+@keyframes faculty-shine{0%,100%{background-position:100% 0}50%{background-position:0 0}}
 .hero-poem{margin:0;display:grid;gap:2px;font-family:"Aref Ruqaa","Noto Naskh Arabic","Amiri",serif;font-weight:700;
   font-size:clamp(1.55rem,4.4vw,2.35rem);line-height:1.6;color:#ffcc5e;text-shadow:0 2px 14px rgba(233,171,17,.25)}
 .hero-poem span{display:block;animation:poem-in 1s cubic-bezier(.2,.7,.2,1) both}
@@ -3801,7 +3816,8 @@ button,.btn{border-radius:5px}
   .subject-card{min-height:170px}
 }
 @media (prefers-reduced-motion:reduce){
-  .home-hero,.hero-greeting,.hero-poem span,.hero-stats div,.quick-card,.subject-card,.ridge,.hero-sun,.hero-star{animation:none!important}
+  .home-hero,.hero-greeting,.hero-poem span,.hero-stats div,.quick-card,.subject-card,.ridge,.hero-sun,.hero-star,
+  .hero-faculty,.hf-text,.hf-star{animation:none!important}
   .subject-card,.quick-card,.subject-card::before,.subject-mark{transition:none}
 }
 
@@ -3811,6 +3827,9 @@ button,.btn{border-radius:5px}
   .home-hero{min-height:0}
   .hero-content{max-width:none;justify-items:center;text-align:center;gap:12px;padding:30px 16px 64px}
   .hero-greeting{font-size:.95rem}
+  .hero-faculty{position:static;justify-content:center;gap:10px;margin:0;padding:24px 16px 0}
+  .home-hero .hero-faculty + .hero-content{padding-top:10px}
+  .hf-rule,.hf-rule:last-child{display:block;width:clamp(18px,8vw,40px)}
   .hero-poem{justify-items:center;text-align:center;font-size:clamp(1.4rem,6.4vw,1.9rem);line-height:1.7}
   .hero-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;max-width:360px;margin:4px 0 0}
   .hero-stats div{padding:9px 4px;text-align:center}

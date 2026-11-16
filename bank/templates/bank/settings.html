@@ -77,7 +77,15 @@
 
     <section class="settings-section" aria-labelledby="appearance-title">
       <h3 id="appearance-title">Appearance</h3>
-      <p class="mute">The theme for this browser.</p>
+      <p class="mute">The look and theme for this browser.</p>
+      <div class="skin-picker" role="radiogroup" aria-label="Look">
+        <label class="skin-option"><input type="radio" name="skin" value="rawasi"><span>
+          <i class="skin-swatch skin-swatch-rawasi" aria-hidden="true"></i>
+          <b>Rawasi</b><small>The classic look: soft and rounded, glowing sunset banner.</small></span></label>
+        <label class="skin-option"><input type="radio" name="skin" value="dune"><span>
+          <i class="skin-swatch skin-swatch-dune" aria-hidden="true"></i>
+          <b>Dune</b><small>Bold gold and brown blocks, sharp edges, Kufi headings.</small></span></label>
+      </div>
       <button class="theme-toggle" type="button" aria-label="Switch to light mode" aria-pressed="true">
         <span class="theme-icon" aria-hidden="true">☼</span>
         <span class="theme-label">Light mode</span>
@@ -164,6 +172,21 @@
 {% endblock %}
 {% block scripts %}
 {% include "bank/_password_toggle.html" %}
+<script>
+(() => {
+  // Look picker: switches at once and is remembered in this browser.
+  const root = document.documentElement;
+  const current = root.dataset.skin === "dune" ? "dune" : "rawasi";
+  document.querySelectorAll('input[name="skin"]').forEach(radio => {
+    radio.checked = radio.value === current;
+    radio.addEventListener("change", () => {
+      if (radio.value === "dune") root.dataset.skin = "dune"; else delete root.dataset.skin;
+      try { localStorage.setItem("rawasi-skin", radio.value); } catch (error) {}
+      if (window.rawasiBarColor) window.rawasiBarColor();
+    });
+  });
+})();
+</script>
 <script>
 document.querySelectorAll("[data-auto-submit]").forEach(input => {
   input.addEventListener("change", () => {
