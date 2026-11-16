@@ -26,7 +26,7 @@
     {% with q=f.question %}
     <article class="fr-card is-{{ f.status }}" id="flag-{{ f.pk }}" data-url="{% url 'bank:final_review_flag' f.pk %}">
       <header class="fr-card-head">
-        <span class="fr-tag fr-tag-{{ f.kind|lower }}">{{ f.get_kind_display }}{% if f.kind == "MOVE" %} → {{ f.value }}{% elif f.kind == "KEY" %} → {{ f.value }}{% endif %}</span>
+        <span class="fr-tag fr-tag-{{ f.kind|lower }}">{{ f.get_kind_display }}{% if f.kind == "MOVE" %} → {{ f.value }}{% elif f.kind == "KEY" %} → {{ f.value }}{% elif f.kind == "TF" and f.true_letters %} → {{ f.true_letters }} true{% endif %}</span>
         <small>#{{ q.pk }} · {{ q.bank.title }}{% if q.number %} · No. {{ q.number }}{% endif %}{% if q.is_in_sorting_bin %} · in sorting bin{% elif q.is_in_review_bin %} · in review bin{% endif %}</small>
       </header>
       {% if f.reason %}<p class="fr-reason">AI: {{ f.reason }}</p>{% endif %}
@@ -41,7 +41,7 @@
       <div class="fr-actions">
         {% if f.kind == "MOVE" %}<button class="exam-card-start" data-action="apply">Move to {{ f.value }}</button>
         {% elif f.kind == "KEY" %}<button class="exam-card-start" data-action="apply">Set key to {{ f.value }}</button>
-        {% elif f.kind == "TF" and q.kind == "mcq" %}<button class="exam-card-start" data-action="apply">Make True/False</button>{% endif %}
+        {% elif f.kind == "TF" and not f.tf_done and q.kind == "mcq" or f.kind == "TF" and not f.tf_done and q.kind == "tf" %}<button class="exam-card-start" data-action="apply">{% if q.kind == "tf" %}Mark {{ f.true_letters }} true{% else %}Make True/False{% if f.true_letters %} ({{ f.true_letters }} true){% endif %}{% endif %}</button>{% endif %}
         <button class="exam-chip-btn" data-action="ok">OK, nothing wrong</button>
         <a class="exam-chip-btn" href="{% url 'bank:question_edit' q.pk %}?next={{ request.path|urlencode }}%23flag-{{ f.pk }}">Edit</a>
         <button class="exam-chip-btn" data-action="done">Fixed it</button>

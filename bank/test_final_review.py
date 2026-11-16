@@ -56,20 +56,26 @@ CHUNK 1
 {q3.pk} | MOVE | Head and Neck | wrong
 {self.foreign.pk} | WRONG | - | not ours
 {q0.pk} | MOVE | Thorax | already there
+{q0.pk} | KEY | A | key is fine
+{q1.pk} | KEY | A | the key A is right
+{q2.pk} | WRONG | - | no error; skip
+{q3.pk} | TF | B,c | B and C are true
 ```"""
         final_review.sync_chunks(self.subject)
         response = self.client.post(self.url("final_review_subject", self.subject.slug), {"action": "paste", "text": reply})
-        self.assertContains(response, "Added <b>4</b> flags")
+        self.assertContains(response, "Added <b>5</b> flags")
+        self.assertContains(response, "4 lines that only said a question is fine left out")
         self.assertContains(response, "no chapter called “Head and Neck”")
         self.assertContains(response, "is not in Anatomy")
-        flags = {f.question_id: f for f in ReviewFlag.objects.all()}
-        self.assertEqual((flags[q0.pk].kind, flags[q0.pk].value), ("MOVE", "Lower Limb"))
-        self.assertEqual(flags[q1.pk].value, "D")
-        self.assertEqual(flags[q2.pk].reason, "A and B both correct")
-        self.assertEqual(flags[q3.pk].reason, "option C cut off")
+        flags = {(f.question_id, f.kind): f for f in ReviewFlag.objects.all()}
+        self.assertEqual(flags[q0.pk, "MOVE"].value, "Lower Limb")
+        self.assertEqual(flags[q1.pk, "KEY"].value, "D")
+        self.assertEqual((flags[q2.pk, "TF"].value, flags[q2.pk, "TF"].reason), ("A,B", "A and B both correct"))
+        self.assertEqual(flags[q3.pk, "BROKEN"].reason, "option C cut off")
+        self.assertEqual(flags[q3.pk, "TF"].value, "B,C")
         self.assertIsNotNone(ReviewChunk.objects.get(subject=self.subject, number=1).answered_at)
         self.client.post(self.url("final_review_subject", self.subject.slug), {"action": "paste", "text": reply})
-        self.assertEqual(ReviewFlag.objects.count(), 4)
+        self.assertEqual(ReviewFlag.objects.count(), 5)
 
     def flag(self, question, kind, value=""):
         return ReviewFlag.objects.create(subject=self.subject, question=question, kind=kind, value=value)
@@ -87,6 +93,13 @@ CHUNK 1
 
         self.act(self.flag(q2, "TF"), "apply")
         self.assertEqual(Question.objects.get(pk=q2.pk).kind, Question.TF)
+        # Letters in the flag (or named in an older flag's reason) become the true statements.
+        q4 = self.questions[4]
+        old = ReviewFlag.objects.create(subject=self.subject, question=q4, kind="TF", reason="A, B and D are all correct")
+        self.act(old, "apply")
+        self.assertEqual([o.is_correct for o in q4.options.all()], [True, True, False, True])
+        self.act(self.flag(q2, "TF", "C"), "apply")
+        self.assertEqual([o.is_correct for o in q2.options.all()], [False, False, True, False])
 
         broken, other = self.flag(q3, "BROKEN"), self.flag(q3, "WRONG")
         self.assertEqual(self.act(broken, "apply").status_code, 400)

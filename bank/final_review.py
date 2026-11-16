@@ -64,12 +64,13 @@ ID | TYPE | VALUE | short reason
 TYPE must be one of:
 MOVE   | exact chapter name from the CHAPTERS list | the question clearly belongs to another chapter of this subject
 KEY    | the correct letter(s), e.g. D or A,C | the marked answer is wrong
-TF     | - | more than one option is correct, so it should become a True/False question
+TF     | the letters of ALL true options, e.g. A,C | more than one option is correct, so it should become a True/False question
 WRONG  | - | a factual error in the question or its options (not the answer key)
 BROKEN | - | text is cut off, garbled, options missing or repeated, or it makes no sense
 
 Rules:
 - Flag only when you are confident; most questions are fine.
+- Write lines ONLY for real problems. Never write a line to say a question or its key is fine, correct or acceptable, and never write "no error", "skip" or "no change" lines.
 - For MOVE, decide by the "contains" description of each chapter and by what the question mainly tests. Copy the chapter name exactly as written in the list, without the part in brackets.
 - Do not suggest MOVE when the question fits its current chapter's description.
 - A question may get more than one line. Never rewrite the questions.
@@ -80,7 +81,7 @@ Example reply:
 CHUNK {number}
 12345 | MOVE | {example_chapter} | it is about the {example_chapter_lower}
 12346 | KEY | D | the ulnar nerve supplies adductor pollicis
-12347 | TF | - | A and C are both correct
+12347 | TF | A,C | A and C are both correct
 
 CHAPTERS:
 {chapters}
@@ -124,12 +125,36 @@ def chunk_text(chunk):
 
 
 LINE = re.compile(r"^#?(\d+)\s*\|\s*([A-Za-z]+)\s*(?:\|\s*([^|]*?)\s*)?(?:\|\s*(.*?)\s*)?$")
+LETTER_LIST = re.compile(r"^\s*[A-J](?:\s*(?:,|and|&|/)\s*[A-J])*\s*$", re.I)
+# "A and C are both correct", "A, B and D are all true", "B is also correct"
+TRUE_LETTERS = re.compile(r"^\s*(?:options?\s+)?([A-J](?:\s*(?:,|and|&)\s*[A-J])*)\s*(?:\([^)]*\)\s*)?"
+                          r"(?:(?:are|is)\s+)?(?:both\s+|all\s+|also\s+)?(?:correct|true)\b")
+# Lines where the AI only says a question is fine. They are not problems, so they never become flags.
+NO_PROBLEM = re.compile(r"^\s*(?:no errors?|none|skip|fine|correct|ok(?:ay)?|no change(?: needed)?|no issues?)\s*[.;!]?\s*$"
+                        r"|[;,]\s*(?:skip|fine|key (?:is )?fine|no error|no action|no change needed|leave as is)"
+                        r"(?:\s*\(ignore\))?\s*[.)]?\s*$"
+                        r"|\(?placeholder, ignore\)?", re.I)
+# On a KEY line these mean the AI agrees with the key.
+KEY_FINE = re.compile(r"^\s*(?:the\s+)?key\s+(?:[A-J](?:,[A-J])*\s+)?(?:is\s+)?(?:fine|correct|acceptable|ok|right)\b", re.I)
+
+
+def _letters(text):
+    return ",".join(sorted(set(re.findall(r"\b[A-J]\b", text.upper()))))
+
+
+def tf_letters(flag):
+    """The options a TF flag says are true: its value, or letters named in its reason."""
+    if flag.value:
+        return flag.value
+    m = TRUE_LETTERS.match(flag.reason or "")
+    return _letters(m.group(1)) if m else ""
 
 
 def parse_answer(subject, text):
-    """Turn pasted AI replies into flag data. Returns (flags, errors, chunk_numbers)."""
+    """Turn pasted AI replies into flag data. Returns (flags, errors, chunk_numbers, quiet_lines)."""
     titles = {_norm(t): t for t in chapter_names(subject)}
     flags, errors, chunks, ids = [], [], set(), set()
+    quiet = 0
     for n, raw in enumerate(text.splitlines(), 1):
         line = raw.strip().strip("`*•-– ").strip()
         if not line:
@@ -145,10 +170,19 @@ def parse_answer(subject, text):
         if kind not in dict(ReviewFlag.KIND_CHOICES):
             errors.append((n, raw, f"unknown type {kind}"))
             continue
-        if kind in (ReviewFlag.TF, ReviewFlag.WRONG, ReviewFlag.BROKEN):
+        if (NO_PROBLEM.search(reason) or (not reason and NO_PROBLEM.search(value))
+                or (kind == ReviewFlag.KEY and KEY_FINE.search(reason))):
+            quiet += 1
+            continue
+        if kind == ReviewFlag.TF and LETTER_LIST.match(value):
+            value = _letters(value)
+        elif kind in (ReviewFlag.TF, ReviewFlag.WRONG, ReviewFlag.BROKEN):
             if value and value != "-" and not reason:
                 reason = value
             value = ""
+            if kind == ReviewFlag.TF:
+                m = TRUE_LETTERS.match(reason)
+                value = _letters(m.group(1)) if m else ""
         elif kind == ReviewFlag.KEY:
             letters = re.findall(r"\b([A-J])\b", value.upper())
             if not letters:
@@ -164,15 +198,20 @@ def parse_answer(subject, text):
         flags.append({"pk": pk, "kind": kind, "value": value, "reason": reason[:1000], "line": n, "raw": raw})
         ids.add(pk)
     known = dict(_live_questions(subject).filter(pk__in=ids).values_list("pk", "bank__title"))
+    keys = {}
+    for q in Question.objects.filter(pk__in=ids).prefetch_related("options"):
+        keys[q.pk] = ",".join(l for l, o in zip(LETTERS, q.options.all()) if o.is_correct)
     kept = []
     for f in flags:
         if f["pk"] not in known:
             errors.append((f["line"], f["raw"], f"question {f['pk']} is not in {subject.name}"))
         elif f["kind"] == ReviewFlag.MOVE and f["value"] == known[f["pk"]]:
-            continue  # already in that chapter
+            quiet += 1  # already in that chapter
+        elif f["kind"] == ReviewFlag.KEY and f["value"] == keys.get(f["pk"]):
+            quiet += 1  # the AI "corrected" the key to the key it already has
         else:
             kept.append(f)
-    return kept, errors, chunks
+    return kept, errors, chunks, quiet
 
 
 def add_flags(subject, flags, user):
@@ -216,12 +255,12 @@ def subject_page(request, slug):
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "paste":
-            flags, errors, chunks = parse_answer(subject, request.POST.get("text", ""))
+            flags, errors, chunks, quiet = parse_answer(subject, request.POST.get("text", ""))
             added = add_flags(subject, flags, request.user)
             if chunks:
                 ReviewChunk.objects.filter(subject=subject, number__in=chunks, answered_at__isnull=True).update(answered_at=timezone.now())
-            report = {"added": added, "repeats": len(flags) - added, "errors": errors, "chunks": sorted(chunks)}
-            if not flags and not errors and not chunks:
+            report = {"added": added, "repeats": len(flags) - added, "errors": errors, "chunks": sorted(chunks), "quiet": quiet}
+            if not flags and not errors and not chunks and not quiet:
                 messages.error(request, "No answer lines were found. Each line should look like: 12345 | KEY | D | reason")
         elif action == "resize":
             try:
@@ -278,6 +317,10 @@ def block_page(request, slug, number):
                  .prefetch_related("question__options").order_by("id"))
     for f in flags:
         f.options = [(LETTERS[i], o) for i, o in enumerate(f.question.options.all())]
+        if f.kind == ReviewFlag.TF:
+            f.true_letters = tf_letters(f)
+            f.tf_done = f.question.kind == Question.TF and f.true_letters in ("", ",".join(
+                l for l, o in f.options if o.is_correct))
     return render(request, "bank/final_review_block.html", {
         "subject": subject, "block": block, "number": number, "flags": flags,
         "done": sum(1 for f in flags if f.status != ReviewFlag.OPEN),
@@ -322,8 +365,17 @@ def flag_action(request, pk):
                         o.save(update_fields=["is_correct"])
                 Question.objects.filter(pk=q.pk).update(updated_at=now)
             elif flag.kind == ReviewFlag.TF:
-                if q.kind != Question.MCQ:
+                if q.kind not in (Question.MCQ, Question.TF):
                     return HttpResponseBadRequest("Only multiple-choice questions can be turned into True/False.")
+                options = list(q.options.all())
+                true = {LETTERS.index(l) for l in tf_letters(flag).split(",") if l in LETTERS}
+                if true and max(true) >= len(options):
+                    return HttpResponseBadRequest("This question does not have those options.")
+                # The named options become the true statements; with no letters only the type changes.
+                for i, o in enumerate(options):
+                    if true and o.is_correct != (i in true):
+                        o.is_correct = i in true
+                        o.save(update_fields=["is_correct"])
                 Question.objects.filter(pk=q.pk).update(kind=Question.TF, updated_at=now)
             else:
                 return HttpResponseBadRequest("This kind of flag has no automatic fix; edit the question instead.")

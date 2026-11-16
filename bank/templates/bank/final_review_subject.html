@@ -46,7 +46,7 @@
     </form>
     {% if report %}
     <div class="fb {% if report.errors %}warning{% else %}success{% endif %}">
-      Added <b>{{ report.added }}</b> flag{{ report.added|pluralize }}{% if report.repeats %}, {{ report.repeats }} already there{% endif %}{% if report.chunks %} · chunk{{ report.chunks|length|pluralize }} {{ report.chunks|join:", " }} marked answered{% endif %}.
+      Added <b>{{ report.added }}</b> flag{{ report.added|pluralize }}{% if report.repeats %}, {{ report.repeats }} already there{% endif %}{% if report.quiet %}, {{ report.quiet }} line{{ report.quiet|pluralize }} that only said a question is fine left out{% endif %}{% if report.chunks %} · chunk{{ report.chunks|length|pluralize }} {{ report.chunks|join:", " }} marked answered{% endif %}.
       {% if report.errors %}<br>{{ report.errors|length }} line{{ report.errors|length|pluralize }} skipped:
       <ul class="fr-errors">{% for n, raw, why in report.errors %}<li><code>{{ raw|truncatechars:90 }}</code>: {{ why }}</li>{% endfor %}</ul>{% endif %}
     </div>
