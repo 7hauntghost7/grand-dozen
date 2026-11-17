@@ -74,7 +74,16 @@ Rules:
 - For MOVE, decide by the "contains" description of each chapter and by what the question mainly tests. Copy the chapter name exactly as written in the list, without the part in brackets.
 - Do not suggest MOVE when the question fits its current chapter's description.
 - A question may get more than one line. Never rewrite the questions.
-- Skip questions that depend on an image you cannot see.
+- Skip questions that come with an image you cannot see.
+- WRITTEN questions (no options, only an Answer) need special care:
+  * Check that the Answer really answers exactly what is asked. A general paragraph about the topic that never
+    states the thing asked for, or an answer to a different question, is WRONG: write what the answer should be.
+  * An empty Answer, or one that just repeats the question, is BROKEN.
+  * Study notes or a statement pasted in as the question (so the answer is already in it), a "which of the
+    following" with no options to choose from, or a question about "the image shown" when there is no image,
+    are BROKEN.
+- If the same question appears twice in this chunk, flag the later one: ID | BROKEN | - | duplicate of #first-ID.
+- Remarks in an explanation or note about how the question was edited ("the source said…") are BROKEN.
 - Start your reply with the line CHUNK {number}. If nothing is wrong, reply CHUNK {number} then NONE.
 
 Example reply:
@@ -95,8 +104,10 @@ def _question_text(q):
     lines.append("Q: " + " ".join(q.stem.split()))
     options = list(q.options.all())
     if q.kind == Question.DESC or not options:
-        if q.answer:
-            lines.append("Answer: " + " ".join(q.answer.split()))
+        lines.append("(Written question)")
+        lines.append("Answer: " + (" ".join(q.answer.split()) or "(empty)"))
+        if q.explanation.strip():
+            lines.append("Explanation: " + " ".join(q.explanation.split()))
         return "\n".join(lines)
     if q.kind == Question.TF:
         lines.append("(True/False: each statement is marked T or F)")
@@ -262,6 +273,16 @@ def subject_page(request, slug):
             report = {"added": added, "repeats": len(flags) - added, "errors": errors, "chunks": sorted(chunks), "quiet": quiet}
             if not flags and not errors and not chunks and not quiet:
                 messages.error(request, "No answer lines were found. Each line should look like: 12345 | KEY | D | reason")
+        elif action == "restart":
+            # Start the subject's review over: open flags go, finished ones stay as history,
+            # every chunk is marked not copied, and block claims are released.
+            if not request.user.is_superuser:
+                return HttpResponseBadRequest("Only admins can start the review over.")
+            removed, _ = ReviewFlag.objects.filter(subject=subject, status=ReviewFlag.OPEN).delete()
+            ReviewBlock.objects.filter(subject=subject).delete()
+            ReviewChunk.objects.filter(subject=subject).update(copied_by=None, copied_at=None, answered_at=None)
+            messages.success(request, f"{subject.name} review started over: {removed} open flag{'s' if removed != 1 else ''} removed, all chunks marked not done.")
+            return redirect("bank:final_review_subject", slug=subject.slug)
         elif action == "resize":
             try:
                 size = int(request.POST.get("size", ""))

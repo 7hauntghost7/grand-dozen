@@ -108,6 +108,27 @@ CHUNK 1
         self.assertEqual(ReviewFlag.objects.get(pk=other.pk).status, "reviewed")
         self.assertEqual(self.act(broken, "reopen").json()["status"], "open")
 
+    def test_restart_clears_open_flags_and_chunks_for_admins_only(self):
+        final_review.sync_chunks(self.subject)
+        ReviewChunk.objects.update(copied_by=self.staff, answered_at="2026-11-16T10:00Z", copied_at="2026-11-16T10:00Z")
+        kept = ReviewFlag.objects.create(subject=self.subject, question=self.questions[0], kind="KEY", value="B", status="fixed")
+        ReviewFlag.objects.create(subject=self.subject, question=self.questions[1], kind="WRONG")
+        url = self.url("final_review_subject", self.subject.slug)
+        self.assertEqual(self.client.post(url, {"action": "restart"}).status_code, 400)  # staff, not admin
+        self.assertEqual(ReviewFlag.objects.count(), 2)
+        self.staff.is_superuser = True
+        self.staff.save()
+        self.client.post(url, {"action": "restart"})
+        self.assertEqual(list(ReviewFlag.objects.values_list("pk", flat=True)), [kept.pk])
+        self.assertFalse(ReviewChunk.objects.filter(answered_at__isnull=False).exists())
+
+    def test_written_questions_show_empty_answers_and_explanations(self):
+        q = Question.objects.create(bank=self.thorax, kind=Question.DESC, stem="Name it.", explanation="The source said X.")
+        chunk = ReviewChunk.objects.create(subject=self.subject, number=9, question_ids=[q.pk])
+        text = final_review.chunk_text(chunk)
+        self.assertIn("Answer: (empty)", text)
+        self.assertIn("Explanation: The source said X.", text)
+
     def test_blocks_of_100_and_claiming(self):
         for i in range(101):
             ReviewFlag.objects.create(subject=self.subject, question=self.questions[i % 5], kind="WRONG", value=str(i))
