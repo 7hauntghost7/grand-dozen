@@ -4535,3 +4535,50 @@ tr.drop-active>td{background:var(--acc-soft)}
 .fr-status{margin:8px 0 0;color:var(--mute);font-size:.9rem}
 .fr-status:empty{display:none}
 .fr-link{padding:0;border:0;background:none;color:inherit;text-decoration:underline;cursor:pointer;font:inherit}
+
+/* My Space: private quizzes made with an AI chat (built from the exam pieces, so Dune styles them too) */
+.myspace-page .exam-section{margin-top:26px}
+.myspace-steps{display:grid;gap:14px;margin-top:22px}
+.myspace-options{display:grid;gap:16px}
+.myspace-options textarea,.myspace-prompt{width:100%;box-sizing:border-box;border-radius:12px;font-size:16px;resize:vertical}
+.myspace-hint{margin:-8px 0 0;padding:10px 14px;border-radius:12px;font-size:.85rem;
+  background:color-mix(in srgb,var(--brand-gold) 14%,transparent);border:1px solid color-mix(in srgb,var(--brand-gold) 45%,transparent)}
+.myspace-hint[hidden]{display:none}
+.myspace-copy{display:grid;gap:10px;justify-items:start}
+.myspace-peek{width:100%}
+.myspace-peek summary{list-style:none;display:inline-block}
+.myspace-peek summary::-webkit-details-marker{display:none}
+.myspace-prompt{margin-top:8px;font-family:ui-monospace,Consolas,monospace;font-size:13px;background:var(--bg)}
+.myspace-reply{font-family:ui-monospace,Consolas,monospace;font-size:14px!important}
+.myspace-check{padding:12px 14px;border-radius:12px;border:1px solid var(--ok);background:color-mix(in srgb,var(--ok) 10%,transparent)}
+.myspace-check.has-problems{border-color:var(--brand-gold);background:color-mix(in srgb,var(--brand-gold) 10%,transparent)}
+.myspace-check p{margin:0;font-size:.9rem}
+.myspace-check p+p{margin-top:8px}
+.myspace-problems{margin:10px 0 0;padding-left:18px;font-size:.85rem;display:grid;gap:8px;max-height:260px;overflow:auto}
+.myspace-problems small{display:block;color:var(--bad);margin-top:2px}
+.myspace-panel{display:grid;gap:10px;padding:12px;border-radius:12px;border:1px dashed var(--line);background:var(--bg)}
+.myspace-panel[hidden]{display:none}
+.myspace-panel .exam-card-start{justify-self:start}
+.myspace-rename{display:flex;gap:6px}
+.myspace-rename input{flex:1;min-width:0;min-height:38px}
+.myspace-friends{display:grid;gap:4px;max-height:220px;overflow:auto}
+.myspace-friend{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:10px;cursor:pointer;font-weight:650;font-size:.9rem}
+.myspace-friend:hover{background:var(--card)}
+.myspace-friend input{width:18px;height:18px;accent-color:var(--brand-gold);margin:0}
+.myspace-inbox{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.myspace-message h3{margin:0;font-size:1.1rem;overflow-wrap:anywhere}
+.myspace-message.is-new{border-color:var(--brand-gold);box-shadow:0 0 0 2px color-mix(in srgb,var(--brand-gold) 35%,transparent)}
+.myspace-from{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;font-size:.88rem}
+.myspace-from .person-link{flex:0 1 auto}
+.myspace-from .mute{font-size:.8rem}
+:root[data-skin="dune"] .myspace-panel{border-radius:3px;border:2px dashed var(--line)}
+:root[data-skin="dune"] .myspace-message.is-new{border-color:var(--dn-edge);box-shadow:5px 5px 0 var(--brand-gold)}
+.myspace-options textarea[name=extra]{font-family:inherit}
+.myspace-page button.exam-link-btn{border:0;background:none;box-shadow:none;min-height:0}
+:root[data-skin="dune"] .myspace-page button.exam-link-btn{border:0;background:none;box-shadow:none;transform:none}
+:root[data-skin="dune"] .myspace-page .exam-card-start:not(.is-quiet),
+:root[data-skin="dune"] .myspace-page a.exam-card-start{background:var(--brand-gold);color:#2a120a}
+:root[data-skin="dune"] .myspace-page .exam-card-start:not(.is-quiet):hover{background:var(--brand-amber);color:#2a120a}
+:root[data-skin="dune"] .myspace-page button.exam-link-btn:hover:not(:disabled),
+:root[data-skin="dune"] .myspace-page button.exam-link-btn:active:not(:disabled){border:0;background:none;box-shadow:none;transform:none}
+.myspace-page .exam-link-btn[aria-expanded="true"]{color:var(--ink);text-decoration-color:var(--brand-gold)}

@@ -1,0 +1,59 @@
+{% extends "bank/base.html" %}
+{% block title %}Messages{% endblock %}
+{% block content %}
+<main class="study-page myspace-page">
+  <section class="page-hero">
+    {% include "bank/_hero_peaks.html" %}
+    <p class="page-eyebrow">From your friends</p>
+    <h2 class="page-title">Messages</h2>
+    <p class="page-lede">Quizzes your friends sent you. Try one, or add it to My Space to keep it.</p>
+  </section>
+
+  <section class="exam-section" aria-labelledby="inbox-title">
+    <div class="study-section-heading">
+      <div><p>SENT TO YOU</p><h2 id="inbox-title">Shared quizzes</h2></div>
+      {% if shares %}<span class="study-total">{{ shares|length }} message{{ shares|length|pluralize }}</span>{% endif %}
+    </div>
+    {% if shares %}
+    <ul class="myspace-inbox">
+      {% for share in shares %}
+      <li class="exam-card myspace-message{% if share.is_new %} is-new{% endif %}">
+        <div class="myspace-from">
+          <a class="person-link" href="{{ share.sender.profile.get_absolute_url }}">
+            {% include "bank/_avatar.html" with p=share.sender.profile size="sm" small=True %}
+            <span><b>{{ share.sender.profile.name }}</b> sent you a quiz</span>
+          </a>
+          <span class="mute">{% if share.is_new %}<span class="exam-badge is-gold">New</span> {% endif %}{{ share.created_at|timesince }} ago</span>
+        </div>
+        <h3>{{ share.quiz.title }}</h3>
+        <p class="exam-card-meta"><span><b>{{ share.quiz.questions|length }}</b> question{{ share.quiz.questions|length|pluralize }}</span></p>
+        <p class="exam-card-mix">
+          {% if share.quiz.mix.mcq %}<span>MCQ {{ share.quiz.mix.mcq }}</span>{% endif %}
+          {% if share.quiz.mix.tf %}<span>T/F {{ share.quiz.mix.tf }}</span>{% endif %}
+          {% if share.quiz.mix.desc %}<span>Descriptive {{ share.quiz.mix.desc }}</span>{% endif %}
+        </p>
+        <div class="exam-card-actions">
+          {% if share.in_space %}
+          <span class="exam-badge is-source">In My Space ✓</span>
+          <a class="exam-card-start is-quiet" href="{% url 'bank:my_space_quiz' share.quiz_id %}">Start <span aria-hidden="true">→</span></a>
+          {% else %}
+          <form method="post" action="{% url 'bank:message_action' share.pk %}">{% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            <button class="exam-card-start">Add to My Space</button>
+          </form>
+          <a class="exam-link-btn" href="{% url 'bank:my_space_quiz' share.quiz_id %}">Try it first</a>
+          {% endif %}
+          <form method="post" action="{% url 'bank:message_action' share.pk %}">{% csrf_token %}
+            <input type="hidden" name="action" value="remove">
+            <button class="exam-link-btn is-danger">Delete message</button>
+          </form>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="exam-empty">No messages yet. When a friend sends you a quiz from their My Space, it shows up here.</p>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

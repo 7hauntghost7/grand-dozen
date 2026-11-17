@@ -1,0 +1,89 @@
+{% extends "bank/base.html" %}
+{% block title %}My Space{% endblock %}
+{% block content %}
+<main class="study-page myspace-page">
+  <section class="page-hero">
+    {% include "bank/_hero_peaks.html" %}
+    <p class="page-eyebrow">Only you and the friends you send to can see these</p>
+    <h2 class="page-title">My Space</h2>
+    <p class="page-lede">Turn your own textbook or lecture into a quiz with any AI chat: ChatGPT, Gemini, Claude…</p>
+    <a class="page-hero-cta" href="{% url 'bank:my_space_new' %}">New quiz <span aria-hidden="true">→</span></a>
+  </section>
+
+  <section class="exam-section" aria-labelledby="mine-title">
+    <div class="study-section-heading">
+      <div><p>YOUR QUIZZES</p><h2 id="mine-title">My quizzes</h2></div>
+      {% if quizzes %}<span class="study-total">{{ quizzes|length }} quiz{{ quizzes|length|pluralize:"zes" }}</span>{% endif %}
+    </div>
+    {% if quizzes %}
+    <div class="exam-cards">
+      {% for quiz in quizzes %}
+      <article class="exam-card" style="--i:{{ forloop.counter0 }}">
+        <div class="exam-card-top">
+          <h3>{{ quiz.title }}</h3>
+          {% if not quiz.mine %}<span class="exam-badge is-gold">From {{ quiz.user.profile.name }}</span>{% endif %}
+        </div>
+        <p class="exam-card-meta">
+          <span><b>{{ quiz.questions|length }}</b> question{{ quiz.questions|length|pluralize }}</span>
+          <span>{{ quiz.created_at|date:"j M Y" }}</span>
+        </p>
+        <p class="exam-card-mix">
+          {% if quiz.mix.mcq %}<span>MCQ {{ quiz.mix.mcq }}</span>{% endif %}
+          {% if quiz.mix.tf %}<span>T/F {{ quiz.mix.tf }}</span>{% endif %}
+          {% if quiz.mix.desc %}<span>Descriptive {{ quiz.mix.desc }}</span>{% endif %}
+        </p>
+        <div class="exam-card-actions">
+          <a class="exam-card-start" href="{% url 'bank:my_space_quiz' quiz.pk %}">Start <span aria-hidden="true">→</span></a>
+          <button type="button" class="exam-link-btn" data-panel="send-{{ quiz.pk }}" aria-expanded="false">Send</button>
+          {% if quiz.mine %}<button type="button" class="exam-link-btn" data-panel="rename-{{ quiz.pk }}" aria-expanded="false">Rename</button>{% endif %}
+          <form method="post" action="{% url 'bank:my_space_action' quiz.pk %}"
+                onsubmit="return confirm('Remove this quiz from your space?')">{% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <button class="exam-link-btn is-danger">Remove</button>
+          </form>
+        </div>
+
+        <form method="post" action="{% url 'bank:my_space_action' quiz.pk %}" class="myspace-panel" id="send-{{ quiz.pk }}" hidden>{% csrf_token %}
+          <input type="hidden" name="action" value="share">
+          <span class="exam-chips-label">Send to friends</span>
+          {% if friends %}
+          <div class="myspace-friends">
+            {% for p in friends %}
+            <label class="myspace-friend"><input type="checkbox" name="friends" value="{{ p.user_id }}">
+              {% include "bank/_avatar.html" with p=p size="sm" small=True %}<span>{{ p.name }}</span></label>
+            {% endfor %}
+          </div>
+          <button class="exam-card-start">Send <span aria-hidden="true">→</span></button>
+          {% else %}
+          <p class="mute">You have no friends here yet. <a href="{% url 'bank:friends' %}">Add friends</a> to send them quizzes.</p>
+          {% endif %}
+        </form>
+        {% if quiz.mine %}
+        <form method="post" action="{% url 'bank:my_space_action' quiz.pk %}" class="myspace-panel myspace-rename" id="rename-{{ quiz.pk }}" hidden>{% csrf_token %}
+          <input type="hidden" name="action" value="rename">
+          <input type="text" name="title" value="{{ quiz.title }}" maxlength="120" aria-label="New name" required>
+          <button class="exam-card-start is-quiet">Save</button>
+        </form>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="exam-empty">You haven't made a quiz yet. Tap <b>New quiz</b> to make your first one from your own textbook.</p>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll("[data-panel]").forEach(button => button.addEventListener("click", () => {
+  const card = button.closest(".exam-card");
+  const panel = document.getElementById(button.dataset.panel);
+  const open = panel.hidden;
+  card.querySelectorAll(".myspace-panel").forEach(p => p.hidden = true);
+  card.querySelectorAll("[data-panel]").forEach(b => b.setAttribute("aria-expanded", "false"));
+  panel.hidden = !open;
+  button.setAttribute("aria-expanded", String(open));
+}));
+</script>
+{% endblock %}

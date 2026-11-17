@@ -12,7 +12,8 @@
   const AI_SETTINGS_KEY = `gd:settings:${D.userId}`;
   const AUTH = D.auth === "1";
   const BLOCK_SIZE = 50;
-  const MIXED_TYPES = ["saved", "book", "labs", "topic"];
+  const MIXED_TYPES = ["saved", "book", "labs", "topic", "mine"];
+  const PERSONAL = D.personal === "1";   // My Space quizzes: no save, notes or comments
   const esc = s => String(s).replace(/[&<>\"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
   const answerImage = q => q.answer_image_url
     ? `<figure class="answer-image-figure"><img src="${esc(q.answer_image_url)}" alt="Answer image"></figure>` : "";
@@ -839,7 +840,7 @@
         : "");
     const firstInBlock = localPos === 0;
     const lastInBlock = localPos === ids.length - 1;
-    const star = review ? "" : `<button class="star ${q.saved ? "on" : ""}" data-act="save" title="Save this question">${q.saved ? "★ Saved" : "☆ Save"}</button>`;
+    const star = review || PERSONAL ? "" : `<button class="star ${q.saved ? "on" : ""}" data-act="save" title="Save this question">${q.saved ? "★ Saved" : "☆ Save"}</button>`;
     const edit = review
       ? `<button class="btn" data-act="toggle-edit">${editing[id] ? "Close editor" : "✎ Edit question"}</button>`
       : D.edit ? `<a class="btn" href="${esc(editUrl(id))}">✎ Edit</a>` : "";
@@ -929,7 +930,7 @@
           ${review ? reviewAnswer : ""}
           <div class="ctl quiz-controls${q.kind === "desc" ? " flash-controls" : ""}">${prev}<span class="${q.kind === "desc" ? "flash-actions" : ""}">${extra}${next}</span></div>`)}
         ${review && editing[id] ? reviewEditor(id, q) : ""}
-        ${review ? "" : `<div class="cmtwrap quiz-comments">${commentBox(id)} ${noteBox(id)}</div>`}</div>`;
+        ${review || PERSONAL ? "" : `<div class="cmtwrap quiz-comments">${commentBox(id)} ${noteBox(id)}</div>`}</div>`;
   }
 
   // Image questions: the figure stays in view (left column on wide screens, top on phones)

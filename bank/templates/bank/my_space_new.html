@@ -1,0 +1,130 @@
+{% extends "bank/base.html" %}
+{% block title %}New quiz · My Space{% endblock %}
+{% block content %}
+<main class="study-page myspace-page">
+  <section class="page-hero">
+    {% include "bank/_hero_peaks.html" %}
+    <nav class="page-crumbs" aria-label="Breadcrumb"><a href="{% url 'bank:my_space' %}">My Space</a></nav>
+    <h2 class="page-title">New quiz</h2>
+    <p class="page-lede">Pick your quiz, copy the prompt into any AI chat with your textbook attached, then paste its reply here.</p>
+  </section>
+
+  <form method="post" class="myspace-steps" id="myspace-form">{% csrf_token %}
+    <div class="exam-step">
+      <div class="exam-step-head">
+        <span class="exam-step-num" aria-hidden="true">1</span>
+        <div><h3>Choose your quiz</h3><p>Everything you pick here is written into the prompt for you.</p></div>
+      </div>
+      <div class="myspace-options">
+        <div class="exam-chips" role="radiogroup" aria-label="How many questions">
+          <span class="exam-chips-label">Questions</span>
+          {% for key, name, count in sizes %}
+          <label class="exam-chip"><input type="radio" name="size" value="{{ key }}" {% if key == size %}checked{% endif %}><span>{{ name }} · {{ count }}</span></label>
+          {% endfor %}
+        </div>
+        <p class="myspace-hint" data-batch-hint {% if size != "high" %}hidden{% endif %}>High comes in 4 batches of {{ batch }}. After each batch, type <b>continue</b> in the AI chat.</p>
+        <div class="exam-chips" role="group" aria-label="Question types">
+          <span class="exam-chips-label">Types</span>
+          {% for key, name in types %}
+          <label class="exam-chip"><input type="checkbox" name="types" value="{{ key }}" {% if key in chosen_types %}checked{% endif %}><span>{{ name }}</span></label>
+          {% endfor %}
+        </div>
+        <div class="exam-chips" role="radiogroup" aria-label="Difficulty">
+          <span class="exam-chips-label">Difficulty</span>
+          {% for key, name in difficulties %}
+          <label class="exam-chip"><input type="radio" name="difficulty" value="{{ key }}" {% if key == difficulty %}checked{% endif %}><span>{{ name }}</span></label>
+          {% endfor %}
+        </div>
+        <label class="exam-field">
+          <span>Additional requests <small class="mute">(optional)</small></span>
+          <textarea name="extra" rows="2" maxlength="2000" placeholder="e.g. only chapter 9, more clinical cases, skip the tables">{{ extra }}</textarea>
+        </label>
+      </div>
+    </div>
+
+    <div class="exam-step">
+      <div class="exam-step-head">
+        <span class="exam-step-num" aria-hidden="true">2</span>
+        <div><h3>Copy the prompt</h3><p>Open a new AI chat, attach your textbook or lecture (PDF) and paste the prompt.</p></div>
+      </div>
+      <div class="myspace-copy">
+        <button type="button" class="exam-card-start" data-copy>Copy prompt</button>
+        <details class="myspace-peek"><summary class="exam-link-btn">Show the prompt</summary>
+          <textarea class="myspace-prompt" rows="14" readonly data-prompt aria-label="The prompt">{{ prompt }}</textarea></details>
+      </div>
+    </div>
+
+    <div class="exam-step">
+      <div class="exam-step-head">
+        <span class="exam-step-num" aria-hidden="true">3</span>
+        <div><h3>Paste the AI's reply</h3>
+          <p><span data-batch-paste {% if size != "high" %}hidden{% endif %}>Paste every batch here, one under the other. </span>Then check it and save your quiz.</p></div>
+      </div>
+      <div class="myspace-options">
+        <label class="exam-field">
+          <span>The AI's reply</span>
+          <textarea name="reply" rows="10" class="myspace-reply" placeholder="Q: …&#10;A. …&#10;B. …&#10;ANSWER: …">{{ reply }}</textarea>
+        </label>
+        <label class="exam-field">
+          <span>Quiz name <small class="mute">(optional)</small></span>
+          <input type="text" name="title" value="{{ title }}" maxlength="120" placeholder="e.g. Upper limb · Snell ch. 9">
+        </label>
+        {% if checked %}
+        <div class="myspace-check{% if problems %} has-problems{% endif %}" role="status">
+          <p><b>{{ good|length }}</b> question{{ good|length|pluralize }} ready{% if problems %} · <b>{{ problems|length }}</b> with problems will be left out{% endif %}.</p>
+          {% if problems %}
+          <ul class="myspace-problems">
+            {% for number, stem, errors in problems %}
+            <li><b>Q{{ number }}</b> {{ stem }}<small>{{ errors|join:" " }}</small></li>
+            {% endfor %}
+          </ul>
+          <p class="mute">To fix them, ask the AI: “Rewrite these questions in the exact format I gave you”, then paste again.</p>
+          {% endif %}
+        </div>
+        {% endif %}
+        <div class="exam-card-actions">
+          <button class="exam-card-start{% if checked and good %} is-quiet{% endif %}" name="action" value="check">Check reply</button>
+          {% if checked and good %}<button class="exam-card-start" name="action" value="save">Save quiz · {{ good|length }} <span aria-hidden="true">→</span></button>{% endif %}
+        </div>
+      </div>
+    </div>
+  </form>
+</main>
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const form = document.getElementById("myspace-form");
+  const box = form.querySelector("[data-prompt]");
+  const copy = form.querySelector("[data-copy]");
+  const api = "{% url 'bank:my_space_prompt' %}";
+  let timer;
+  async function refresh() {
+    const params = new URLSearchParams();
+    params.set("size", form.elements.size.value);
+    params.set("difficulty", form.elements.difficulty.value);
+    params.set("extra", form.elements.extra.value);
+    form.querySelectorAll("[name=types]:checked").forEach(t => params.append("types", t.value));
+    const high = params.get("size") === "high";
+    form.querySelectorAll("[data-batch-hint],[data-batch-paste]").forEach(el => el.hidden = !high);
+    try {
+      const r = await fetch(api + "?" + params);
+      if (r.ok) box.value = (await r.json()).prompt;
+    } catch (e) {}
+  }
+  form.querySelectorAll("[name=types]").forEach(t => t.addEventListener("change", () => {
+    if (!form.querySelector("[name=types]:checked")) t.checked = true;   // keep at least one type
+  }));
+  form.addEventListener("change", e => { if (["size", "types", "difficulty"].includes(e.target.name)) refresh(); });
+  form.elements.extra.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(refresh, 400); });
+  copy.addEventListener("click", async () => {
+    clearTimeout(timer);
+    await refresh();
+    try { await navigator.clipboard.writeText(box.value); }
+    catch (e) { box.closest("details").open = true; box.select(); document.execCommand("copy"); }
+    copy.textContent = "Copied ✓";
+    setTimeout(() => copy.textContent = "Copy prompt", 2000);
+  });
+})();
+</script>
+{% endblock %}

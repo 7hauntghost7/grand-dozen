@@ -15,6 +15,8 @@ def site(request):
         ctx["my_profile"] = profile_for(u)
         from .friends import incoming_count
         ctx["friend_requests_count"] = incoming_count(u)
+        from .my_space import unseen_count
+        ctx["unseen_messages_count"] = unseen_count(u)
         active_exam = ExamAttempt.objects.filter(
             user=u,
             submitted_at__isnull=True,

@@ -660,3 +660,47 @@ class ReviewBlock(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["subject", "number"], name="unique_review_block")]
+
+
+class PersonalQuiz(models.Model):
+    """A quiz a student made in My Space from their own source with an AI chat. Only they see it.
+
+    ``questions`` is a list of {"kind", "stem", "options": [text], "correct": [bool], "answer", "explanation"}.
+    """
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="personal_quizzes")
+    title = models.CharField(max_length=120)
+    questions = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return self.title
+
+
+class QuizAccess(models.Model):
+    """A PersonalQuiz in someone's My Space: its maker, and every friend who added it.
+    The questions are stored once; removing it from My Space only removes this row."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="quiz_access")
+    quiz = models.ForeignKey(PersonalQuiz, on_delete=models.CASCADE, related_name="access")
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-added_at", "-id"]
+        constraints = [models.UniqueConstraint(fields=["user", "quiz"], name="unique_quiz_access")]
+
+
+class QuizShare(models.Model):
+    """A message: a friend sent a My Space quiz. Shown under Messages."""
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="quiz_shares_sent")
+    recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="quiz_shares")
+    quiz = models.ForeignKey(PersonalQuiz, on_delete=models.CASCADE, related_name="shares")
+    created_at = models.DateTimeField(auto_now_add=True)
+    seen_at = models.DateTimeField(null=True, blank=True)
+    added_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [models.UniqueConstraint(fields=["recipient", "quiz"], name="unique_quiz_share")]
