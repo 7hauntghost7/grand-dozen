@@ -256,20 +256,14 @@
 :root[data-skin="dune"] .subject-card .subject-mark{color:transparent;-webkit-text-stroke:2px rgba(71,29,16,.35)}
 :root[data-skin="dune"] .subject-card .subject-go{border-radius:3px;background:#471d10;border:2px solid #471d10;color:#ffcc5e}
 :root[data-skin="dune"] .subject-card .subject-peaks{fill:rgba(71,29,16,.25)}
-:root[data-skin="dune"] .subject-card:nth-child(4n+2){background:#471d10;color:#ffcc5e}
-:root[data-skin="dune"] .subject-card:nth-child(4n+3){background:#fffaec}
-:root[data-skin="dune"] .subject-card:nth-child(4n+4){background:#2d2d2d;color:#ffcc5e}
-:root[data-skin="dune"] .subject-card:nth-child(4n+2) .subject-name,:root[data-skin="dune"] .subject-card:nth-child(4n+4) .subject-name{color:#ffcc5e}
-:root[data-skin="dune"] .subject-card:nth-child(4n+2) .subject-meta,:root[data-skin="dune"] .subject-card:nth-child(4n+4) .subject-meta,
-:root[data-skin="dune"] .subject-card:nth-child(4n+2) .subject-index,:root[data-skin="dune"] .subject-card:nth-child(4n+4) .subject-index{color:#e4cc85}
-:root[data-skin="dune"] .subject-card:nth-child(4n+2) .subject-mark,:root[data-skin="dune"] .subject-card:nth-child(4n+4) .subject-mark{-webkit-text-stroke-color:rgba(255,204,94,.3)}
-:root[data-skin="dune"] .subject-card:nth-child(4n+2) .subject-go,:root[data-skin="dune"] .subject-card:nth-child(4n+4) .subject-go{background:#ffcc5e;border-color:#ffcc5e;color:#2a120a}
-:root[data-skin="dune"] .subject-card:nth-child(4n+2) .subject-peaks,:root[data-skin="dune"] .subject-card:nth-child(4n+4) .subject-peaks{fill:rgba(255,204,94,.14)}
-:root[data-skin="dune"][data-theme="dark"] .subject-card:nth-child(4n+3){background:#3a1c0e;color:#ffcc5e}
-:root[data-skin="dune"][data-theme="dark"] .subject-card:nth-child(4n+3) .subject-name{color:#ffcc5e}
-:root[data-skin="dune"][data-theme="dark"] .subject-card:nth-child(4n+3) .subject-meta,
-:root[data-skin="dune"][data-theme="dark"] .subject-card:nth-child(4n+3) .subject-index{color:#e4cc85}
-:root[data-skin="dune"][data-theme="dark"] .subject-card:nth-child(4n+3) .subject-go{background:#ffcc5e;border-color:#ffcc5e;color:#2a120a}
+/* subject cards alternate: yellow, brown, yellow, brown */
+:root[data-skin="dune"] .subject-card:nth-child(even){background:#471d10;color:#ffcc5e}
+:root[data-skin="dune"] .subject-card:nth-child(even) .subject-name{color:#ffcc5e}
+:root[data-skin="dune"] .subject-card:nth-child(even) .subject-meta,
+:root[data-skin="dune"] .subject-card:nth-child(even) .subject-index{color:#e4cc85}
+:root[data-skin="dune"] .subject-card:nth-child(even) .subject-mark{-webkit-text-stroke-color:rgba(255,204,94,.3)}
+:root[data-skin="dune"] .subject-card:nth-child(even) .subject-go{background:#ffcc5e;border-color:#ffcc5e;color:#2a120a}
+:root[data-skin="dune"] .subject-card:nth-child(even) .subject-peaks{fill:rgba(255,204,94,.14)}
 
 /* Older deck blocks (.set/.block) */
 :root[data-skin="dune"] .set,:root[data-skin="dune"] .block{border:3px solid var(--dn-edge);border-radius:4px;box-shadow:6px 6px 0 var(--dn-shadow)}

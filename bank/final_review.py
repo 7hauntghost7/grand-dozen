@@ -19,6 +19,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .models import Question, QuestionBank, ReviewBlock, ReviewChunk, ReviewFlag, Subject, TopicSearch
+from .sources import add_label
 from .views import staff_required
 
 CHUNK_SIZES = (50, 100, 150, 200, 300)
@@ -283,6 +284,27 @@ def subject_page(request, slug):
             ReviewChunk.objects.filter(subject=subject).update(copied_by=None, copied_at=None, answered_at=None)
             messages.success(request, f"{subject.name} review started over: {removed} open flag{'s' if removed != 1 else ''} removed, all chunks marked not done.")
             return redirect("bank:final_review_subject", slug=subject.slug)
+        elif action == "merge_duplicates":
+            if not request.user.is_superuser:
+                return HttpResponseBadRequest("Only admins can merge all duplicates at once.")
+            merged, problems, now = 0, [], timezone.now()
+            for flag in ReviewFlag.objects.filter(subject=subject, kind=ReviewFlag.BROKEN, status=ReviewFlag.OPEN).select_related(
+                    "question", "subject").order_by("id"):
+                flag.refresh_from_db(fields=["status"])  # an earlier merge may have settled it
+                if flag.status != ReviewFlag.OPEN or not duplicate_target(flag):
+                    continue
+                with transaction.atomic():
+                    error = merge_duplicate(flag, request.user, now)
+                if error:
+                    problems.append(f"#{flag.question_id}: {error}")
+                else:
+                    merged += 1
+            messages.success(request, f"{merged} duplicate{'s' if merged != 1 else ''} merged: their labels were added to the copy that stays and they went to the review bin.")
+            for p in problems[:20]:
+                messages.error(request, p)
+            if len(problems) > 20:
+                messages.error(request, f"…and {len(problems) - 20} more that could not be merged.")
+            return redirect("bank:final_review_subject", slug=subject.slug)
         elif action == "resize":
             try:
                 size = int(request.POST.get("size", ""))
@@ -301,6 +323,8 @@ def subject_page(request, slug):
         "n_questions": sum(len(c.question_ids) for c in chunks),
         "n_copied": sum(1 for c in chunks if c.copied_at), "n_answered": sum(1 for c in chunks if c.answered_at),
         "n_flags": flags.count(), "n_open": flags.filter(status=ReviewFlag.OPEN).count(),
+        "n_dups": sum(1 for f in flags.filter(status=ReviewFlag.OPEN, kind=ReviewFlag.BROKEN).only("kind", "value", "reason")
+                      if duplicate_target(f)),
         "sizes": CHUNK_SIZES, "size": _current_size(subject), "here": "final_review",
     })
 
@@ -338,6 +362,7 @@ def block_page(request, slug, number):
                  .prefetch_related("question__options").order_by("id"))
     for f in flags:
         f.options = [(LETTERS[i], o) for i, o in enumerate(f.question.options.all())]
+        f.merge_target = duplicate_target(f)
         if f.kind == ReviewFlag.TF:
             f.true_letters = tf_letters(f)
             f.tf_done = f.question.kind == Question.TF and f.true_letters in ("", ",".join(
@@ -348,6 +373,58 @@ def block_page(request, slug, number):
         "has_prev": number > 1, "has_next": ReviewFlag.objects.filter(subject=subject).count() > number * BLOCK,
         "here": "final_review",
     })
+
+
+DUPLICATE_OF = re.compile(r"\b(?:duplicate|damaged\s+copy)\s+of\s+#\s*(\d+)", re.I)
+
+
+def duplicate_target(flag):
+    """The question a BROKEN flag says this one duplicates ("duplicate of #123"), or None."""
+    if flag.kind != ReviewFlag.BROKEN:
+        return None
+    m = DUPLICATE_OF.search(flag.reason or "") or DUPLICATE_OF.search(flag.value or "")
+    return int(m.group(1)) if m else None
+
+
+def _keeper(subject, pk, start):
+    """Follow "duplicate of" links from question ``pk`` to the copy that stays in the bank.
+    A copy that is itself flagged (or already merged) as a duplicate passes on to its own target."""
+    live = _live_questions(subject)
+    seen = {start}
+    while pk not in seen:
+        seen.add(pk)
+        nxt = None
+        for f in ReviewFlag.objects.filter(question_id=pk, kind=ReviewFlag.BROKEN).exclude(
+                status=ReviewFlag.DISMISSED).order_by("id"):
+            nxt = duplicate_target(f)
+            if nxt:
+                break
+        if nxt is None or nxt in seen:
+            return live.filter(pk=pk).first()
+        pk = nxt
+    return None
+
+
+def merge_duplicate(flag, user, now):
+    """Fold a duplicate into the copy it names: that copy gains the duplicate's university labels,
+    the duplicate goes to the review bin, and the duplicate's open flags are settled.
+    Returns an error message, or "" on success."""
+    q = flag.question
+    target_pk = duplicate_target(flag)
+    if not target_pk:
+        return "This flag does not name the question to keep."
+    keeper = _keeper(flag.subject, target_pk, q.pk)
+    if keeper is None:
+        return f"#{target_pk} is not a live question of this subject, so there is nothing to merge into."
+    if not _live_questions(flag.subject).filter(pk=q.pk).exists():
+        return f"#{q.pk} has already left the bank."
+    merged = add_label(keeper.label, q.label)
+    if merged != keeper.label:
+        Question.objects.filter(pk=keeper.pk).update(label=merged, updated_at=now)
+    _to_bin(q, "review")
+    ReviewFlag.objects.filter(question=q, status=ReviewFlag.OPEN).update(
+        status=ReviewFlag.REVIEWED, resolved_by=user, resolved_at=now)
+    return ""
 
 
 def _to_bin(question, which):
@@ -401,6 +478,12 @@ def flag_action(request, pk):
             else:
                 return HttpResponseBadRequest("This kind of flag has no automatic fix; edit the question instead.")
             status = ReviewFlag.FIXED
+        elif action == "merge":
+            error = merge_duplicate(flag, request.user, now)
+            if error:
+                return HttpResponseBadRequest(error)
+            flag.refresh_from_db()
+            return JsonResponse({"status": flag.status, "label": flag.get_status_display(), "by": str(request.user)})
         elif action == "ok":
             status = ReviewFlag.DISMISSED
         elif action == "done":

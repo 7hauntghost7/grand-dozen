@@ -35,6 +35,12 @@
       <button class="exam-chip-btn" type="submit">Apply to chunks nobody copied yet</button>
     </form>
     {% if user.is_superuser %}
+    {% if n_dups %}
+    <form method="post" class="fr-resize" onsubmit="return confirm('Merge {{ n_dups }} duplicate{{ n_dups|pluralize }}? Each one's university labels are added to the copy it names, and the duplicate goes to the review bin.')">
+      {% csrf_token %}<input type="hidden" name="action" value="merge_duplicates">
+      <button class="exam-card-start" type="submit">Merge all {{ n_dups }} duplicate{{ n_dups|pluralize }}</button>
+    </form>
+    {% endif %}
     <form method="post" class="fr-resize" onsubmit="return confirm('Start the {{ subject.name }} review over? All open flags are deleted and every chunk is marked not done. Flags already fixed or settled are kept.')">
       {% csrf_token %}<input type="hidden" name="action" value="restart">
       <button class="exam-link-btn is-danger" type="submit">Start this subject's review over</button>

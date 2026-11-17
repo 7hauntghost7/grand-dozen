@@ -42,6 +42,7 @@
         {% if f.kind == "MOVE" %}<button class="exam-card-start" data-action="apply">Move to {{ f.value }}</button>
         {% elif f.kind == "KEY" %}<button class="exam-card-start" data-action="apply">Set key to {{ f.value }}</button>
         {% elif f.kind == "TF" and not f.tf_done and q.kind == "mcq" or f.kind == "TF" and not f.tf_done and q.kind == "tf" %}<button class="exam-card-start" data-action="apply">{% if q.kind == "tf" %}Mark {{ f.true_letters }} true{% else %}Make True/False{% if f.true_letters %} ({{ f.true_letters }} true){% endif %}{% endif %}</button>{% endif %}
+        {% if f.merge_target %}<button class="exam-card-start" data-action="merge" title="Adds this question's university labels to #{{ f.merge_target }} and sends this one to the review bin">Merge into #{{ f.merge_target }}</button>{% endif %}
         <button class="exam-chip-btn" data-action="ok">OK, nothing wrong</button>
         <a class="exam-chip-btn" href="{% url 'bank:question_edit' q.pk %}?next={{ request.path|urlencode }}%23flag-{{ f.pk }}">Edit</a>
         <button class="exam-chip-btn" data-action="done">Fixed it</button>
@@ -70,6 +71,7 @@
     if (!button) return;
     const card = button.closest(".fr-card");
     const action = button.dataset.action;
+    if (action === "merge" && !confirm(button.title + "?")) return;
     if ((action === "sort" || action === "review") && !confirm(`Send this question to the ${action === "sort" ? "sorting" : "review"} bin?`)) return;
     card.querySelectorAll("button").forEach((b) => { b.disabled = true; });
     try {

@@ -122,6 +122,40 @@ CHUNK 1
         self.assertEqual(list(ReviewFlag.objects.values_list("pk", flat=True)), [kept.pk])
         self.assertFalse(ReviewChunk.objects.filter(answered_at__isnull=False).exists())
 
+    def test_merge_duplicate_moves_labels_and_bins_the_copy(self):
+        keep, dup = self.questions[0], self.questions[1]
+        Question.objects.filter(pk=keep.pk).update(label="U of K")
+        Question.objects.filter(pk=dup.pk).update(label="Nile_Valley, Neelain")
+        flag = ReviewFlag.objects.create(subject=self.subject, question=dup, kind="BROKEN",
+                                         reason=f"duplicate of #{keep.pk}: add the Neelain label to #{keep.pk}")
+        other = ReviewFlag.objects.create(subject=self.subject, question=dup, kind="KEY", value="B")
+        self.assertEqual(self.act(flag, "merge").json()["status"], "reviewed")
+        keep.refresh_from_db(); dup.refresh_from_db()
+        self.assertEqual(keep.label, "U of K, Nile_Valley, Neelain")
+        self.assertTrue(dup.is_in_review_bin)
+        self.assertEqual(ReviewFlag.objects.get(pk=other.pk).status, "reviewed")
+        plain = ReviewFlag.objects.create(subject=self.subject, question=self.questions[2], kind="BROKEN", reason="garbled stem")
+        self.assertEqual(self.act(plain, "merge").status_code, 400)
+
+    def test_merge_all_duplicates_follows_chains(self):
+        a, b, c = self.questions[:3]
+        Question.objects.filter(pk=a.pk).update(label="U of K")
+        Question.objects.filter(pk=b.pk).update(label="Nile_Valley")
+        Question.objects.filter(pk=c.pk).update(label="Neelain")
+        # c names b, but b is itself a duplicate of a: c's label must end up on a.
+        ReviewFlag.objects.create(subject=self.subject, question=c, kind="BROKEN", reason=f"duplicate of #{b.pk}")
+        ReviewFlag.objects.create(subject=self.subject, question=b, kind="BROKEN", reason=f"damaged copy of #{a.pk}, which is clean")
+        url = self.url("final_review_subject", self.subject.slug)
+        self.assertEqual(self.client.post(url, {"action": "merge_duplicates"}).status_code, 400)  # staff, not admin
+        self.staff.is_superuser = True
+        self.staff.save()
+        self.assertEqual(self.client.get(url).context["n_dups"], 2)
+        self.client.post(url, {"action": "merge_duplicates"})
+        a.refresh_from_db()
+        self.assertEqual(set(a.label.split(", ")), {"U of K", "Nile_Valley", "Neelain"})
+        self.assertEqual(Question.objects.filter(pk__in=[b.pk, c.pk], is_in_review_bin=True).count(), 2)
+        self.assertFalse(ReviewFlag.objects.filter(status="open").exists())
+
     def test_written_questions_show_empty_answers_and_explanations(self):
         q = Question.objects.create(bank=self.thorax, kind=Question.DESC, stem="Name it.", explanation="The source said X.")
         chunk = ReviewChunk.objects.create(subject=self.subject, number=9, question_ids=[q.pk])
