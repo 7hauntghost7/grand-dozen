@@ -1993,6 +1993,14 @@ class MockExamTests(Base):
         self.client.force_login(self.student)       # import_sample logs the client out
         return section, second
 
+    def test_subject_page_lists_sections_by_their_order(self):
+        self.make_section_decks()                                    # "Gross", order 0
+        SubjectSection.objects.filter(name="Gross").update(order=5)
+        SubjectSection.objects.create(subject=self.subject, name="Zeta", order=1)
+        SubjectSection.objects.create(subject=self.subject, name="Alpha", order=9)
+        page = self.client.get(self.subject.get_absolute_url())
+        self.assertEqual([s.name for s in page.context["sections"]], ["Zeta", "Gross", "Alpha"])
+
     def test_whole_sub_subject_with_equal_shares_and_automatic_name(self):
         section, second = self.make_section_decks()
         page = self.client.get(reverse("bank:subject_exams", args=[self.subject.slug]) + "?section=gross")

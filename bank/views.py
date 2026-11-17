@@ -242,7 +242,7 @@ def subject_detail(request, slug):
                          decks__questions__book_chapter__isnull=True),
             distinct=True,
         ),
-    )
+    ).order_by("order", "name")  # a counting query drops the model's default ordering
     return render(request, "bank/subject_detail.html", {
         "subject": subject, "decks": decks,
         "sections": sections, "unsectioned_decks": decks.filter(section__isnull=True),
