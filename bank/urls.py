@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import final_review, my_space, views
+from . import final_review, live, my_space, views
 
 app_name = "bank"
 
@@ -65,6 +65,13 @@ urlpatterns = [
     path("my-space/<int:pk>/edit/", my_space.quiz_action, name="my_space_action"),
     path("messages/", my_space.inbox, name="messages"),
     path("messages/<int:pk>/", my_space.inbox_action, name="message_action"),
+    path("live/start/", live.start, name="live_start"),
+    path("live/join/", live.join, name="live_join"),
+    path("live/<int:pk>/", live.room_page, name="live_room"),
+    path("live/<int:pk>/questions/", live.room_questions, name="live_questions"),
+    path("live/<int:pk>/state/", live.room_state, name="live_state"),
+    path("live/<int:pk>/act/", live.room_act, name="live_act"),
+    path("live/member/<int:pk>/", live.member_action, name="live_member_action"),
 
     path("saved/", views.saved_home, name="saved_home"),
     path("saved/subject/<slug:slug>/", views.saved_subject, name="saved_subject"),

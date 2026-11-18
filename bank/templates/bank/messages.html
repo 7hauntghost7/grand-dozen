@@ -6,25 +6,44 @@
     {% include "bank/_hero_peaks.html" %}
     <p class="page-eyebrow">From your friends</p>
     <h2 class="page-title">Messages</h2>
-    <p class="page-lede">Quizzes your friends sent you. Try one, or add it to My Space to keep it.</p>
+    <p class="page-lede">Quizzes your friends sent you, live quizzes you're invited to, and questions saved for you.</p>
   </section>
+
+  <form method="post" action="{% url 'bank:live_join' %}" class="exam-step live-join">{% csrf_token %}
+    <div class="exam-step-head">
+      <span class="exam-step-num" aria-hidden="true">👥</span>
+      <div><h3>Join a live quiz</h3><p>Type the 4-digit code on your friend's screen.</p></div>
+    </div>
+    <div class="live-join-row">
+      <input type="text" name="code" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off"
+             placeholder="0000" aria-label="Room code" required>
+      <button class="exam-card-start">Join <span aria-hidden="true">→</span></button>
+    </div>
+  </form>
 
   <section class="exam-section" aria-labelledby="inbox-title">
     <div class="study-section-heading">
-      <div><p>SENT TO YOU</p><h2 id="inbox-title">Shared quizzes</h2></div>
-      {% if shares %}<span class="study-total">{{ shares|length }} message{{ shares|length|pluralize }}</span>{% endif %}
+      <div><p>FOR YOU</p><h2 id="inbox-title">Messages</h2></div>
+      {% if items %}<span class="study-total">{{ items|length }} message{{ items|length|pluralize }}</span>{% endif %}
     </div>
-    {% if shares %}
+    {% if items %}
     <ul class="myspace-inbox">
-      {% for share in shares %}
-      <li class="exam-card myspace-message{% if share.is_new %} is-new{% endif %}">
+      {% for item in items %}
+      <li class="exam-card myspace-message{% if item.is_new %} is-new{% endif %}{% if item.type == 'live' %} is-live{% endif %}">
         <div class="myspace-from">
-          <a class="person-link" href="{{ share.sender.profile.get_absolute_url }}">
-            {% include "bank/_avatar.html" with p=share.sender.profile size="sm" small=True %}
-            <span><b>{{ share.sender.profile.name }}</b> sent you a quiz</span>
+          <a class="person-link" href="{{ item.sender.profile.get_absolute_url }}">
+            {% include "bank/_avatar.html" with p=item.sender.profile size="sm" small=True %}
+            <span><b>{{ item.sender.profile.name }}</b>
+              {% if item.type == "share" %}sent you a quiz
+              {% elif item.type == "saves" %}saved questions for you
+              {% elif item.member.joined_at %}is in a live quiz with you
+              {% else %}invited you to a live quiz{% endif %}</span>
           </a>
-          <span class="mute">{% if share.is_new %}<span class="exam-badge is-gold">New</span> {% endif %}{{ share.created_at|timesince }} ago</span>
+          <span class="mute">{% if item.is_new %}<span class="exam-badge is-gold">New</span> {% endif %}{% if item.type == "live" %}<span class="exam-badge is-live">● Live now</span> {% endif %}{{ item.time|timesince }} ago</span>
         </div>
+
+        {% if item.type == "share" %}
+        {% with share=item.share %}
         <h3>{{ share.quiz.title }}</h3>
         <p class="exam-card-meta"><span><b>{{ share.quiz.questions|length }}</b> question{{ share.quiz.questions|length|pluralize }}</span></p>
         <p class="exam-card-mix">
@@ -48,11 +67,40 @@
             <button class="exam-link-btn is-danger">Delete message</button>
           </form>
         </div>
+        {% endwith %}
+
+        {% elif item.type == "live" %}
+        <h3>{{ item.room.title }}</h3>
+        <p class="exam-card-meta"><span><b>{{ item.room.question_ids|length }}</b> question{{ item.room.question_ids|length|pluralize }}</span><span>Code <b>{{ item.room.code }}</b></span></p>
+        {% if not item.member.joined_at and item.member.follow_saves and item.room.source == "bank" %}
+        <p class="exam-card-chapters">The questions the leader saves go into your Saved list even if you don't open it.</p>
+        {% endif %}
+        <div class="exam-card-actions">
+          <a class="exam-card-start" href="{% url 'bank:live_room' item.room.pk %}">{% if item.member.joined_at %}Rejoin{% else %}Join{% endif %} <span aria-hidden="true">→</span></a>
+          <form method="post" action="{% url 'bank:live_member_action' item.member.pk %}">{% csrf_token %}
+            <input type="hidden" name="action" value="decline">
+            <button class="exam-link-btn is-danger">{% if item.member.joined_at %}Leave{% else %}Decline{% endif %}</button>
+          </form>
+        </div>
+
+        {% else %}
+        <h3>{{ item.count }} question{{ item.count|pluralize }} added to your Saved</h3>
+        <p class="exam-card-meta"><span>From the live quiz “{{ item.room.title }}”</span></p>
+        <div class="exam-card-actions">
+          <a class="exam-card-start is-quiet" href="{% url 'bank:saved_home' %}">Open Saved <span aria-hidden="true">→</span></a>
+          {% if item.room.ended_at %}<a class="exam-link-btn" href="{% url 'bank:live_room' item.room.pk %}">See the results</a>{% endif %}
+          <form method="post" action="{% url 'bank:live_member_action' item.member.pk %}"
+                onsubmit="return confirm('Remove these questions from your Saved list? Questions you wrote a note on are kept.')">{% csrf_token %}
+            <input type="hidden" name="action" value="undo">
+            <button class="exam-link-btn is-danger">Undo all</button>
+          </form>
+        </div>
+        {% endif %}
       </li>
       {% endfor %}
     </ul>
     {% else %}
-    <p class="exam-empty">No messages yet. When a friend sends you a quiz from their My Space, it shows up here.</p>
+    <p class="exam-empty">No messages yet. Quizzes friends send you and live quizzes you're invited to show up here.</p>
     {% endif %}
   </section>
 </main>

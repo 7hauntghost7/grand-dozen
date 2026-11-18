@@ -19,10 +19,12 @@
      data-comment="{% url 'bank:api_comment' 0 %}"
      data-note="{% url 'bank:api_note' 0 %}"
      data-personal="{% if personal %}1{% else %}0{% endif %}"
+     data-live-start="{% if user.is_authenticated and not review %}{% url 'bank:live_start' %}{% endif %}"
+     data-live-mine="{{ live_mine|default:'' }}"
      data-edit="{% if perms.bank.change_question and not personal %}{% url 'bank:question_edit' 0 %}?next={{ request.get_full_path|urlencode }}{% endif %}"
      data-auth="{% if user.is_authenticated %}1{% else %}0{% endif %}"
      data-login="{% url 'bank:login' %}?next={{ request.get_full_path|urlencode }}">
   <p class="mute">Loading…</p>
 </div>
 {% endblock %}
-{% block scripts %}<script src="{% static 'bank/quiz.js' %}?v=20261117-1"></script>{% endblock %}
+{% block scripts %}<script src="{% static 'bank/quiz.js' %}?v=20261118-1"></script>{% endblock %}

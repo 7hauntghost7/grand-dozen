@@ -252,7 +252,7 @@ def take_quiz(request, pk):
     in_space = quiz.access.filter(user=request.user).exists()
     return render(request, "bank/quiz.html", {
         "shuffle": "1" if request.GET.get("shuffle") else "0",
-        "title": quiz.title, "key": f"mine:{quiz.pk}", "question_type": "mine", "personal": True,
+        "title": quiz.title, "key": f"mine:{quiz.pk}", "question_type": "mine", "personal": True, "live_mine": quiz.pk,
         "api": reverse("bank:my_space_questions", args=[quiz.pk]),
         "back": reverse("bank:my_space") if in_space else reverse("bank:messages"),
         "review": False, "edit_api": "", "can_sort": False, "sort_api": "",
@@ -305,7 +305,8 @@ def quiz_action(request, pk):
 
 
 def unseen_count(user):
-    return QuizShare.objects.filter(recipient=user, seen_at__isnull=True).count()
+    from . import live
+    return QuizShare.objects.filter(recipient=user, seen_at__isnull=True).count() + live.unseen_count(user)
 
 
 @login_required
@@ -319,7 +320,13 @@ def inbox(request):
         share.in_space = share.quiz_id in have
         share.is_new = share.seen_at is None
     QuizShare.objects.filter(recipient=request.user, seen_at__isnull=True).update(seen_at=timezone.now())
-    return render(request, "bank/messages.html", {"shares": shares})
+    from . import live
+    live.close_idle_rooms()
+    items = [{"type": "share", "time": s.created_at, "share": s, "is_new": s.is_new, "sender": s.sender}
+             for s in shares] + live.inbox_items(request.user)
+    items.sort(key=lambda item: item["time"], reverse=True)
+    live.mark_seen(request.user)
+    return render(request, "bank/messages.html", {"items": items})
 
 
 @login_required

@@ -527,6 +527,9 @@ class Profile(models.Model):
     avatar_small_url = models.URLField(max_length=500, blank=True)
     stats_visibility = models.CharField(max_length=10, choices=STATS_CHOICES, default=VISIBLE_PRIVATE)
     who_can_request = models.CharField(max_length=10, choices=REQUESTS_CHOICES, default=REQUESTS_EVERYONE)
+    live_saves = models.BooleanField(
+        "Friends can save questions to my account in live quizzes", default=True,
+        help_text="When a friend leads a live quiz you're in, the questions they save are saved for you too.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -704,3 +707,78 @@ class QuizShare(models.Model):
     class Meta:
         ordering = ["-created_at", "-id"]
         constraints = [models.UniqueConstraint(fields=["recipient", "quiz"], name="unique_quiz_share")]
+
+
+class LiveRoom(models.Model):
+    """A live quiz: a leader moves through questions, everyone answers, then the leader reveals.
+
+    ``question_ids`` holds Question ids, or (for a My Space quiz) 1-based positions in its questions.
+    """
+    MAX_MEMBERS = 10
+
+    code = models.CharField(max_length=4, db_index=True)
+    host = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    leader = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    title = models.CharField(max_length=160)
+    back_url = models.CharField(max_length=300, blank=True)
+    source = models.CharField(max_length=8, default="bank")          # "bank" or "mine" (a My Space quiz)
+    personal_quiz = models.ForeignKey(PersonalQuiz, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    question_ids = models.JSONField(default=list)
+    group_saves = models.JSONField(default=list)       # Question ids the leaders saved for the group
+    position = models.PositiveIntegerField(default=0)
+    revealed = models.JSONField(default=list)          # positions whose answer has been shown
+    results_block = models.PositiveIntegerField(null=True, blank=True)   # a block report everyone is looking at
+    timer_seconds = models.PositiveSmallIntegerField(null=True, blank=True)
+    deadline = models.DateTimeField(null=True, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_activity = models.DateTimeField(auto_now_add=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.code} · {self.title}"
+
+
+class LiveMember(models.Model):
+    room = models.ForeignKey(LiveRoom, on_delete=models.CASCADE, related_name="members")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="live_memberships")
+    invited_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    follow_saves = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    joined_at = models.DateTimeField(null=True, blank=True)      # first opened the room
+    last_seen = models.DateTimeField(null=True, blank=True)
+    left_at = models.DateTimeField(null=True, blank=True)
+    invite_seen_at = models.DateTimeField(null=True, blank=True)
+    notified_saves = models.PositiveIntegerField(default=0)      # saves already reported in Messages
+    summary_at = models.DateTimeField(null=True, blank=True)
+    summary_seen_at = models.DateTimeField(null=True, blank=True)
+    undone_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [models.UniqueConstraint(fields=["room", "user"], name="unique_live_member")]
+
+
+class LiveAnswer(models.Model):
+    room = models.ForeignKey(LiveRoom, on_delete=models.CASCADE, related_name="answers")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    position = models.PositiveIntegerField()
+    payload = models.JSONField(default=dict)
+    correct = models.BooleanField(null=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["room", "user", "position"], name="unique_live_answer")]
+
+
+class LiveSave(models.Model):
+    """A question the leader saved into a member's account (kept so it can be undone)."""
+    room = models.ForeignKey(LiveRoom, on_delete=models.CASCADE, related_name="saves")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["room", "user", "question"], name="unique_live_save")]

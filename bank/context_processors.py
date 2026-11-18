@@ -17,6 +17,8 @@ def site(request):
         ctx["friend_requests_count"] = incoming_count(u)
         from .my_space import unseen_count
         ctx["unseen_messages_count"] = unseen_count(u)
+        from .live import close_idle_rooms
+        close_idle_rooms()
         active_exam = ExamAttempt.objects.filter(
             user=u,
             submitted_at__isnull=True,

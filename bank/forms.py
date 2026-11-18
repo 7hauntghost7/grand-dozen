@@ -423,7 +423,7 @@ class ProfileForm(forms.ModelForm):
 
     class Meta:
         model = Profile
-        fields = ["display_name", "handle", "university", "year", "who_can_request"]
+        fields = ["display_name", "handle", "university", "year", "who_can_request", "live_saves"]
         labels = {
             "display_name": "Name shown to others",
             "year": "Year",

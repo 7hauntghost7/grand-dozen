@@ -122,6 +122,17 @@
     return {status: r.status, json: j};
   }
 
+  // Live quiz: the same questions, in the same order, for a room of friends.
+  async function goLive(button) {
+    button.disabled = true;
+    const r = await post(D.liveStart, {
+      ids: list, title: D.title, back: location.pathname + location.search, mine: D.liveMine || "",
+    });
+    if (r.json && r.json.url) { location.href = r.json.url; return; }
+    alert((r.json && r.json.error) || "Couldn't start a live quiz. Please try again.");
+    button.disabled = false;
+  }
+
   function check(id, payload) {
     if (busy) return;
     const question = byId[id];
@@ -908,7 +919,8 @@
       <span class="quiz-meta-copy"><span class="quiz-meta-title">${esc(D.title)}</span>
         <span class="quiz-meta-stats">${review ? `Question ${pos + 1} of ${list.length}` : `${scopeLabel ? `${scopeLabel.replace(/^ · /, "")} · ` : retryMode ? "Retry set · " : ""}${t.ok} correct · ${t.bad} missed · ${t.new + t.rev} left`}</span>
       </span>
-      ${review ? '<button class="btn pri quiz-exit-review" data-act="exit-save">Save &amp; exit review</button>' : ""}</div>
+      ${review ? '<button class="btn pri quiz-exit-review" data-act="exit-save">Save &amp; exit review</button>' : ""}
+      ${!review && D.liveStart ? '<button class="btn quiz-go-live" data-act="go-live" title="Take this quiz together with friends">👥 Go live</button>' : ""}</div>
       ${reviewNotice ? `<div class="fb info" role="status">${esc(reviewNotice)}</div>` : ""}
       <div class="bar quiz-progress"><i class="g" style="width:${t.ok / ids.length * 100}%"></i><i class="r" style="width:${t.bad / ids.length * 100}%"></i></div>
       <div class="nav-wrap quiz-navigation">${navToggle}<div class="nav ${navOpen ? "" : "closed"}">${navOpen ? nav : ""}</div></div>
@@ -1094,6 +1106,7 @@
     const id = list[pos], d = b.dataset;
     switch (d.act) {
       case "go": pos = +d.p; view = "quiz"; render(); scrollToCurrentQuestion(); break;
+      case "go-live": goLive(b); break;
       case "block": {
         const target = +d.block;
         const ids = blockList(target);

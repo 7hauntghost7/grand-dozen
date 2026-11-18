@@ -1,0 +1,22 @@
+{% extends "bank/base.html" %}
+{% load static %}
+{% block title %}Live · {{ room.title }}{% endblock %}
+{% block content %}
+<div id="quiz" class="live-page" data-live="1" data-question-type="mcq_tf"
+     data-user-id="{{ user.pk }}" data-title="{{ room.title }}"
+     data-back="{{ room.back_url|default:'/' }}"
+     data-state="{% url 'bank:live_state' room.pk %}"
+     data-questions="{% url 'bank:live_questions' room.pk %}"
+     data-act-url="{% url 'bank:live_act' room.pk %}"
+     data-save="{% url 'bank:api_save' 0 %}"
+     data-note="{% url 'bank:api_note' 0 %}"
+     data-comment="{% url 'bank:api_comment' 0 %}"
+     data-edit="{% if perms.bank.change_question %}{% url 'bank:question_edit' 0 %}{% endif %}"
+     data-messages="{% url 'bank:messages' %}"
+     data-saved="{% url 'bank:saved_home' %}"
+     data-friends-page="{% url 'bank:friends' %}">
+  <p class="mute">Connecting…</p>
+</div>
+{{ friends|json_script:"live-friends" }}
+{% endblock %}
+{% block scripts %}<script src="{% static 'bank/live.js' %}?v=20261118-9"></script>{% endblock %}
