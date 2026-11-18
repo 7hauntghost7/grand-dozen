@@ -4670,3 +4670,83 @@ tr.drop-active>td{background:var(--acc-soft)}
 .live-page .opt:disabled{opacity:.6}
 .live-page .opt.ok:disabled,.live-page .opt.bad:disabled,.live-page .opt.sel:disabled,
 .live-page .tfb button.ok:disabled,.live-page .tfb button.bad:disabled{opacity:1}
+
+/* Friends: the add-a-friend panel must shrink to the screen (a wide code box made phones zoom out) */
+.friends-secondary{grid-template-columns:minmax(0,1fr)}
+.friends-panel{min-width:0}
+.friend-code-input input{width:0}
+
+/* Live quiz: who got it right, as faces */
+.live-pins{display:inline-flex;align-items:center;flex:none;margin-left:auto;padding-left:10px;align-self:center}
+.live-mini{display:inline-block;margin-left:-7px;border-radius:50%;box-shadow:0 0 0 2px var(--card);line-height:0}
+.live-mini:first-child{margin-left:0}
+.live-mini .avatar{width:26px;height:26px;font-size:.6rem;display:inline-grid;place-items:center;outline:0}
+.live-pins.is-right .live-mini{box-shadow:0 0 0 2px var(--ok)}
+.live-pins.is-wrong{filter:grayscale(.85);opacity:.6}
+.live-pins.is-fresh.is-right .live-mini{animation:live-hop .55s calc(.25s + var(--n) * 70ms) cubic-bezier(.3,1.6,.5,1) both}
+.live-pins.is-fresh.is-wrong .live-mini{animation:live-drop .45s calc(.15s + var(--n) * 50ms) ease-out both}
+.live-who{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:.78rem;font-weight:700;color:var(--mute)}
+.live-who>span,.live-tally>span{display:inline-flex;align-items:center;gap:6px}
+.live-who .live-pins,.live-tally .live-pins{margin-left:0;padding-left:0}
+.live-tally{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}
+.live-person.is-right .live-face .avatar{outline-color:var(--ok)}
+.live-person.is-wrong .live-face{transform:scale(.86);opacity:.7}
+.live-face{transition:transform .35s,opacity .35s}
+.live-mark{position:absolute;right:-5px;bottom:-5px;display:grid;place-items:center;width:18px;height:18px;border-radius:50%;
+  font-style:normal;font-weight:900;font-size:.66rem;color:#fff}
+.live-mark.is-right{background:var(--ok)}
+.live-mark.is-wrong{background:var(--bad)}
+.live-person.is-fresh .live-mark{animation:live-hop .5s .2s cubic-bezier(.3,1.6,.5,1) both}
+.live-solo{display:inline-block;margin-left:6px;padding:2px 10px;border-radius:99px;background:var(--brand-gold);color:#231a15;font-weight:800;font-size:.85rem}
+.live-solo.is-fresh{animation:live-hop .6s .3s cubic-bezier(.3,1.6,.5,1) both}
+.live-floats{position:fixed;inset:0;pointer-events:none;z-index:300;overflow:hidden}
+.live-float{position:absolute;bottom:-70px;left:var(--x);animation:live-rise 3s var(--d) cubic-bezier(.25,.6,.35,1) both}
+.live-float .avatar{width:52px;height:52px;font-size:1.05rem;display:grid;place-items:center;outline:3px solid var(--ok);outline-offset:0;
+  box-shadow:0 10px 24px rgba(0,0,0,.28)}
+.live-float i{position:absolute;right:-6px;bottom:-6px;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;
+  background:var(--ok);color:#fff;font-style:normal;font-weight:900;font-size:.8rem}
+.live-burst{position:absolute;left:50%;top:42%;display:grid;justify-items:center;gap:12px;animation:live-burst 3.2s ease-out both}
+.live-burst-text{padding:12px 26px;border-radius:99px;background:var(--brand-gold);color:#231a15;font-weight:900;font-size:1.5rem;
+  box-shadow:0 14px 34px rgba(0,0,0,.3);white-space:nowrap}
+.live-burst-faces .live-mini .avatar{width:40px;height:40px;font-size:.85rem}
+.live-burst-faces .live-mini{margin-left:-10px;box-shadow:0 0 0 3px var(--brand-gold)}
+.live-burst-faces .live-mini:first-child{margin-left:0}
+@keyframes live-hop{0%{transform:translateY(10px) scale(.5);opacity:0}60%{transform:translateY(-5px) scale(1.12);opacity:1}100%{transform:none;opacity:1}}
+@keyframes live-drop{0%{transform:translateY(-8px);opacity:0}100%{transform:none;opacity:1}}
+@keyframes live-rise{0%{transform:translateY(0) scale(.5);opacity:0}12%{opacity:1;transform:translateY(-16vh) scale(1)}
+  100%{transform:translateY(-78vh) translateX(var(--sway)) scale(.9);opacity:0}}
+@keyframes live-burst{0%{opacity:0;transform:translate(-50%,-30%) scale(.5)}14%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}
+  24%{transform:translate(-50%,-50%) scale(1)}78%{opacity:1;transform:translate(-50%,-50%)}100%{opacity:0;transform:translate(-50%,-90%)}}
+:root[data-skin="dune"] .live-burst-text,:root[data-skin="dune"] .live-solo{border-radius:3px;border:2px solid var(--dn-edge);box-shadow:4px 4px 0 var(--dn-shadow)}
+:root[data-skin="dune"] .live-float .avatar,:root[data-skin="dune"] .live-mini .avatar{border-radius:3px}
+:root[data-skin="dune"] .live-mini{border-radius:3px}
+@media (prefers-reduced-motion:reduce){.live-pins.is-fresh .live-mini,.live-person.is-fresh .live-mark,.live-solo.is-fresh{animation:none}}
+:root[data-skin="dune"] .live-mini{margin-left:-3px}
+:root[data-skin="dune"] .live-mini:first-child{margin-left:0}
+
+/* Live quiz: podium after each block and at the end */
+.live-podium{display:flex;align-items:flex-end;justify-content:center;gap:8px;margin:14px 0 6px;padding-top:12px}
+.live-podium-col{flex:0 1 128px;min-width:0;display:grid;justify-items:center;gap:3px;text-align:center}
+.live-podium-face{position:relative;line-height:0}
+.live-podium-face .avatar{width:54px;height:54px;font-size:1.05rem;display:grid;place-items:center}
+.live-podium-col.is-p1 .live-podium-face .avatar{width:68px;height:68px;font-size:1.3rem;outline:3px solid #e9ab11;outline-offset:2px}
+.live-podium-face i{position:absolute;right:-10px;bottom:-6px;font-style:normal;font-size:1.35rem;line-height:1}
+.live-podium-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:6px;font-size:.92rem}
+.live-podium-score{font-size:.78rem;color:var(--mute);font-variant-numeric:tabular-nums}
+.live-podium-score b{color:var(--ink);font-size:1rem}
+.live-podium-step{display:grid;place-items:start center;width:100%;margin-top:6px;padding-top:10px;border-radius:10px 10px 0 0;
+  font-family:var(--font-display);font-weight:800;font-size:1.15rem;color:#231a15}
+.live-podium-col.is-p1 .live-podium-step{height:96px;background:linear-gradient(#f5c84c,#e9ab11)}
+.live-podium-col.is-p2 .live-podium-step{height:70px;background:linear-gradient(#e3e3e3,#b9bcc2)}
+.live-podium-col.is-p3 .live-podium-step{height:52px;background:linear-gradient(#e6b38a,#c47f4e)}
+.live-podium-col.is-me .live-podium-name{color:var(--acc)}
+.live-podium.is-fresh .live-podium-step{animation:live-grow .7s calc(.15s + var(--n) * .12s) cubic-bezier(.2,.9,.3,1.15) both;transform-origin:bottom}
+.live-podium.is-fresh .live-podium-face,.live-podium.is-fresh .live-podium-name,.live-podium.is-fresh .live-podium-score{
+  animation:live-hop .6s calc(.55s + var(--n) * .12s) cubic-bezier(.3,1.6,.5,1) both}
+@keyframes live-grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.live-board-rest{margin-top:8px}
+.live-score.is-me b{color:var(--acc)}
+:root[data-skin="dune"] .live-podium-step{border-radius:3px 3px 0 0;border:2px solid var(--dn-edge);border-bottom:0}
+:root[data-skin="dune"] .live-podium-face .avatar{border-radius:3px}
+:root[data-skin="dune"] .live-podium-col.is-p1 .live-podium-face .avatar{outline-color:var(--dn-edge)}
+@media (prefers-reduced-motion:reduce){.live-podium.is-fresh *{animation:none!important}}

@@ -248,15 +248,27 @@ def _summary(room, positions=None):
     if positions is not None:
         rows = rows.filter(position__in=list(positions))
     rows = list(rows.values("user_id", "position", "correct"))
-    names = {m.user_id: _name(m.user) for m in room.members.select_related("user__profile")}
+    users = {m.user_id: m.user for m in room.members.select_related("user__profile")}
     people, by_pos = {}, {}
     for row in rows:
         p = people.setdefault(row["user_id"], [0, 0])
         p[0] += row["correct"]; p[1] += 1
         q = by_pos.setdefault(row["position"], [0, 0])
         q[0] += not row["correct"]; q[1] += 1
-    board = sorted(({"name": names.get(uid, "?"), "right": r, "total": t, "pct": round(100 * r / t)}
-                    for uid, (r, t) in people.items()), key=lambda x: (-x["right"], -x["pct"], x["name"]))
+
+    def entry(uid, right, total):
+        user = users.get(uid)
+        profile = getattr(user, "profile", None) if user else None
+        return {"id": uid, "name": _name(user) if user else "?", "right": right, "total": total,
+                "pct": round(100 * right / total), "initials": profile.initials if profile else "?",
+                "color": profile.avatar_color if profile else "avatar-c0",
+                "avatar": (profile.avatar_small_url or profile.avatar_url) if profile else ""}
+
+    board = sorted((entry(uid, r, t) for uid, (r, t) in people.items()),
+                   key=lambda x: (-x["right"], -x["pct"], x["name"]))
+    # Places: the same number right shares a place (1, 1, 3 ...)
+    for i, row in enumerate(board):
+        row["place"] = board[i - 1]["place"] if i and row["right"] == board[i - 1]["right"] else i + 1
     stems = {}
     if room.source == "mine" and room.personal_quiz:
         items = room.personal_quiz.questions
@@ -311,25 +323,35 @@ def _state(room, me, user, now):
     if revealed:
         full = _full(room, pos)
         out["key"] = {k: full[k] for k in KEY_FIELDS if k in full}
-        names = {m.user_id: _name(m.user) for m in members}
-        picks, right, wrong = {}, [], []
-        for uid, answer in answers.items():
-            who = names.get(uid)
-            if who is None:
+        # Everyone is sent as an id, with a face (name, initials, colour, picture) so phones can draw avatars,
+        # including people who answered and then left.
+        people = {m.user_id: m.user for m in members}
+        missing = [uid for uid in answers if uid not in people]
+        if missing:
+            from django.contrib.auth import get_user_model
+            people.update({u.pk: u for u in get_user_model().objects.filter(pk__in=missing).select_related("profile")})
+        picks, right, wrong, faces = {}, [], [], {}
+        for uid, answer in sorted(answers.items(), key=lambda item: _name(people[item[0]]) if item[0] in people else ""):
+            person = people.get(uid)
+            if person is None:
                 continue
+            profile = getattr(person, "profile", None)
+            faces[str(uid)] = {"name": _name(person), "initials": profile.initials if profile else "?",
+                               "color": profile.avatar_color if profile else "avatar-c0",
+                               "avatar": (profile.avatar_small_url or profile.avatar_url) if profile else ""}
             payload = answer.payload or {}
             if full.get("kind") == "mcq" and "selected" in payload:
-                picks.setdefault(str(payload["selected"]), []).append(who)
+                picks.setdefault(str(payload["selected"]), []).append(uid)
             elif full.get("kind") == "tf":
                 for option_id, value in (payload.get("answers") or {}).items():
-                    picks.setdefault(f"{option_id}:{'T' if value else 'F'}", []).append(who)
+                    picks.setdefault(f"{option_id}:{'T' if value else 'F'}", []).append(uid)
             elif full.get("kind") == "desc" and payload.get("grade"):
-                picks.setdefault(payload["grade"], []).append(who)
+                picks.setdefault(payload["grade"], []).append(uid)
             if answer.correct is True:
-                right.append(who)
+                right.append(uid)
             elif answer.correct is False:
-                wrong.append(who)
-        out["picks"], out["right"], out["wrong"] = picks, sorted(right), sorted(wrong)
+                wrong.append(uid)
+        out.update(picks=picks, right=right, wrong=wrong, faces=faces)
     out["block_size"] = BLOCK
     out["results_block"] = room.results_block
     if room.results_block is not None and not room.ended_at:

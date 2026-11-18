@@ -45,6 +45,14 @@
     ? `<img class="avatar avatar-sm" src="${esc(p.avatar)}" alt="" width="30" height="30">`
     : `<span class="avatar avatar-sm avatar-initials ${esc(p.color)}" aria-hidden="true">${esc(p.initials)}</span>`;
   const firstName = m => m.id === ME ? "You" : String(m.name).split(" ")[0];
+  // Who picked what is shown as faces. "fresh" is true only for the screen drawn at the moment of the reveal,
+  // so the little jumps play once, not on every refresh.
+  let fresh = false;
+  const face = id => (S.faces || {})[String(id)];
+  const faces = ids => (ids || []).map(face).filter(Boolean)
+    .map((f, i) => `<span class="live-mini" style="--n:${i}" title="${esc(f.name)}">${avatar(f)}</span>`).join("");
+  const pins = (ids, state) => ids && ids.length
+    ? `<span class="live-pins ${state}${fresh ? " is-fresh" : ""}" aria-label="${esc(ids.map(i => (face(i) || {}).name).filter(Boolean).join(", "))}">${faces(ids)}</span>` : "";
   const names = list => (list || []).map(esc).join(", ");
 
   // ------------------------------------------------------------ talking to the server
@@ -52,6 +60,27 @@
     const r = await fetch(D.questions, {cache: "no-store"});
     if (!r.ok) throw new Error("questions");
     Q = (await r.json()).questions || [];
+  }
+
+  // Google Meet style: the faces of everyone who got it right float up the screen and fade.
+  function celebrate() {
+    const right = S.right || [], wrong = S.wrong || [];
+    if (!right.length || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const layer = document.createElement("div");
+    layer.className = "live-floats";
+    layer.setAttribute("aria-hidden", "true");
+    if (right.length >= 2 && !wrong.length) {
+      layer.innerHTML = `<div class="live-burst"><span class="live-burst-text">✨ Everyone! ✨</span><span class="live-burst-faces">${faces(right)}</span></div>`;
+    } else {
+      layer.innerHTML = right.map((id, i) => {
+        const f = face(id);
+        if (!f) return "";
+        const x = 8 + ((i * 29 + 13) % 78), sway = (i % 2 ? -1 : 1) * (14 + (i * 7) % 20);
+        return `<span class="live-float" style="--x:${x}%;--d:${i * 170}ms;--sway:${sway}px">${avatar(f)}<i>✓</i></span>`;
+      }).join("");
+    }
+    document.body.appendChild(layer);
+    setTimeout(() => layer.remove(), 4200);
   }
 
   function scrollToCurrentQuestion() {
@@ -73,13 +102,17 @@
     const moved = S && S.position !== state.position;
     const justRevealed = S && !moved && !S.revealed && state.revealed;
     const reportOpened = S && S.results_block == null && state.results_block != null;
+    const justEnded = S && !S.ended && state.ended;
     const newDeadline = secondsLeft === null || secondsLeft === undefined ? null : Date.now() + secondsLeft * 1000;
     if (!deadline || !newDeadline || Math.abs(newDeadline - deadline) > 1500) { deadline = newDeadline; timerFired = false; }
     if (moved) tfDraft = {};
     S = state;
     if (next !== sig) {
       sig = next;
+      fresh = !!(justRevealed || reportOpened || justEnded);
       render();
+      fresh = false;
+      if (justRevealed) celebrate();
       if (reportOpened) window.scrollTo({top: 0, behavior: "smooth"});
       else if (moved) scrollToCurrentQuestion();
       else if (justRevealed) scrollToAnswerAction();
@@ -104,6 +137,7 @@
   async function act(action, extra = {}) {
     if (busy) return false;
     busy = true;
+    const hadError = !!error;
     error = "";
     let ok = false;
     try {
@@ -115,7 +149,14 @@
       const j = await r.json().catch(() => ({}));
       if (j.url) { location.href = j.url; return true; }
       if (j.error) error = j.error;
-      if (j.state) { busy = false; apply(j.state); ok = !j.error; }
+      if (j.state) {
+        busy = false;
+        apply(j.state);
+        if (!j.error) {                     // already drawn (a second redraw would cut the reveal animation short)
+          if (hadError) render(true);       // clear the old error message
+          return true;
+        }
+      }
     } catch (e) {
       error = "Connection problem. Please try again.";
     }
@@ -299,9 +340,9 @@
       <div class="bar quiz-progress"><i class="g" style="width:${ok / total * 100}%"></i><i class="r" style="width:${bad / total * 100}%"></i></div>
       ${S.ended ? "" : `<div class="nav-wrap quiz-navigation"><button class="btn nav-toggle" data-act="toggle-nav" aria-expanded="${navOpen}" title="${navOpen ? "Hide question list" : "Show question list"}">${navOpen ? "▾" : "▸"}</button><div class="nav ${navOpen ? "" : "closed"}">${navOpen ? nav : ""}</div></div>`}
       <div class="live-people" aria-label="People in this quiz">${S.members.map(m => `
-        <span class="live-person${m.online ? " is-on" : ""}${m.answered && !S.revealed && !S.ended ? " has-answered" : ""}"
+        <span class="live-person${m.online ? " is-on" : ""}${m.answered && !S.revealed && !S.ended ? " has-answered" : ""}${S.revealed && !S.ended && (S.right || []).includes(m.id) ? " is-right" : ""}${S.revealed && !S.ended && (S.wrong || []).includes(m.id) ? " is-wrong" : ""}${fresh ? " is-fresh" : ""}"
               title="${esc(m.name)}${m.leader ? " · leader" : ""}${m.online ? "" : " · not connected"}${m.answered && !S.revealed ? " · answered" : ""}">
-          <span class="live-face">${avatar(m)}${m.leader ? '<i class="live-crown" aria-hidden="true">👑</i>' : ""}${m.answered && !S.revealed && !S.ended ? '<i class="live-tick" aria-hidden="true">✓</i>' : ""}</span>
+          <span class="live-face">${avatar(m)}${m.leader ? '<i class="live-crown" aria-hidden="true">👑</i>' : ""}${m.answered && !S.revealed && !S.ended ? '<i class="live-tick" aria-hidden="true">✓</i>' : ""}${S.revealed && !S.ended && (S.right || []).includes(m.id) ? '<i class="live-mark is-right" aria-label="right">✓</i>' : ""}${S.revealed && !S.ended && (S.wrong || []).includes(m.id) ? '<i class="live-mark is-wrong" aria-label="wrong">✗</i>' : ""}</span>
           <small>${esc(firstName(m))}</small>
         </span>`).join("")}</div>`;
   }
@@ -322,6 +363,27 @@
     return `<div class="row quiz-block-nav"><span class="mute">Blocks:</span>${toggle}${blockNavOpen ? buttons : summary}</div>`;
   }
 
+  // 1st, 2nd and 3rd on a podium (same number right = same place), everyone else listed under it.
+  function podium(board) {
+    if (!board || !board.length) return "";
+    const medal = {1: "🥇", 2: "🥈", 3: "🥉"}, place = {1: "1st", 2: "2nd", 3: "3rd"};
+    const top = board.filter(r => r.place <= 3);
+    // The winner stands in the middle; the next places go left, right, left… like a real podium.
+    const order = [];
+    top.forEach((r, i) => { if (!i) order.push(r); else if (i % 2) order.unshift(r); else order.push(r); });
+    const column = (r, i) => `<div class="live-podium-col is-p${r.place}${r.id === ME ? " is-me" : ""}" style="--n:${i}">
+        <span class="live-podium-face">${avatar(r)}<i aria-hidden="true">${medal[r.place]}</i></span>
+        <b class="live-podium-name">${esc(r.id === ME ? "You" : r.name)}</b>
+        <span class="live-podium-score"><b>${r.right}</b> right · ${r.pct}%</span>
+        <span class="live-podium-step">${place[r.place]}</span>
+      </div>`;
+    const rest = board.filter(r => r.place > 3).map(r => `<li class="live-score${r.id === ME ? " is-me" : ""}">
+        <span class="live-rank">${r.place}</span><b>${esc(r.id === ME ? "You" : r.name)}</b>
+        <span class="live-score-num">${r.right} right · ${r.pct}%</span></li>`).join("");
+    return `<div class="live-podium${fresh ? " is-fresh" : ""}" role="list" aria-label="Ranking">${order.map(column).join("")}</div>
+      ${rest ? `<ol class="live-board live-board-rest">${rest}</ol>` : ""}`;
+  }
+
   // The quiz screen's block report, for everyone in the room at once, with the group's scores added.
   function blockReport() {
     const b = S.results_block, positions = blockPositions(b), marks = S.marks || {};
@@ -335,9 +397,6 @@
     const li = (arr, title) => arr.length ? `<h3 class="quiz-report-list-title">${title} (${arr.length})</h3><ul class="w quiz-report-list">`
       + arr.map(p => `<li>${jumpTo(p, `Q${local(p)}`)}<span>${esc(String((Q[p] || {}).stem || "").slice(0, 120))}</span></li>`).join("") + "</ul>" : "";
     const s = S.block_summary || {};
-    const board = (s.board || []).map((row, i) => `<li class="live-score"><span class="live-rank">${i + 1}</span><b>${esc(row.name)}</b>
-        <span class="live-score-bar" aria-hidden="true"><i style="width:${row.pct}%"></i></span>
-        <span class="live-score-num">${row.right}/${row.total} · ${row.pct}%</span></li>`).join("");
     const hard = (s.hard || []).map(h => `<li>${jumpTo(h.position, `Q${local(h.position)}`)}<span>${esc(String((Q[h.position] || {}).stem || h.stem).slice(0, 120))} <small class="mute">· ${h.wrong} of ${h.total} missed</small></span></li>`).join("");
     const lastBlock = b >= blockCount() - 1;
     const leaderActions = S.me.leader
@@ -353,7 +412,7 @@
       </div><div class="quiz-report-content">
       <div class="bar quiz-report-progress"><i class="g" style="width:${t.ok / (size || 1) * 100}%"></i><i class="r" style="width:${t.bad / (size || 1) * 100}%"></i></div>
       ${li(wrong, "You missed")}
-      ${board ? `<h3 class="quiz-report-list-title">The group in this block${s.accuracy !== null && s.accuracy !== undefined ? ` · ${s.accuracy}%` : ""}</h3><ol class="live-board">${board}</ol>` : ""}
+      ${(s.board || []).length ? `<h3 class="quiz-report-list-title">Block ${b + 1} ranking${s.accuracy !== null && s.accuracy !== undefined ? ` · group ${s.accuracy}%` : ""}</h3>${podium(s.board)}` : ""}
       ${hard ? `<h3 class="quiz-report-list-title">The ones the group found hard (${s.hard_count})</h3><ul class="w quiz-report-list">${hard}</ul>` : ""}
       ${s.hard_saved ? '<p><span class="exam-badge is-source">★ Missed questions saved for everyone</span></p>' : ""}
       <div class="result-actions quiz-report-actions">${leaderActions}</div></div></div>`;
@@ -376,9 +435,9 @@
         let cl = "";
         if (rev) cl = (key.correct_ids || []).includes(o.id) ? "ok" : mine === o.id ? "bad" : "";
         else if (mine === o.id) cl = "sel";
-        const who = rev ? picks[String(o.id)] : null;
+        const who = rev ? pins(picks[String(o.id)], (key.correct_ids || []).includes(o.id) ? "is-right" : "is-wrong") : "";
         return `<button class="opt ${cl}" ${rev || busy ? "disabled" : ""} data-act="pick" data-id="${o.id}">
-          <b>${o.letter}</b><span>${esc(o.text)}${who && who.length ? `<small class="live-who">${names(who)}</small>` : ""}</span></button>`;
+          <b>${o.letter}</b><span>${esc(o.text)}</span>${who}</button>`;
       }).join("")}</div>`;
     }
     if (q.kind === "tf") {
@@ -393,8 +452,9 @@
           return `<button class="${cl}" ${rev ? "disabled" : ""} data-act="tf" data-id="${id}" data-v="${value}">${label}</button>`;
         };
         const t = rev ? picks[id + ":T"] || [] : [], f = rev ? picks[id + ":F"] || [] : [];
+        const truth = (key.answer_key || {})[id];
         const who = t.length || f.length
-          ? `<small class="live-who">${t.length ? "True: " + names(t) : ""}${t.length && f.length ? " · " : ""}${f.length ? "False: " + names(f) : ""}</small>` : "";
+          ? `<small class="live-who">${t.length ? `<span>True ${pins(t, truth === true ? "is-right" : "is-wrong")}</span>` : ""}${f.length ? `<span>False ${pins(f, truth === false ? "is-right" : "is-wrong")}</span>` : ""}</small>` : "";
         return `<div class="tf"><div class="t"><b>${o.letter}</b>${esc(o.text)}${who}</div>
           <div class="tfb">${button(true, "True")}${button(false, "False")}</div></div>`;
       }).join("")}</div>`;
@@ -416,7 +476,7 @@
       const grade = me.answer && me.answer.grade;
       const picks = S.picks || {};
       const tally = (picks.known || []).length || (picks.missed || []).length
-        ? `<p class="live-tally">${picks.known ? `✓ Knew it: ${names(picks.known)}` : ""}${picks.known && picks.missed ? " · " : ""}${picks.missed ? `✗ Missed it: ${names(picks.missed)}` : ""}</p>` : "";
+        ? `<p class="live-tally">${picks.known ? `<span>✓ Knew it ${pins(picks.known, "is-right")}</span>` : ""}${picks.missed ? `<span>✗ Missed it ${pins(picks.missed, "is-wrong")}</span>` : ""}</p>` : "";
       return `<div class="fb info">${explain}<div class="ai-question-actions">${aiLink(q)}</div></div>
         <div class="live-grade">${grade ? `<span class="tag">${grade === "known" ? "You marked: knew it" : "You marked: missed it"}</span>` : '<span class="mute">Did you know it?</span>'}
           <button class="btn ${grade === "known" ? "pri" : ""}" data-act="grade" data-grade="known">I knew it</button>
@@ -428,8 +488,10 @@
       ? " Key: " + q.options.map(o => o.letter + "=" + ((key.answer_key || {})[String(o.id)] ? "T" : "F")).join(", ") + "."
       : " Correct: " + q.options.filter(o => (key.correct_ids || []).includes(o.id)).map(o => o.letter).join(" and ") + ".";
     const right = S.right || [], wrong = S.wrong || [];
+    if (me.correct === true && right.length === 1 && right[0] === ME && wrong.length) head += ` <span class="live-solo${fresh ? " is-fresh" : ""}">Only you! 🏆</span>`;
+    else if (me.correct === true && right.length >= 2 && !wrong.length) head += ` <span class="live-solo${fresh ? " is-fresh" : ""}">Everyone got it ✨</span>`;
     const tally = right.length || wrong.length
-      ? `<p class="live-tally">${right.length ? `✓ ${names(right)}` : ""}${right.length && wrong.length ? " · " : ""}${wrong.length ? `✗ ${names(wrong)}` : ""}</p>` : "";
+      ? `<p class="live-tally">${right.length ? `<span>✓ ${pins(right, "is-right")}</span>` : ""}${wrong.length ? `<span>✗ ${pins(wrong, "is-wrong")}</span>` : ""}</p>` : "";
     return head + explain + `<div class="ai-question-actions">${aiLink(q)}</div></div>` + tally;
   }
 
@@ -527,10 +589,6 @@
 
   function summary() {
     const s = S.summary || {};
-    const board = (s.board || []).map((row, i) => `<li class="live-score">
-        <span class="live-rank">${i + 1}</span><b>${esc(row.name)}</b>
-        <span class="live-score-bar" aria-hidden="true"><i style="width:${row.pct}%"></i></span>
-        <span class="live-score-num">${row.right}/${row.total} · ${row.pct}%</span></li>`).join("");
     const hard = (s.hard || []).map(h => `<li><b>Q${h.position + 1}</b> ${esc(h.stem)} <small class="mute">${h.wrong} of ${h.total} missed</small></li>`).join("");
     const saveHard = S.can_save && s.hard_count
       ? S.me.leader && !s.hard_saved
@@ -541,7 +599,7 @@
       <h2>Quiz finished 🎉</h2>
       <p class="exam-card-meta"><span><b>${s.covered || 0}</b> question${s.covered === 1 ? "" : "s"} covered</span>
         ${s.accuracy !== null && s.accuracy !== undefined ? `<span>Group score <b>${s.accuracy}%</b></span>` : ""}</p>
-      ${board ? `<h3>Scores</h3><ol class="live-board">${board}</ol>` : '<p class="mute">Nobody answered a question.</p>'}
+      ${(s.board || []).length ? `<h3>Final ranking</h3>${podium(s.board)}` : '<p class="mute">Nobody answered a question.</p>'}
       ${hard ? `<h3>The ones the group found hard</h3><ul class="live-hard">${hard}</ul>` : ""}
       <div class="exam-card-actions">${saveHard}
         <a class="exam-card-start is-quiet" href="${esc(D.back)}">Back to the quiz</a>

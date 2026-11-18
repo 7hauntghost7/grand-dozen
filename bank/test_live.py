@@ -83,8 +83,9 @@ class LiveTests(TestCase):
         self.assertIn("Only the leader", self.act(room, self.sara, "reveal")["error"])
         s = self.act(room, self.lead, "reveal")["state"]
         self.assertEqual(s["key"]["correct_ids"], [opts[1].pk])
-        self.assertEqual(s["picks"], {str(opts[1].pk): ["sara"], str(opts[2].pk): ["amna"]})
-        self.assertEqual((s["right"], s["wrong"]), (["sara"], ["amna"]))
+        self.assertEqual(s["picks"], {str(opts[1].pk): [self.sara.pk], str(opts[2].pk): [self.lead.pk]})
+        self.assertEqual((s["right"], s["wrong"]), ([self.sara.pk], [self.lead.pk]))
+        self.assertEqual(s["faces"][str(self.sara.pk)]["name"], "sara")
         self.assertIn("already shown", self.act(room, self.sara, "answer", position=0, selected=opts[0].pk)["error"])
         # true / false
         self.act(room, self.lead, "go", position=3)
@@ -191,6 +192,7 @@ class LiveTests(TestCase):
         self.assertEqual(s["summary"]["covered"], 3)
         self.assertEqual([h["position"] for h in s["summary"]["hard"]], [0])
         self.assertEqual(s["summary"]["board"][0]["name"], "amna")
+        self.assertEqual([(r["place"], r["right"]) for r in s["summary"]["board"]], [(1, 3), (2, 2)])
         self.assertIn("ended", self.act(room, self.lead, "go", position=1)["error"])
         s = self.act(room, self.lead, "save_hard")["state"]
         self.assertTrue(s["summary"]["hard_saved"])

@@ -419,3 +419,33 @@
 @media (max-width:640px){
   :root[data-skin="dune"] .hero-sun{display:none}
 }
+
+/* ---------- Friends: the same yellow / brown blocks as the subject cards ---------- */
+:root[data-skin="dune"] .friend-card{border:3px solid var(--dn-edge);border-radius:4px;box-shadow:7px 7px 0 var(--dn-shadow);
+  background:#e9ab11;color:#2a120a}
+:root[data-skin="dune"] .friend-card::after{border:0}
+:root[data-skin="dune"] .friend-card:hover,:root[data-skin="dune"] .friend-card:focus-visible{
+  transform:translate(-4px,-4px);box-shadow:11px 11px 0 var(--dn-shadow);color:#2a120a}
+:root[data-skin="dune"] .friend-card .avatar-lg{border-radius:3px;box-shadow:none;outline:2px solid var(--dn-edge)}
+:root[data-skin="dune"] .friend-card-name{color:#2a120a;text-transform:uppercase;letter-spacing:.02em}
+:root[data-skin="dune"] .friend-card-handle,:root[data-skin="dune"] .friend-card-meta{color:#471d10}
+:root[data-skin="dune"] .friend-card .subject-go{border-radius:3px;background:#471d10;border:2px solid #471d10;color:#ffcc5e}
+:root[data-skin="dune"] .friend-card .subject-peaks{fill:rgba(71,29,16,.25)}
+:root[data-skin="dune"] .friend-card:nth-child(even){background:#471d10;color:#ffcc5e}
+:root[data-skin="dune"] .friend-card:nth-child(even):hover,:root[data-skin="dune"] .friend-card:nth-child(even):focus-visible{color:#ffcc5e}
+:root[data-skin="dune"] .friend-card:nth-child(even) .friend-card-name{color:#ffcc5e}
+:root[data-skin="dune"] .friend-card:nth-child(even) .friend-card-handle,
+:root[data-skin="dune"] .friend-card:nth-child(even) .friend-card-meta{color:#e4cc85}
+:root[data-skin="dune"] .friend-card:nth-child(even) .avatar-lg{outline-color:#ffcc5e}
+:root[data-skin="dune"] .friend-card:nth-child(even) .subject-go{background:#ffcc5e;border-color:#ffcc5e;color:#2a120a}
+:root[data-skin="dune"] .friend-card:nth-child(even) .subject-peaks{fill:rgba(255,204,94,.14)}
+:root[data-skin="dune"] .friends-panel{border:2px solid var(--dn-edge);border-radius:4px;box-shadow:5px 5px 0 var(--dn-shadow)}
+:root[data-skin="dune"] .friends-panel>summary:focus-visible{border-radius:2px}
+:root[data-skin="dune"] .friends-empty{border:2px dashed var(--line);border-radius:4px}
+:root[data-skin="dune"] .person-row{border-radius:3px}
+
+/* ---------- Exam builder: square tiles like the rest of Dune ---------- */
+:root[data-skin="dune"] .exam-mix-tile{border:2px solid var(--line);border-radius:3px}
+:root[data-skin="dune"] .exam-mix-tile:focus-within{border-color:var(--dn-edge);box-shadow:3px 3px 0 var(--brand-gold)}
+:root[data-skin="dune"] .exam-mix-tile.is-short{border-color:var(--bad)}
+:root[data-skin="dune"] .exam-field input{border-radius:3px}
