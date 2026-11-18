@@ -4750,3 +4750,5 @@ tr.drop-active>td{background:var(--acc-soft)}
 :root[data-skin="dune"] .live-podium-face .avatar{border-radius:3px}
 :root[data-skin="dune"] .live-podium-col.is-p1 .live-podium-face .avatar{outline-color:var(--dn-edge)}
 @media (prefers-reduced-motion:reduce){.live-podium.is-fresh *{animation:none!important}}
+.fr-merged{margin:4px 0 8px;padding:8px 10px;border-radius:8px;border:1px solid var(--ok);background:color-mix(in srgb,var(--ok) 10%,transparent);font-size:.92rem}
+:root[data-skin="dune"] .fr-merged{border-radius:3px;border-width:2px}

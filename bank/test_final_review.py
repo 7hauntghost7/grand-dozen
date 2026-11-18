@@ -137,6 +137,18 @@ CHUNK 1
         plain = ReviewFlag.objects.create(subject=self.subject, question=self.questions[2], kind="BROKEN", reason="garbled stem")
         self.assertEqual(self.act(plain, "merge").status_code, 400)
 
+    def test_merged_card_edits_the_live_question(self):
+        keep, dup = self.questions[0], self.questions[1]
+        flag = ReviewFlag.objects.create(subject=self.subject, question=dup, kind="BROKEN", reason=f"duplicate of #{keep.pk}")
+        reply = self.act(flag, "merge").json()
+        self.assertEqual(reply["live_pk"], keep.pk)
+        self.assertIn(reverse("bank:question_edit", args=[keep.pk]), reply["live_edit"])
+        page = self.client.get(self.url("final_review_block", self.subject.slug, 1))
+        self.assertContains(page, f"Merged into <b>#{keep.pk}</b>")
+        self.assertContains(page, reverse("bank:question_edit", args=[keep.pk]) + "?next=")
+        self.assertNotContains(page, reverse("bank:question_edit", args=[dup.pk]) + "?next=")
+        self.assertNotContains(page, 'data-action="merge"')
+
     def test_merge_all_duplicates_follows_chains(self):
         a, b, c = self.questions[:3]
         Question.objects.filter(pk=a.pk).update(label="U of K")

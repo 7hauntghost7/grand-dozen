@@ -363,6 +363,9 @@ def block_page(request, slug, number):
     for f in flags:
         f.options = [(LETTERS[i], o) for i, o in enumerate(f.question.options.all())]
         f.merge_target = duplicate_target(f)
+        # A duplicate already merged: this card's question is the binned copy; point at the one students see.
+        f.live_copy = (_keeper(subject, f.merge_target, f.question_id)
+                       if f.merge_target and f.question.is_in_review_bin else None)
         if f.kind == ReviewFlag.TF:
             f.true_letters = tf_letters(f)
             f.tf_done = f.question.kind == Question.TF and f.true_letters in ("", ",".join(
@@ -483,7 +486,10 @@ def flag_action(request, pk):
             if error:
                 return HttpResponseBadRequest(error)
             flag.refresh_from_db()
-            return JsonResponse({"status": flag.status, "label": flag.get_status_display(), "by": str(request.user)})
+            live = _keeper(flag.subject, duplicate_target(flag), flag.question_id)
+            return JsonResponse({"status": flag.status, "label": flag.get_status_display(), "by": str(request.user),
+                                 "live_pk": live.pk if live else None,
+                                 "live_edit": reverse("bank:question_edit", args=[live.pk]) if live else ""})
         elif action == "ok":
             status = ReviewFlag.DISMISSED
         elif action == "done":

@@ -29,6 +29,7 @@
         <span class="fr-tag fr-tag-{{ f.kind|lower }}">{{ f.get_kind_display }}{% if f.kind == "MOVE" %} → {{ f.value }}{% elif f.kind == "KEY" %} → {{ f.value }}{% elif f.kind == "TF" and f.true_letters %} → {{ f.true_letters }} true{% endif %}</span>
         <small>#{{ q.pk }} · {{ q.bank.title }}{% if q.number %} · No. {{ q.number }}{% endif %}{% if q.is_in_sorting_bin %} · in sorting bin{% elif q.is_in_review_bin %} · in review bin{% endif %}</small>
       </header>
+      {% if f.live_copy %}<p class="fr-merged" data-merged>Merged into <b>#{{ f.live_copy.pk }}</b> · this copy is in the review bin and students don't see it. <b>Edit</b> opens #{{ f.live_copy.pk }}, the one students see.</p>{% endif %}
       {% if f.reason %}<p class="fr-reason">AI: {{ f.reason }}</p>{% endif %}
       {% if q.image_asset_id %}<p class="mute">This question has an image; open Edit to see it.</p>{% endif %}
       <p class="fr-stem">{{ q.stem|linebreaksbr }}</p>
@@ -42,9 +43,10 @@
         {% if f.kind == "MOVE" %}<button class="exam-card-start" data-action="apply">Move to {{ f.value }}</button>
         {% elif f.kind == "KEY" %}<button class="exam-card-start" data-action="apply">Set key to {{ f.value }}</button>
         {% elif f.kind == "TF" and not f.tf_done and q.kind == "mcq" or f.kind == "TF" and not f.tf_done and q.kind == "tf" %}<button class="exam-card-start" data-action="apply">{% if q.kind == "tf" %}Mark {{ f.true_letters }} true{% else %}Make True/False{% if f.true_letters %} ({{ f.true_letters }} true){% endif %}{% endif %}</button>{% endif %}
-        {% if f.merge_target %}<button class="exam-card-start" data-action="merge" title="Adds this question's university labels to #{{ f.merge_target }} and sends this one to the review bin">Merge into #{{ f.merge_target }}</button>{% endif %}
+        {% if f.merge_target and not f.live_copy %}<button class="exam-card-start" data-action="merge" title="Adds this question's university labels to #{{ f.merge_target }} and sends this one to the review bin">Merge into #{{ f.merge_target }}</button>{% endif %}
         <button class="exam-chip-btn" data-action="ok">OK, nothing wrong</button>
-        <a class="exam-chip-btn" href="{% url 'bank:question_edit' q.pk %}?next={{ request.path|urlencode }}%23flag-{{ f.pk }}">Edit</a>
+        {% if f.live_copy %}<a class="exam-chip-btn" data-edit href="{% url 'bank:question_edit' f.live_copy.pk %}?next={{ request.path|urlencode }}%23flag-{{ f.pk }}">Edit #{{ f.live_copy.pk }}</a>
+        {% else %}<a class="exam-chip-btn" data-edit href="{% url 'bank:question_edit' q.pk %}?next={{ request.path|urlencode }}%23flag-{{ f.pk }}">Edit</a>{% endif %}
         <button class="exam-chip-btn" data-action="done">Fixed it</button>
         <button class="exam-chip-btn" data-action="sort">Sort</button>
         <button class="exam-chip-btn" data-action="review">Review</button>
@@ -82,6 +84,19 @@
       if (!response.ok) { alert(await response.text()); return; }
       const data = await response.json();
       card.className = "fr-card is-" + data.status;
+      if (action === "merge" && data.live_pk) {
+        // The card now shows the binned copy: send Edit to the live question and say so.
+        const edit = card.querySelector("[data-edit]");
+        edit.href = data.live_edit + "?next=" + encodeURIComponent(location.pathname + "#" + card.id);
+        edit.textContent = "Edit #" + data.live_pk;
+        button.remove();
+        if (!card.querySelector("[data-merged]")) {
+          card.querySelector(".fr-card-head").insertAdjacentHTML("afterend",
+            `<p class="fr-merged" data-merged>Merged into <b>#${data.live_pk}</b> · this copy is in the review bin and students don't see it. <b>Edit</b> opens #${data.live_pk}, the one students see.</p>`);
+        }
+        const where = card.querySelector(".fr-card-head small");
+        if (where && !/in review bin/.test(where.textContent)) where.textContent += " · in review bin";
+      }
       card.querySelector(".fr-status").innerHTML = data.status === "open" ? "" :
         `${data.label} by ${data.by} · <button class="fr-link" data-action="reopen">undo</button>`;
       count();
