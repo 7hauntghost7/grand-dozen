@@ -1,26 +1,42 @@
 {% extends "bank/base.html" %}
 {% block title %}{{ group.name }}{% endblock %}
 {% block content %}
-<main class="study-page myspace-page groups-page">
-  <section class="page-hero">
-    {% include "bank/_hero_peaks.html" %}
-    <nav class="page-crumbs" aria-label="Breadcrumb"><a href="{% url 'bank:groups' %}">Groups</a></nav>
-    <h2 class="page-title" dir="auto"><span aria-hidden="true">{{ group.emoji }}</span> {{ group.name }}</h2>
-    {% if group.description %}<p class="page-lede" dir="auto">{{ group.description }}</p>{% endif %}
-    <div class="page-stats"><span><b>{{ count }}</b> member{{ count|pluralize }}</span>
-      {% if group.owner %}<span>Owner <b>{{ group.owner.profile.name }}</b></span>{% endif %}</div>
+<main class="gx gx-group">
+  <a class="gx-back" href="{% url 'bank:groups' %}">← Groups</a>
+  <section class="gx-cover" style="--h:{{ group.pk }}">
+    <div class="gx-cover-art" aria-hidden="true">
+      <svg viewBox="0 0 1200 160" preserveAspectRatio="none"><path d="M0 120 L140 70 L260 105 L400 40 L540 100 L680 55 L820 110 L960 50 L1090 95 L1200 70 L1200 160 L0 160Z"/></svg>
+    </div>
+    <div class="gx-cover-body">
+      <span class="gx-ava gx-ava-xl gx-cover-ava" style="--h:{{ group.pk }}" aria-hidden="true">{{ group.emoji }}</span>
+      <div class="gx-cover-text">
+        <h2 class="gx-cover-name" dir="auto">{{ group.name }}</h2>
+        {% if group.description %}<p class="gx-cover-desc" dir="auto">{{ group.description }}</p>{% endif %}
+        <p class="gx-cover-meta">🔒 Private group · {{ count }} member{{ count|pluralize }}{% if group.owner %} · owner {{ group.owner.profile.name }}{% endif %}</p>
+      </div>
+    </div>
   </section>
-  <div class="exam-step group-join-box">
-    {% if mine %}
-    <h3>Request sent ✓</h3>
-    <p class="mute">{{ group.owner.profile.name|default:"The owner" }} will let you in. You’ll get a notification.</p>
+
+  <div class="gx-card gx-join">
+    {% if mine and mine.status == "invited" %}
+    <span class="gx-join-icon" aria-hidden="true">🎉</span>
+    <h3>{{ mine.invited_by.profile.name|default:"A friend" }} invited you</h3>
+    <p class="gx-hint">{% if mine.invited_by_id == group.owner_id %}Accept and you’re in.{% else %}Accept, and the owner will let you in.{% endif %}</p>
+    <form method="post" action="{% url 'bank:group_action' group.code %}" class="gx-join-actions">{% csrf_token %}
+      <button class="gx-btn" name="action" value="accept_invite">Accept invitation</button>
+      <button class="gx-btn gx-btn-ghost" name="action" value="decline_invite">Decline</button></form>
+    {% elif mine %}
+    <span class="gx-join-icon" aria-hidden="true">⏳</span>
+    <h3>Request sent</h3>
+    <p class="gx-hint">{{ group.owner.profile.name|default:"The owner" }} will let you in. You’ll get a notification.</p>
     <form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}
-      <input type="hidden" name="action" value="cancel"><button class="exam-link-btn is-danger">Cancel my request</button></form>
+      <button class="gx-link is-danger" name="action" value="cancel">Cancel my request</button></form>
     {% else %}
+    <span class="gx-join-icon" aria-hidden="true">👋</span>
     <h3>Join this group?</h3>
-    <p class="mute">The owner accepts each new member.</p>
+    <p class="gx-hint">The owner accepts each new member.</p>
     <form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}
-      <input type="hidden" name="action" value="request"><button class="exam-card-start">Ask to join <span aria-hidden="true">→</span></button></form>
+      <button class="gx-btn" name="action" value="request">Ask to join</button></form>
     {% endif %}
   </div>
 </main>

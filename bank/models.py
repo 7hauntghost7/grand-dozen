@@ -810,10 +810,11 @@ class StudyGroup(models.Model):
 
 
 class GroupMember(models.Model):
-    PENDING, ACTIVE = "pending", "active"
+    PENDING, ACTIVE, INVITED = "pending", "active", "invited"     # asked to join / in / invited by a member
     group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name="members")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="group_memberships")
     status = models.CharField(max_length=8, default=PENDING)
+    invited_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     joined_at = models.DateTimeField(null=True, blank=True)
 
@@ -833,6 +834,7 @@ class GroupPost(models.Model):
     quiz = models.ForeignKey(PersonalQuiz, null=True, blank=True, on_delete=models.CASCADE, related_name="+")
     question = models.ForeignKey(Question, null=True, blank=True, on_delete=models.CASCADE, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
+    edited_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at", "-id"]

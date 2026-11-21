@@ -48,7 +48,7 @@ class GroupTests(TestCase):
         self.client.force_login(self.amna)
         self.assertContains(self.client.get(reverse("bank:groups")), "2 waiting")
         GroupMember.objects.filter(group=g, user=self.omar).update(status="active")
-        self.assertContains(self.client.get(reverse("bank:groups")), "<b>2</b> members")
+        self.assertContains(self.client.get(reverse("bank:groups")), "👥 2")
         GroupMember.objects.filter(group=g, user=self.omar).update(status="pending")
         self.act(g, self.amna, action="accept", user=self.sara.pk)
         self.assertTrue(groups.is_member(g, self.sara))
@@ -118,7 +118,7 @@ class GroupTests(TestCase):
         self.assertNotIn("error", r.json())
         self.assertTrue(GroupPost.objects.filter(group=g, kind="live", live_room=room).exists())
         self.client.force_login(self.sara)
-        self.assertContains(self.client.get(g.get_absolute_url()), "Live now")
+        self.assertContains(self.client.get(g.get_absolute_url()), "● LIVE")
         r = self.client.post(reverse("bank:live_group_join", args=[room.pk]))
         self.assertRedirects(r, reverse("bank:live_room", args=[room.pk]), fetch_redirect_response=False)
         self.assertTrue(LiveMember.objects.filter(room=room, user=self.sara).exists())
@@ -141,3 +141,68 @@ class GroupTests(TestCase):
         self.assertNotEqual(g.code, old)
         self.act(g, self.amna, action="delete")
         self.assertFalse(StudyGroup.objects.filter(pk=g.pk).exists())
+
+
+class GroupInviteAndPostTests(TestCase):
+    def setUp(self):
+        from . import friends
+        self.owner = User.objects.create_user("amna")
+        self.member = User.objects.create_user("sara")
+        self.pal = User.objects.create_user("omar")
+        self.other = User.objects.create_user("noor")
+        friends._make_friends(self.owner, self.pal)
+        friends._make_friends(self.member, self.other)
+        patch.object(groups, "notify").start()
+        self.addCleanup(patch.stopall)
+        self.g = StudyGroup.objects.create(name="Squad", owner=self.owner, code="squad123")
+        GroupMember.objects.create(group=self.g, user=self.owner, status="active")
+        GroupMember.objects.create(group=self.g, user=self.member, status="active")
+
+    def act(self, who, **data):
+        self.client.force_login(who)
+        return self.client.post(reverse("bank:group_action", args=[self.g.code]), data)
+
+    def test_owner_invite_accepted_joins_directly(self):
+        self.client.force_login(self.owner)
+        self.assertContains(self.client.get(self.g.get_absolute_url()), "Send invites")
+        self.act(self.owner, action="invite", friends=[self.pal.pk, self.other.pk])   # noor isn't amna's friend
+        self.assertEqual(GroupMember.objects.get(group=self.g, user=self.pal).status, "invited")
+        self.assertFalse(GroupMember.objects.filter(group=self.g, user=self.other).exists())
+        self.client.force_login(self.pal)
+        self.assertContains(self.client.get(reverse("bank:groups")), "Invitations")
+        self.assertContains(self.client.get(self.g.get_absolute_url()), "invited you")
+        self.act(self.pal, action="accept_invite")
+        self.assertTrue(groups.is_member(self.g, self.pal))
+
+    def test_member_invite_still_needs_the_owner(self):
+        self.act(self.member, action="invite", friends=[self.other.pk])
+        self.act(self.other, action="accept_invite")
+        self.assertEqual(GroupMember.objects.get(group=self.g, user=self.other).status, "pending")
+        self.act(self.owner, action="accept", user=self.other.pk)
+        self.assertTrue(groups.is_member(self.g, self.other))
+
+    def test_decline_and_cancel_invites(self):
+        self.act(self.owner, action="invite", friends=[self.pal.pk])
+        self.act(self.pal, action="decline_invite")
+        self.assertFalse(GroupMember.objects.filter(group=self.g, user=self.pal).exists())
+        self.act(self.owner, action="invite", friends=[self.pal.pk])
+        self.act(self.owner, action="cancel_invite", user=self.pal.pk)
+        self.assertFalse(GroupMember.objects.filter(group=self.g, user=self.pal).exists())
+
+    def test_edit_and_delete_posts(self):
+        self.act(self.owner, action="announce", text="Hello")
+        post = self.g.posts.get(kind="announce")
+        self.act(self.member, action="edit_post", post=post.pk, text="hacked")        # not the author
+        post.refresh_from_db()
+        self.assertEqual(post.text, "Hello")
+        self.act(self.owner, action="edit_post", post=post.pk, text="السلام عليكم")
+        post.refresh_from_db()
+        self.assertEqual(post.text, "السلام عليكم")
+        self.assertIsNotNone(post.edited_at)
+        saved = GroupPost.objects.create(group=self.g, author=self.member, kind="joined")
+        self.act(self.member, action="delete_post", post=post.pk)                    # not hers
+        self.assertTrue(GroupPost.objects.filter(pk=post.pk).exists())
+        self.act(self.member, action="delete_post", post=saved.pk)                   # her own
+        self.assertFalse(GroupPost.objects.filter(pk=saved.pk).exists())
+        self.act(self.owner, action="delete_post", post=post.pk)                     # the owner moderates
+        self.assertFalse(GroupPost.objects.filter(pk=post.pk).exists())

@@ -62,6 +62,19 @@ def can_announce(group, user):
     return user.is_staff if group.is_everyone else group.owner_id == user.pk
 
 
+def can_delete_post(group, post, user):
+    """The author, the group's owner, or admins in the Academic Secretary."""
+    return post.author_id == user.pk or is_owner(group, user) or (group.is_everyone and user.is_staff)
+
+
+def can_edit_post(post, user):
+    return post.kind == GroupPost.ANNOUNCE and post.author_id == user.pk
+
+
+def invites_for(user):
+    return GroupMember.objects.filter(user=user, status=GroupMember.INVITED).select_related("group", "invited_by__profile")
+
+
 def postable_groups(user):
     return [g for g in my_groups(user) if can_post(g, user)]
 
@@ -148,8 +161,10 @@ def home(request):
     for g in groups:
         g.count = users if g.is_everyone else counts.get(g.pk, 0)
         g.waiting = pending.get(g.pk, 0)
+        g.last = g.posts.select_related("author__profile", "live_room", "quiz", "question").first()   # latest activity
+    groups.sort(key=lambda g: (not g.is_everyone, -(g.last.created_at.timestamp() if g.last else 0)))
     asked = GroupMember.objects.filter(user=request.user, status=GroupMember.PENDING).select_related("group")
-    return render(request, "bank/groups_home.html", {"groups": groups, "asked": asked})
+    return render(request, "bank/groups_home.html", {"groups": groups, "asked": asked, "invites": invites_for(request.user)})
 
 
 @login_required
@@ -158,7 +173,7 @@ def group_page(request, code):
     group = _group_or_404(code)
     user = request.user
     if not is_member(group, user):
-        mine = GroupMember.objects.filter(group=group, user=user).first()
+        mine = GroupMember.objects.filter(group=group, user=user).select_related("invited_by__profile").first()
         count = GroupMember.objects.filter(group=group, status=GroupMember.ACTIVE).count()
         return render(request, "bank/group_join.html", {"group": group, "mine": mine, "count": count})
     posts = list(group.posts.select_related("author__profile", "live_room", "quiz", "question")[:60])
@@ -173,11 +188,24 @@ def group_page(request, code):
     pending = (GroupMember.objects.filter(group=group, status=GroupMember.PENDING).select_related("user__profile")
                if is_owner(group, user) else [])
     count = get_user_model().objects.filter(is_active=True).count() if group.is_everyone else len(members)
+    faces = [m.user.profile for m in list(members)[:6] if hasattr(m.user, "profile")]   # for the cover
+    for p in posts:
+        p.can_delete = can_delete_post(group, p, user)
+        p.can_edit = can_edit_post(p, user)
+    pals = []
+    if not group.is_everyone:
+        from .friends import friends_of
+        taken = set(GroupMember.objects.filter(group=group).values_list("user_id", flat=True))
+        pals = [p for p in friends_of(user) if p.user_id not in taken]
+        invited = GroupMember.objects.filter(group=group, status=GroupMember.INVITED).select_related("user__profile")
+    else:
+        invited = []
     return render(request, "bank/group_page.html", {
         "group": group, "posts": posts, "shared": shared, "saves": saves[:30], "saves_count": saves.count(),
         "members": members, "pending": pending, "count": count, "owner": is_owner(group, user),
         "can_post": can_post(group, user), "can_announce": can_announce(group, user),
         "link": request.build_absolute_uri(group.get_absolute_url()),
+        "pals": pals, "invited": invited, "faces": faces,
     })
 
 
@@ -193,6 +221,24 @@ def group_action(request, code):
     target = (GroupMember.objects.filter(group=group, user_id=target_id).select_related("user").first()
               if target_id and target_id.isdigit() else None)
 
+    if action == "accept_invite" and member and member.status == GroupMember.INVITED:
+        if member.invited_by_id and member.invited_by_id == group.owner_id:
+            member.status, member.joined_at = GroupMember.ACTIVE, timezone.now()
+            member.save(update_fields=["status", "joined_at"])
+            add_post(group, user, GroupPost.JOINED)
+            messages.success(request, f"Welcome to {group.name}!")
+        else:   # a member invited them: the owner still decides
+            member.status = GroupMember.PENDING
+            member.save(update_fields=["status"])
+            if group.owner_id:
+                notify([group.owner_id], f"{_name(user)} wants to join {group.name}", group.get_absolute_url())
+            messages.success(request, "Thanks! The owner will let you in.")
+        return redirect(group)
+    if action == "decline_invite" and member and member.status == GroupMember.INVITED:
+        member.delete()
+        return redirect("bank:groups")
+    if action == "request" and not group.is_everyone and member and member.status == GroupMember.INVITED:
+        return _accept_from_request(request, group, member)
     if action == "request" and not group.is_everyone:
         if member is None:
             if GroupMember.objects.filter(group=group, status=GroupMember.ACTIVE).count() >= MAX_MEMBERS:
@@ -241,6 +287,33 @@ def group_action(request, code):
         group.delete()
         messages.success(request, f"Deleted {name}.")
         return redirect("bank:groups")
+    elif action == "invite" and not group.is_everyone:
+        from .friends import friends_of
+        ids = {int(i) for i in request.POST.getlist("friends") if i.isdigit()}
+        pals = [p.user for p in friends_of(user) if p.user_id in ids]
+        room = MAX_MEMBERS - GroupMember.objects.filter(group=group).exclude(status=GroupMember.PENDING).count()
+        sent = 0
+        for pal in pals[:max(room, 0)]:
+            _, created = GroupMember.objects.get_or_create(
+                group=group, user=pal, defaults={"status": GroupMember.INVITED, "invited_by": user})
+            if created:
+                sent += 1
+                notify([pal.pk], f"{_name(user)} invited you to the group {group.name}", group.get_absolute_url())
+        messages.success(request, f"Invited {sent} friend{'s' if sent != 1 else ''}." if sent else "Pick at least one friend.")
+    elif action == "cancel_invite" and target and target.status == GroupMember.INVITED and (
+            target.invited_by_id == user.pk or owner):
+        target.delete()
+    elif action in ("delete_post", "edit_post"):
+        post = GroupPost.objects.filter(group=group, pk=request.POST.get("post")).first()
+        if post is None:
+            pass
+        elif action == "delete_post" and can_delete_post(group, post, user):
+            post.delete()
+        elif action == "edit_post" and can_edit_post(post, user):
+            text = request.POST.get("text", "").strip()[:1000]
+            if text:
+                post.text, post.edited_at = text, timezone.now()
+                post.save(update_fields=["text", "edited_at"])
     elif action == "announce":
         if not can_announce(group, user):
             messages.error(request, "Only the owner can post announcements here." if not group.is_everyone
@@ -262,6 +335,13 @@ def group_action(request, code):
             QuizAccess.objects.get_or_create(user=user, quiz=share.quiz)
             messages.success(request, f"Added “{share.quiz.title}” to My Space.")
     return redirect(group)
+
+
+def _accept_from_request(request, group, member):
+    """Someone who was invited opened the link and pressed "Ask to join": treat it as accepting."""
+    request.POST = request.POST.copy()
+    request.POST["action"] = "accept_invite"
+    return group_action(request, group.code)
 
 
 @login_required
@@ -344,4 +424,6 @@ def post_live(group, room, user):
 
 
 def pending_for_owner(user):
-    return GroupMember.objects.filter(group__owner=user, group__is_everyone=False, status=GroupMember.PENDING).count()
+    """For the Groups tab badge: join requests waiting on this owner, plus invitations waiting on this user."""
+    return (GroupMember.objects.filter(group__owner=user, group__is_everyone=False, status=GroupMember.PENDING).count()
+            + GroupMember.objects.filter(user=user, status=GroupMember.INVITED).count())

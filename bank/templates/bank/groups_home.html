@@ -1,65 +1,79 @@
 {% extends "bank/base.html" %}
 {% block title %}Groups{% endblock %}
 {% block content %}
-<main class="study-page myspace-page groups-page">
-  <section class="page-hero">
-    {% include "bank/_hero_peaks.html" %}
-    <p class="page-eyebrow">Study together</p>
-    <h2 class="page-title">Groups</h2>
-    <p class="page-lede">Start live quizzes with your group, share quizzes, and build a list of questions to revise together.</p>
-  </section>
-
-  <section class="exam-section" aria-labelledby="mine-title">
-    <div class="study-section-heading">
-      <div><p>YOUR GROUPS</p><h2 id="mine-title">My groups</h2></div>
-      <span class="study-total">{{ groups|length }} group{{ groups|length|pluralize }}</span>
+<main class="gx gx-home">
+  <header class="gx-topbar">
+    <div>
+      <h2 class="gx-h">Groups</h2>
+      <p class="gx-sub">Study together: live quizzes, shared quizzes and a list of hard questions.</p>
     </div>
-    <div class="exam-cards">
-      {% for g in groups %}
-      <a class="exam-card group-card{% if g.is_everyone %} is-everyone{% endif %}" href="{{ g.get_absolute_url }}" style="--i:{{ forloop.counter0 }}">
-        <div class="exam-card-top">
-          <span class="group-emoji group-emoji-lg" aria-hidden="true">{{ g.emoji }}</span>
-          <h3 dir="auto">{{ g.name }}</h3>
-          {% if g.is_everyone %}<span class="exam-badge is-gold">Official · everyone</span>{% endif %}
-          {% if g.waiting %}<span class="exam-badge is-live">{{ g.waiting }} waiting</span>{% endif %}
-        </div>
-        {% if g.description %}<p class="exam-card-chapters" dir="auto">{{ g.description }}</p>{% endif %}
-        <p class="exam-card-meta"><span><b>{{ g.count }}</b> member{{ g.count|pluralize }}</span>{% if g.owner_id == user.pk %}<span>You own it</span>{% endif %}</p>
-        <span class="exam-card-start">Open <span aria-hidden="true">→</span></span>
-      </a>
-      {% endfor %}
+    <div class="gx-topbar-actions">
+      <button type="button" class="gx-btn gx-btn-ghost" data-open="join-dialog">🔗 Join with link</button>
+      <button type="button" class="gx-btn" data-open="new-dialog">＋ New group</button>
     </div>
-    {% if asked %}
-    <p class="exam-card-chapters groups-asked">Waiting for approval:
-      {% for m in asked %}<a href="{{ m.group.get_absolute_url }}">{{ m.group.emoji }} {{ m.group.name }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>
-    {% endif %}
+  </header>
+
+  {% if invites %}
+  <section class="gx-card gx-invites" aria-labelledby="invites-title">
+    <h3 id="invites-title" class="gx-card-title">Invitations</h3>
+    {% for m in invites %}
+    <div class="gx-invite">
+      <span class="gx-ava" style="--h:{{ m.group.pk }}" aria-hidden="true">{{ m.group.emoji }}</span>
+      <div class="gx-row-main"><b dir="auto">{{ m.group.name }}</b><small>{{ m.invited_by.profile.name|default:"A friend" }} invited you</small></div>
+      <form method="post" action="{% url 'bank:group_action' m.group.code %}" class="gx-invite-actions">{% csrf_token %}
+        <button class="gx-btn gx-btn-sm" name="action" value="accept_invite">Accept</button>
+        <button class="gx-btn gx-btn-sm gx-btn-ghost" name="action" value="decline_invite">Decline</button>
+      </form>
+    </div>
+    {% endfor %}
   </section>
+  {% endif %}
 
-  <div class="groups-forms">
-    <form method="post" class="exam-step">{% csrf_token %}
-      <input type="hidden" name="action" value="create">
-      <div class="exam-step-head"><span class="exam-step-num" aria-hidden="true">+</span>
-        <div><h3>Create a group</h3><p>You’ll own it and decide who joins.</p></div></div>
-      <div class="myspace-options">
-        <div class="group-name-row">
-          <label class="exam-field group-emoji-field"><span>Emoji</span><input type="text" name="emoji" maxlength="8" value="📚" aria-label="Emoji"></label>
-          <label class="exam-field"><span>Name</span><input type="text" name="name" maxlength="60" required dir="auto" placeholder="e.g. Renal squad"></label>
-        </div>
-        <label class="exam-field"><span>Description <small class="mute">(optional)</small></span>
-          <input type="text" name="description" maxlength="200" dir="auto" placeholder="e.g. Physiology finals, 4 of us"></label>
-        <button class="exam-card-start">Create group <span aria-hidden="true">→</span></button>
-      </div>
-    </form>
-
-    <form method="post" class="exam-step">{% csrf_token %}
-      <input type="hidden" name="action" value="code">
-      <div class="exam-step-head"><span class="exam-step-num" aria-hidden="true">🔗</span>
-        <div><h3>Join a group</h3><p>Paste the link a friend shared, or its code.</p></div></div>
-      <div class="myspace-options">
-        <label class="exam-field"><span>Link or code</span><input type="text" name="code" required autocomplete="off" placeholder="e.g. k3x9qa2m"></label>
-        <button class="exam-card-start is-quiet">Find group</button>
-      </div>
-    </form>
+  <div class="gx-list" role="list" aria-label="Your groups">
+    {% for g in groups %}
+    <a class="gx-row{% if g.is_everyone %} is-official{% endif %}" href="{{ g.get_absolute_url }}">
+      <span class="gx-ava gx-ava-lg" style="--h:{{ g.pk }}" aria-hidden="true">{{ g.emoji }}</span>
+      <span class="gx-row-main">
+        <span class="gx-row-top"><b dir="auto">{{ g.name }}</b>
+          {% if g.is_everyone %}<span class="gx-tag gx-tag-gold">Official</span>{% endif %}
+          {% if g.waiting %}<span class="gx-tag gx-tag-red">{{ g.waiting }} waiting</span>{% endif %}</span>
+        <span class="gx-row-last">{% if g.last %}{% with p=g.last %}{% if p.kind == "announce" %}📣 {{ p.author.profile.name }}: <bdi>{{ p.text|truncatechars:34 }}</bdi>{% elif p.kind == "live" %}🔴 {{ p.author.profile.name }} started a live quiz{% if p.live_room %}: <bdi>{{ p.live_room.title }}</bdi>{% endif %}{% elif p.kind == "quiz" %}📚 {{ p.author.profile.name }} shared “<bdi>{{ p.quiz.title }}</bdi>”{% elif p.kind == "saved" %}⭐ {{ p.author.profile.name }} saved a question{% else %}👋 {{ p.author.profile.name }} joined{% endif %}{% endwith %}{% else %}{{ g.description|default:"No activity yet" }}{% endif %}</span>
+      </span>
+      <span class="gx-row-side">
+        {% if g.last %}<small>{{ g.last.created_at|timesince|truncatewords:2 }}</small>{% endif %}
+        <small>👥 {{ g.count }}</small>
+      </span>
+    </a>
+    {% endfor %}
   </div>
+  {% if asked %}
+  <p class="gx-note">Waiting for approval: {% for m in asked %}<a href="{{ m.group.get_absolute_url }}" dir="auto">{{ m.group.emoji }} {{ m.group.name }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+  {% endif %}
+
+  <dialog id="new-dialog" class="gx-dialog" aria-labelledby="new-title">
+    <form method="post" class="gx-dialog-body">{% csrf_token %}
+      <input type="hidden" name="action" value="create">
+      <header class="gx-dialog-head"><h3 id="new-title">New group</h3><button type="button" class="gx-x" data-close aria-label="Close">✕</button></header>
+      <div class="gx-new-ava">
+        <label class="gx-ava gx-ava-xl gx-emoji-pick" style="--h:3">
+          <input type="text" name="emoji" maxlength="8" value="📚" aria-label="Group emoji"></label>
+        <small>Tap to change the emoji</small>
+      </div>
+      <label class="gx-field"><span>Group name</span><input type="text" name="name" maxlength="60" required dir="auto" placeholder="e.g. Renal squad"></label>
+      <label class="gx-field"><span>Description <em>(optional)</em></span><input type="text" name="description" maxlength="200" dir="auto" placeholder="e.g. Physiology finals, 4 of us"></label>
+      <p class="gx-hint">You’ll own the group. People join with its link and you accept them.</p>
+      <footer class="gx-dialog-foot"><button type="button" class="gx-btn gx-btn-ghost" data-close>Cancel</button><button class="gx-btn">Create</button></footer>
+    </form>
+  </dialog>
+
+  <dialog id="join-dialog" class="gx-dialog" aria-labelledby="join-title">
+    <form method="post" class="gx-dialog-body">{% csrf_token %}
+      <input type="hidden" name="action" value="code">
+      <header class="gx-dialog-head"><h3 id="join-title">Join with a link</h3><button type="button" class="gx-x" data-close aria-label="Close">✕</button></header>
+      <label class="gx-field"><span>Paste the group link or code</span><input type="text" name="code" required autocomplete="off" placeholder="https://…/groups/k3x9qa2m/"></label>
+      <footer class="gx-dialog-foot"><button type="button" class="gx-btn gx-btn-ghost" data-close>Cancel</button><button class="gx-btn">Find group</button></footer>
+    </form>
+  </dialog>
 </main>
 {% endblock %}
+{% block scripts %}{% include "bank/_gx_script.html" %}{% endblock %}

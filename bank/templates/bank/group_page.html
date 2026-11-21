@@ -1,183 +1,274 @@
 {% extends "bank/base.html" %}
 {% block title %}{{ group.name }}{% endblock %}
 {% block content %}
-<main class="study-page myspace-page groups-page">
-  <section class="page-hero">
-    {% include "bank/_hero_peaks.html" %}
-    <nav class="page-crumbs" aria-label="Breadcrumb"><a href="{% url 'bank:groups' %}">Groups</a></nav>
-    <h2 class="page-title" dir="auto"><span aria-hidden="true">{{ group.emoji }}</span> {{ group.name }}</h2>
-    {% if group.description %}<p class="page-lede" dir="auto">{{ group.description }}</p>{% endif %}
-    <div class="page-stats"><span><b>{{ count }}</b> member{{ count|pluralize }}</span>
-      {% if group.is_everyone %}<span>Official · only admins post</span>{% elif group.owner %}<span>Owner <b>{{ group.owner.profile.name }}</b></span>{% endif %}</div>
+<main class="gx gx-group">
+  <a class="gx-back" href="{% url 'bank:groups' %}">← Groups</a>
+
+  <section class="gx-cover" style="--h:{{ group.pk }}">
+    <div class="gx-cover-art" aria-hidden="true">
+      <svg viewBox="0 0 1200 160" preserveAspectRatio="none"><path d="M0 120 L140 70 L260 105 L400 40 L540 100 L680 55 L820 110 L960 50 L1090 95 L1200 70 L1200 160 L0 160Z"/></svg>
+    </div>
+    <div class="gx-cover-body">
+      <span class="gx-ava gx-ava-xl gx-cover-ava" style="--h:{{ group.pk }}" aria-hidden="true">{{ group.emoji }}</span>
+      <div class="gx-cover-text">
+        <h2 class="gx-cover-name" dir="auto">{{ group.name }}</h2>
+        {% if group.description %}<p class="gx-cover-desc" dir="auto">{{ group.description }}</p>{% endif %}
+        <p class="gx-cover-meta">{% if group.is_everyone %}🎓 Official · everyone in the batch · only admins post{% else %}🔒 Private group · {{ count }} member{{ count|pluralize }}{% endif %}</p>
+      </div>
+      <div class="gx-cover-foot">
+        {% if faces %}<span class="gx-faces" aria-label="Members">{% for p in faces %}{% include "bank/_avatar.html" with p=p size="sm" small=True %}{% endfor %}{% if count > faces|length %}<span class="gx-faces-more">+{{ count|add:"-6" }}</span>{% endif %}</span>{% endif %}
+        <span class="gx-cover-actions">
+          {% if not group.is_everyone %}<button type="button" class="gx-btn" data-open="invite-dialog">＋ Invite</button>{% endif %}
+          {% if owner and not group.is_everyone %}<button type="button" class="gx-btn gx-btn-ghost gx-btn-icon" data-open="settings-dialog" aria-label="Group settings">⚙</button>
+          {% elif not group.is_everyone %}<button type="button" class="gx-btn gx-btn-ghost gx-btn-icon" data-open="leave-dialog" aria-label="More">⋯</button>{% endif %}
+        </span>
+      </div>
+    </div>
   </section>
 
-  <nav class="jump group-jump" aria-label="Sections">
-    <a href="#feed">Feed</a><a href="#quizzes">Quizzes · {{ shared|length }}</a><a href="#saved">Saved · {{ saves_count }}</a>
-    {% if not group.is_everyone %}<a href="#members">Members · {{ count }}</a>{% endif %}
+  <nav class="gx-tabs" role="tablist" aria-label="Group sections">
+    <button type="button" role="tab" data-tab="feed">Feed</button>
+    <button type="button" role="tab" data-tab="quizzes">Quizzes{% if shared %} <span>{{ shared|length }}</span>{% endif %}</button>
+    <button type="button" role="tab" data-tab="saved">Saved{% if saves_count %} <span>{{ saves_count }}</span>{% endif %}</button>
+    {% if not group.is_everyone %}<button type="button" role="tab" data-tab="members">Members <span>{{ count }}</span>{% if pending %}<i class="gx-dot" aria-label="requests waiting"></i>{% endif %}</button>{% endif %}
   </nav>
 
-  {% if pending %}
-  <section class="exam-step group-pending" aria-labelledby="pending-title">
-    <h3 id="pending-title">Waiting to join · {{ pending|length }}</h3>
-    <ul class="person-list">
-      {% for m in pending %}
-      <li class="person-row">
-        <a class="person-link" href="{{ m.user.profile.get_absolute_url }}">{% include "bank/_avatar.html" with p=m.user.profile size="md" small=True %}
-          <span class="person-text"><strong>{{ m.user.profile.name }}</strong><span class="mute">@{{ m.user.profile.handle }}</span></span></a>
-        <div class="person-actions">
-          <form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}<input type="hidden" name="user" value="{{ m.user_id }}">
-            <button class="btn pri" name="action" value="accept">Accept</button> <button class="btn" name="action" value="decline">Decline</button></form>
+  {# ------------------------------------------------------------------ feed #}
+  <section class="gx-panel" data-panel="feed" aria-label="Feed">
+    {% if pending %}
+    <a class="gx-card gx-alert" href="#members" data-tab-link="members" onclick="document.querySelector('[data-tab=members]').click();return false;">
+      🙋 {{ pending|length }} {{ pending|length|pluralize:"person wants,people want" }} to join · <b>Review</b></a>
+    {% endif %}
+    {% if can_announce %}
+    <button type="button" class="gx-card gx-composer" data-open="post-dialog">
+      {% include "bank/_avatar.html" with p=user.profile size="sm" small=True %}
+      <span>Write an announcement…</span><span class="gx-composer-icon" aria-hidden="true">📣</span>
+    </button>
+    {% endif %}
+    {% if can_post %}
+    <p class="gx-tip">💡 To start a live quiz here, open any quiz → <b>👥 Go live</b> → <b>Post to a study group</b>. To save a question, tap <b>👥 Group</b> on it.</p>
+    {% endif %}
+
+    {% for p in posts %}
+    <article class="gx-card gx-post is-{{ p.kind }}">
+      <header class="gx-post-head">
+        {% if p.author %}{% include "bank/_avatar.html" with p=p.author.profile size="md" small=True %}{% endif %}
+        <div class="gx-post-who">
+          <b>{{ p.author.profile.name|default:"Someone" }}</b>
+          <small>{% if p.kind == "live" %}started a live quiz{% elif p.kind == "quiz" %}shared a quiz{% elif p.kind == "saved" %}saved a question{% elif p.kind == "joined" %}joined the group{% else %}announcement{% endif %} · {{ p.created_at|timesince|truncatewords:2 }} ago{% if p.edited_at %} · edited{% endif %}</small>
         </div>
-      </li>
+        {% if p.can_delete or p.can_edit %}
+        <details class="gx-menu">
+          <summary aria-label="Post options">⋯</summary>
+          <div class="gx-menu-list">
+            {% if p.can_edit %}<button type="button" data-open="edit-{{ p.pk }}">✏️ Edit</button>{% endif %}
+            {% if p.can_delete %}<form method="post" action="{% url 'bank:group_action' group.code %}" onsubmit="return confirm('Delete this post?')">{% csrf_token %}
+              <input type="hidden" name="action" value="delete_post"><input type="hidden" name="post" value="{{ p.pk }}"><button class="is-danger">🗑 Delete</button></form>{% endif %}
+          </div>
+        </details>
+        {% endif %}
+      </header>
+
+      {% if p.kind == "announce" %}
+      <div class="gx-post-text" dir="auto">{{ p.text|linebreaksbr }}</div>
+      {% elif p.kind == "live" and p.live_room %}
+      <div class="gx-live">
+        <div><span class="gx-live-dot{% if p.live_room.ended_at %} is-ended{% endif %}">{% if p.live_room.ended_at %}Ended{% else %}● LIVE{% endif %}</span>
+          <b dir="auto">{{ p.live_room.title }}</b><small>Room code {{ p.live_room.code }} · up to 10 people</small></div>
+        {% if not p.live_room.ended_at %}
+        <form method="post" action="{% url 'bank:live_group_join' p.live_room.pk %}">{% csrf_token %}<input type="hidden" name="back" value="{{ request.path }}">
+          <button class="gx-btn">Join →</button></form>
+        {% endif %}
+      </div>
+      {% elif p.kind == "quiz" and p.quiz %}
+      <a class="gx-attach" href="{% url 'bank:my_space_quiz' p.quiz_id %}">
+        <span class="gx-attach-icon" aria-hidden="true">📚</span>
+        <span><b dir="auto">{{ p.quiz.title }}</b><small>{{ p.quiz.questions|length }} questions · tap to start</small></span></a>
+      {% elif p.kind == "saved" and p.question %}
+      <blockquote class="gx-quote" dir="auto">{{ p.question.stem|truncatechars:220 }}<small>{{ p.question.bank.title }}</small></blockquote>
+      {% elif p.kind == "joined" %}
+      <p class="gx-post-text gx-joined">Say hi to {{ p.author.profile.name|default:"them" }} 👋</p>
+      {% endif %}
+    </article>
+
+    {% if p.can_edit %}
+    <dialog id="edit-{{ p.pk }}" class="gx-dialog" aria-label="Edit announcement">
+      <form method="post" action="{% url 'bank:group_action' group.code %}" class="gx-dialog-body">{% csrf_token %}
+        <input type="hidden" name="action" value="edit_post"><input type="hidden" name="post" value="{{ p.pk }}">
+        <header class="gx-dialog-head"><h3>Edit announcement</h3><button type="button" class="gx-x" data-close aria-label="Close">✕</button></header>
+        <textarea name="text" rows="8" maxlength="1000" required dir="auto" class="gx-textarea">{{ p.text }}</textarea>
+        <footer class="gx-dialog-foot"><button type="button" class="gx-btn gx-btn-ghost" data-close>Cancel</button><button class="gx-btn">Save</button></footer>
+      </form>
+    </dialog>
+    {% endif %}
+    {% empty %}
+    <div class="gx-empty"><span aria-hidden="true">🌱</span><b>Nothing here yet</b><small>Start a live quiz, share a quiz or save a question to get the group going.</small></div>
+    {% endfor %}
+  </section>
+
+  {# ------------------------------------------------------------------ quizzes #}
+  <section class="gx-panel" data-panel="quizzes" aria-label="Quizzes" hidden>
+    {% for s in shared %}
+    <article class="gx-card gx-quiz">
+      <span class="gx-attach-icon" aria-hidden="true">📚</span>
+      <div class="gx-quiz-main">
+        <b dir="auto">{{ s.quiz.title }}</b>
+        <small>{{ s.quiz.questions|length }} questions · shared by {{ s.shared_by.profile.name|default:"someone" }}</small>
+        <span class="gx-mix">{% if s.mix.mcq %}<span>MCQ {{ s.mix.mcq }}</span>{% endif %}{% if s.mix.tf %}<span>T/F {{ s.mix.tf }}</span>{% endif %}{% if s.mix.desc %}<span>Written {{ s.mix.desc }}</span>{% endif %}</span>
+        <div class="gx-quiz-actions">
+          <a class="gx-btn gx-btn-sm" href="{% url 'bank:my_space_quiz' s.quiz_id %}">Start</a>
+          {% if s.in_space %}<span class="gx-tag">In My Space ✓</span>
+          {% else %}<form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}<input type="hidden" name="quiz" value="{{ s.quiz_id }}">
+            <button class="gx-btn gx-btn-sm gx-btn-ghost" name="action" value="add_quiz">＋ My Space</button></form>{% endif %}
+          {% if s.shared_by_id == user.pk or owner %}<form method="post" action="{% url 'bank:group_action' group.code %}" onsubmit="return confirm('Remove this quiz from the group?')">{% csrf_token %}
+            <input type="hidden" name="quiz" value="{{ s.quiz_id }}"><button class="gx-link is-danger" name="action" value="unshare">Remove</button></form>{% endif %}
+        </div>
+      </div>
+    </article>
+    {% empty %}
+    <div class="gx-empty"><span aria-hidden="true">📚</span><b>No quizzes yet</b><small>{% if can_post %}In <a href="{% url 'bank:my_space' %}">My Space</a>, tap <b>Send</b> on a quiz and pick this group.{% else %}Quizzes shared here will show up for everyone.{% endif %}</small></div>
+    {% endfor %}
+  </section>
+
+  {# ------------------------------------------------------------------ saved #}
+  <section class="gx-panel" data-panel="saved" aria-label="Saved questions" hidden>
+    {% if saves_count %}
+    <a class="gx-card gx-practise" href="{% url 'bank:group_saved_quiz' group.code %}">
+      <span class="gx-attach-icon" aria-hidden="true">⭐</span>
+      <span><b>Practise all {{ saves_count }} saved question{{ saves_count|pluralize }}</b><small>The group’s list of questions to revise together</small></span>
+      <span class="gx-btn gx-btn-sm">Start →</span></a>
+    {% for s in saves %}
+    <div class="gx-card gx-saved">
+      <blockquote class="gx-quote" dir="auto">{{ s.question.stem|truncatechars:200 }}<small>{{ s.question.bank.title }} · saved by {{ s.saved_by.profile.name|default:"someone" }}</small></blockquote>
+      {% if can_post %}<form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}<input type="hidden" name="question" value="{{ s.question_id }}">
+        <button class="gx-link is-danger" name="action" value="unsave" aria-label="Remove from the group’s list">✕</button></form>{% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="gx-empty"><span aria-hidden="true">⭐</span><b>No saved questions yet</b><small>{% if can_post %}In any quiz, tap <b>👥 Group</b> on a question to save it here.{% else %}Questions the admins save will show up here.{% endif %}</small></div>
+    {% endif %}
+  </section>
+
+  {# ------------------------------------------------------------------ members #}
+  {% if not group.is_everyone %}
+  <section class="gx-panel" data-panel="members" aria-label="Members" hidden>
+    {% if pending %}
+    <div class="gx-card">
+      <h3 class="gx-card-title">Wants to join · {{ pending|length }}</h3>
+      {% for m in pending %}
+      <div class="gx-person">
+        {% include "bank/_avatar.html" with p=m.user.profile size="md" small=True %}
+        <div class="gx-row-main"><b>{{ m.user.profile.name }}</b><small>@{{ m.user.profile.handle }}{% if m.invited_by %} · invited by {{ m.invited_by.profile.name }}{% endif %}</small></div>
+        <form method="post" action="{% url 'bank:group_action' group.code %}" class="gx-invite-actions">{% csrf_token %}<input type="hidden" name="user" value="{{ m.user_id }}">
+          <button class="gx-btn gx-btn-sm" name="action" value="accept">Accept</button>
+          <button class="gx-btn gx-btn-sm gx-btn-ghost" name="action" value="decline">Decline</button></form>
+      </div>
       {% endfor %}
-    </ul>
+    </div>
+    {% endif %}
+    <div class="gx-card">
+      <div class="gx-card-head"><h3 class="gx-card-title">Members · {{ count }}</h3>
+        <button type="button" class="gx-btn gx-btn-sm" data-open="invite-dialog">＋ Invite</button></div>
+      {% for m in members %}
+      <div class="gx-person">
+        {% include "bank/_avatar.html" with p=m.user.profile size="md" small=True %}
+        <a class="gx-row-main" href="{{ m.user.profile.get_absolute_url }}"><b>{{ m.user.profile.name }}{% if m.user_id == user.pk %} (you){% endif %}</b>
+          <small>{% if m.user_id == group.owner_id %}👑 Owner{% else %}Member{% endif %} · @{{ m.user.profile.handle }}</small></a>
+        {% if owner and m.user_id != group.owner_id %}
+        <details class="gx-menu">
+          <summary aria-label="Member options">⋯</summary>
+          <div class="gx-menu-list">
+            <form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}<input type="hidden" name="user" value="{{ m.user_id }}">
+              <button name="action" value="make_owner" onclick="return confirm('Make {{ m.user.profile.name|escapejs }} the owner? You will be a regular member.')">👑 Make owner</button>
+              <button class="is-danger" name="action" value="remove" onclick="return confirm('Remove {{ m.user.profile.name|escapejs }} from the group?')">Remove from group</button></form>
+          </div>
+        </details>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% if invited %}
+    <div class="gx-card">
+      <h3 class="gx-card-title">Invited · not answered yet</h3>
+      {% for m in invited %}
+      <div class="gx-person">
+        {% include "bank/_avatar.html" with p=m.user.profile size="md" small=True %}
+        <div class="gx-row-main"><b>{{ m.user.profile.name }}</b><small>invited by {{ m.invited_by.profile.name|default:"someone" }}</small></div>
+        {% if owner or m.invited_by_id == user.pk %}<form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}
+          <input type="hidden" name="user" value="{{ m.user_id }}"><button class="gx-link is-danger" name="action" value="cancel_invite">Cancel</button></form>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
   </section>
   {% endif %}
 
-  <section class="exam-section" id="feed" aria-labelledby="feed-title">
-    <div class="study-section-heading"><div><p>WHAT’S HAPPENING</p><h2 id="feed-title">Feed</h2></div></div>
-    {% if can_announce %}
-    <form method="post" action="{% url 'bank:group_action' group.code %}" class="group-announce">{% csrf_token %}
+  {# ------------------------------------------------------------------ pop-ups #}
+  {% if can_announce %}
+  <dialog id="post-dialog" class="gx-dialog" aria-labelledby="post-title">
+    <form method="post" action="{% url 'bank:group_action' group.code %}" class="gx-dialog-body">{% csrf_token %}
       <input type="hidden" name="action" value="announce">
-      <textarea name="text" rows="3" maxlength="1000" required dir="auto" placeholder="📣 Post an announcement to the group…"></textarea>
-      <button class="exam-card-start">Post</button>
+      <header class="gx-dialog-head"><h3 id="post-title">📣 New announcement</h3><button type="button" class="gx-x" data-close aria-label="Close">✕</button></header>
+      <div class="gx-post-who gx-compose-who">{% include "bank/_avatar.html" with p=user.profile size="sm" small=True %}<b>{{ user.profile.name }}</b></div>
+      <textarea name="text" rows="8" maxlength="1000" required dir="auto" class="gx-textarea" placeholder="Write something for the group…"></textarea>
+      <p class="gx-hint">Everyone in the group gets a notification.</p>
+      <footer class="gx-dialog-foot"><button type="button" class="gx-btn gx-btn-ghost" data-close>Cancel</button><button class="gx-btn">Post</button></footer>
     </form>
-    {% endif %}
-    {% if can_post %}<p class="mute group-hint">To start a live quiz here: open any quiz, tap <b>👥 Go live</b>, then <b>Post to a study group</b> in the People panel.</p>{% endif %}
-    <ul class="group-feed">
-      {% for p in posts %}
-      <li class="group-post is-{{ p.kind }}">
-        {% if p.author %}{% include "bank/_avatar.html" with p=p.author.profile size="sm" small=True %}{% endif %}
-        <div class="group-post-body">
-          <p>
-            <b>{{ p.author.profile.name|default:"Someone" }}</b>
-            {% if p.kind == "live" %}started a live quiz{% if p.live_room %}: <b>{{ p.live_room.title }}</b>{% endif %}
-            {% elif p.kind == "quiz" %}shared a quiz: <b>{{ p.quiz.title }}</b> <span class="mute">· {{ p.quiz.questions|length }} questions</span>
-            {% elif p.kind == "saved" %}saved a question: <span class="group-stem" dir="auto">{{ p.question.stem|truncatechars:110 }}</span>
-            {% elif p.kind == "joined" %}joined the group 👋
-            {% else %}<span class="group-announcement" dir="auto">{{ p.text|linebreaksbr }}</span>{% endif %}
-          </p>
-          <small class="mute">{{ p.created_at|timesince }} ago</small>
-          {% if p.kind == "live" and p.live_room %}
-            {% if not p.live_room.ended_at %}
-            <form method="post" action="{% url 'bank:live_group_join' p.live_room.pk %}" class="group-post-action">{% csrf_token %}
-              <input type="hidden" name="back" value="{{ request.path }}">
-              <span class="exam-badge is-live">● Live now · code {{ p.live_room.code }}</span>
-              <button class="exam-card-start">Join <span aria-hidden="true">→</span></button></form>
-            {% else %}<span class="exam-badge">Ended</span>{% endif %}
-          {% endif %}
-          {% if p.kind == "quiz" %}<div class="group-post-action"><a class="exam-link-btn" href="#quizzes">See it in Quizzes ↓</a></div>{% endif %}
-        </div>
-      </li>
-      {% empty %}
-      <li class="exam-empty">Nothing yet. Start a live quiz, share a quiz or save a question to get things going.</li>
-      {% endfor %}
-    </ul>
-  </section>
-
-  <section class="exam-section" id="quizzes" aria-labelledby="quizzes-title">
-    <div class="study-section-heading"><div><p>SHARED WITH THE GROUP</p><h2 id="quizzes-title">Quizzes</h2></div></div>
-    {% if shared %}
-    <div class="exam-cards">
-      {% for s in shared %}
-      <article class="exam-card" style="--i:{{ forloop.counter0 }}">
-        <div class="exam-card-top"><h3>{{ s.quiz.title }}</h3></div>
-        <p class="exam-card-meta"><span><b>{{ s.quiz.questions|length }}</b> questions</span><span>by {{ s.shared_by.profile.name|default:"someone" }}</span></p>
-        <p class="exam-card-mix">{% if s.mix.mcq %}<span>MCQ {{ s.mix.mcq }}</span>{% endif %}{% if s.mix.tf %}<span>T/F {{ s.mix.tf }}</span>{% endif %}{% if s.mix.desc %}<span>Descriptive {{ s.mix.desc }}</span>{% endif %}</p>
-        <div class="exam-card-actions">
-          <a class="exam-card-start" href="{% url 'bank:my_space_quiz' s.quiz_id %}">Start <span aria-hidden="true">→</span></a>
-          {% if s.in_space %}<span class="exam-badge is-source">In My Space ✓</span>
-          {% else %}<form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}<input type="hidden" name="quiz" value="{{ s.quiz_id }}">
-            <button class="exam-link-btn" name="action" value="add_quiz">Add to My Space</button></form>{% endif %}
-          {% if s.shared_by_id == user.pk or owner %}<form method="post" action="{% url 'bank:group_action' group.code %}" onsubmit="return confirm('Remove this quiz from the group?')">{% csrf_token %}
-            <input type="hidden" name="quiz" value="{{ s.quiz_id }}"><button class="exam-link-btn is-danger" name="action" value="unshare">Remove</button></form>{% endif %}
-        </div>
-      </article>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="exam-empty">No quizzes yet.{% if can_post %} In <a href="{% url 'bank:my_space' %}">My Space</a>, tap <b>Send</b> on a quiz and pick this group.{% endif %}</p>
-    {% endif %}
-  </section>
-
-  <section class="exam-section" id="saved" aria-labelledby="saved-title">
-    <div class="study-section-heading"><div><p>TO REVISE TOGETHER</p><h2 id="saved-title">Saved questions</h2></div>
-      {% if saves_count %}<a class="exam-card-start" href="{% url 'bank:group_saved_quiz' group.code %}">Practise all {{ saves_count }} <span aria-hidden="true">→</span></a>{% endif %}</div>
-    {% if saves %}
-    <ul class="group-saves">
-      {% for s in saves %}
-      <li><span class="group-stem">{{ s.question.stem|truncatechars:140 }}</span>
-        <small class="mute">{{ s.question.bank.title }} · saved by {{ s.saved_by.profile.name|default:"someone" }}</small>
-        {% if can_post %}<form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}<input type="hidden" name="question" value="{{ s.question_id }}">
-          <button class="exam-link-btn is-danger" name="action" value="unsave" title="Remove from the group’s list">Remove</button></form>{% endif %}</li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="exam-empty">No saved questions yet.{% if can_post %} In any quiz, tap <b>👥 Group</b> on a question to save it here.{% endif %}</p>
-    {% endif %}
-  </section>
+  </dialog>
+  {% endif %}
 
   {% if not group.is_everyone %}
-  <section class="exam-section" id="members" aria-labelledby="members-title">
-    <div class="study-section-heading"><div><p>WHO’S IN</p><h2 id="members-title">Members</h2></div></div>
-    <div class="exam-step">
-      <div class="group-link">
-        <span class="exam-chips-label">Invite link</span>
-        <input type="text" readonly value="{{ link }}" aria-label="Invite link" data-link>
-        <button type="button" class="exam-card-start" data-copy-link>Copy</button>
-        <small class="mute">Share it in WhatsApp. People who open it ask to join{% if owner %} and you accept them{% endif %}.</small>
-      </div>
-      <ul class="person-list">
-        {% for m in members %}
-        <li class="person-row">
-          <a class="person-link" href="{{ m.user.profile.get_absolute_url }}">{% include "bank/_avatar.html" with p=m.user.profile size="md" small=True %}
-            <span class="person-text"><strong>{{ m.user.profile.name }}{% if m.user_id == group.owner_id %} 👑{% endif %}</strong><span class="mute">@{{ m.user.profile.handle }}</span></span></a>
-          {% if owner and m.user_id != group.owner_id %}
-          <div class="person-actions"><form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}<input type="hidden" name="user" value="{{ m.user_id }}">
-            <button class="exam-link-btn" name="action" value="make_owner" onclick="return confirm('Make {{ m.user.profile.name|escapejs }} the owner? You will be a regular member.')">Make owner</button>
-            <button class="exam-link-btn is-danger" name="action" value="remove" onclick="return confirm('Remove {{ m.user.profile.name|escapejs }} from the group?')">Remove</button></form></div>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
+  <dialog id="invite-dialog" class="gx-dialog" aria-labelledby="invite-title">
+    <div class="gx-dialog-body">
+      <header class="gx-dialog-head"><h3 id="invite-title">Invite to {{ group.name }}</h3><button type="button" class="gx-x" data-close aria-label="Close">✕</button></header>
+      <label class="gx-field"><span>Share the link</span>
+        <span class="gx-copy"><input type="text" readonly value="{{ link }}" id="group-link"><button type="button" class="gx-btn gx-btn-sm" data-copy-link="group-link">Copy</button></span></label>
+      <p class="gx-hint">Send it in WhatsApp. People who open it ask to join{% if owner %} and you accept them{% else %} and the owner accepts them{% endif %}.</p>
+      {% if pals %}
+      <form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}
+        <input type="hidden" name="action" value="invite">
+        <span class="gx-label">Or invite friends</span>
+        <div class="gx-pick">
+          {% for p in pals %}<label class="gx-pick-row"><input type="checkbox" name="friends" value="{{ p.user_id }}">{% include "bank/_avatar.html" with p=p size="sm" small=True %}<span>{{ p.name }}</span></label>{% endfor %}
+        </div>
+        {% if not owner %}<p class="gx-hint">The owner still approves anyone you invite.</p>{% endif %}
+        <footer class="gx-dialog-foot"><button type="button" class="gx-btn gx-btn-ghost" data-close>Close</button><button class="gx-btn">Send invites</button></footer>
+      </form>
+      {% else %}
+      <p class="gx-hint">All your friends are already here, or you haven’t added friends yet.</p>
+      {% endif %}
     </div>
-  </section>
+  </dialog>
+  {% endif %}
 
-  <section class="exam-section group-settings" aria-label="Settings">
-    {% if owner %}
-    <details class="topic-manual">
-      <summary><span class="topic-manual-icon" aria-hidden="true">⚙️</span><span><b>Group settings</b><small>Name, emoji, link, delete</small></span><span class="topic-manual-chevron" aria-hidden="true">⌄</span></summary>
-      <div class="live-room-body">
-        <form method="post" action="{% url 'bank:group_action' group.code %}" class="myspace-options">{% csrf_token %}
-          <input type="hidden" name="action" value="edit">
-          <div class="group-name-row">
-            <label class="exam-field group-emoji-field"><span>Emoji</span><input type="text" name="emoji" maxlength="8" value="{{ group.emoji }}"></label>
-            <label class="exam-field"><span>Name</span><input type="text" name="name" maxlength="60" value="{{ group.name }}" required></label>
-          </div>
-          <label class="exam-field"><span>Description</span><input type="text" name="description" maxlength="200" value="{{ group.description }}"></label>
-          <button class="exam-card-start is-quiet">Save</button>
-        </form>
+  {% if owner and not group.is_everyone %}
+  <dialog id="settings-dialog" class="gx-dialog" aria-labelledby="settings-title">
+    <div class="gx-dialog-body">
+      <header class="gx-dialog-head"><h3 id="settings-title">Group settings</h3><button type="button" class="gx-x" data-close aria-label="Close">✕</button></header>
+      <form method="post" action="{% url 'bank:group_action' group.code %}" class="gx-settings-form">{% csrf_token %}
+        <input type="hidden" name="action" value="edit">
+        <div class="gx-new-ava"><label class="gx-ava gx-ava-xl gx-emoji-pick" style="--h:{{ group.pk }}"><input type="text" name="emoji" maxlength="8" value="{{ group.emoji }}" aria-label="Group emoji"></label><small>Tap to change the emoji</small></div>
+        <label class="gx-field"><span>Name</span><input type="text" name="name" maxlength="60" value="{{ group.name }}" required dir="auto"></label>
+        <label class="gx-field"><span>Description</span><input type="text" name="description" maxlength="200" value="{{ group.description }}" dir="auto"></label>
+        <footer class="gx-dialog-foot"><button class="gx-btn">Save</button></footer>
+      </form>
+      <div class="gx-danger-zone">
         <form method="post" action="{% url 'bank:group_action' group.code %}" onsubmit="return confirm('Make a new invite link? The old one stops working.')">{% csrf_token %}
-          <button class="exam-link-btn" name="action" value="new_link">Make a new invite link</button></form>
+          <button class="gx-link" name="action" value="new_link">🔄 Make a new invite link</button></form>
         <form method="post" action="{% url 'bank:group_action' group.code %}" onsubmit="return confirm('Delete {{ group.name|escapejs }} for everyone? This cannot be undone.')">{% csrf_token %}
-          <button class="exam-link-btn is-danger" name="action" value="delete">Delete the group</button></form>
+          <button class="gx-link is-danger" name="action" value="delete">🗑 Delete the group</button></form>
       </div>
-    </details>
-    {% else %}
-    <form method="post" action="{% url 'bank:group_action' group.code %}" onsubmit="return confirm('Leave {{ group.name|escapejs }}?')">{% csrf_token %}
-      <button class="exam-link-btn is-danger" name="action" value="leave">Leave the group</button></form>
-    {% endif %}
-  </section>
+    </div>
+  </dialog>
+  {% elif not group.is_everyone %}
+  <dialog id="leave-dialog" class="gx-dialog" aria-labelledby="leave-title">
+    <form method="post" action="{% url 'bank:group_action' group.code %}" class="gx-dialog-body">{% csrf_token %}
+      <header class="gx-dialog-head"><h3 id="leave-title">Leave {{ group.name }}?</h3><button type="button" class="gx-x" data-close aria-label="Close">✕</button></header>
+      <p class="gx-hint">You can ask to join again later with the link.</p>
+      <footer class="gx-dialog-foot"><button type="button" class="gx-btn gx-btn-ghost" data-close>Stay</button><button class="gx-btn gx-btn-danger" name="action" value="leave">Leave group</button></footer>
+    </form>
+  </dialog>
   {% endif %}
 </main>
 {% endblock %}
-{% block scripts %}
-<script>
-document.querySelector("[data-copy-link]")?.addEventListener("click", async e => {
-  const box = document.querySelector("[data-link]");
-  try { await navigator.clipboard.writeText(box.value); } catch (err) { box.select(); document.execCommand("copy"); }
-  e.target.textContent = "Copied ✓";
-  setTimeout(() => e.target.textContent = "Copy", 2000);
-});
-</script>
-{% endblock %}
+{% block scripts %}{% include "bank/_gx_script.html" %}{% endblock %}
