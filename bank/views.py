@@ -3096,9 +3096,16 @@ def push_admin(request):
 @perm_required("bank.change_question")
 def manage_deck(request, slug):
     bank = get_object_or_404(QuestionBank.objects.select_related("subject"), slug=slug)
+    with_notes = bank.questions.exclude(note="")
+    if request.method == "POST" and request.POST.get("action") == "omit_notes":
+        # The notes under questions were mostly left by the import for the editors; this clears the
+        # whole chapter's notes in one go (students' own private notes are a different thing and stay).
+        count = with_notes.update(note="", updated_at=timezone.now())
+        messages.success(request, f"Removed the note from {count} question{'s' if count != 1 else ''} in {bank.title}.")
+        return redirect("bank:manage_deck", bank.slug)
     qs = bank.questions.filter(is_in_sorting_bin=False).annotate(
         open_comments=Count("comments", filter=Q(comments__resolved=False), distinct=True))
-    return render(request, "bank/manage_deck.html", {"bank": bank, "questions": qs})
+    return render(request, "bank/manage_deck.html", {"bank": bank, "questions": qs, "notes_count": with_notes.count()})
 
 
 def _edit_question(request, question, bank=None, is_new=False):

@@ -6,7 +6,10 @@
   › Semester {{ bank.semester }} › <a href="{{ bank.get_absolute_url }}">{{ bank.title }}</a> › Manage</p>
 <div class="row" style="margin-top:0"><h2 class="pagetitle" style="margin:0">Edit questions</h2>
   <span>{% if perms.bank.add_question %}<a class="btn pri" href="{% url 'bank:question_add' bank.slug %}">+ Add question</a>
-  <a class="btn" href="{% url 'bank:import' %}?subject={{ bank.subject_id|default_if_none:"" }}&semester={{ bank.semester }}&deck_title={{ bank.title|urlencode }}">Bulk import</a>{% endif %}</span></div>
+  <a class="btn" href="{% url 'bank:import' %}?subject={{ bank.subject_id|default_if_none:"" }}&semester={{ bank.semester }}&deck_title={{ bank.title|urlencode }}">Bulk import</a>{% endif %}
+  {% if notes_count %}<form method="post" class="inline" onsubmit="return confirm('Remove the note shown under {{ notes_count }} question{{ notes_count|pluralize }} in this chapter? This cannot be undone.')">{% csrf_token %}
+    <input type="hidden" name="action" value="omit_notes">
+    <button class="btn" title="Clear the notes shown under this chapter's questions">Omit notes ({{ notes_count }})</button></form>{% endif %}</span></div>
 <div class="card scroll" style="margin-top:10px">
 <table>
   <tr><th>#</th><th>Question</th><th>Type</th><th>Destination</th><th></th></tr>
