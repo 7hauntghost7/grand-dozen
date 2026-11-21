@@ -26,7 +26,7 @@
     {% with q=f.question %}
     <article class="fr-card is-{{ f.status }}" id="flag-{{ f.pk }}" data-url="{% url 'bank:final_review_flag' f.pk %}">
       <header class="fr-card-head">
-        <span class="fr-tag fr-tag-{{ f.kind|lower }}">{{ f.get_kind_display }}{% if f.kind == "MOVE" %} → {{ f.value }}{% elif f.kind == "KEY" %} → {{ f.value }}{% elif f.kind == "TF" and f.true_letters %} → {{ f.true_letters }} true{% endif %}</span>
+        <span class="fr-tag fr-tag-{{ f.kind|lower }}">{{ f.get_kind_display }}{% if f.kind == "MOVE" %} → {{ f.value }}{% elif f.kind == "KEY" %} → {{ f.value }}{% elif f.kind == "TF" and f.true_letters %} → {{ f.true_letters }} true{% elif f.value %} · {{ f.value }}{% endif %}</span>
         <small>#{{ q.pk }} · {{ q.bank.title }}{% if q.number %} · No. {{ q.number }}{% endif %}{% if q.is_in_sorting_bin %} · in sorting bin{% elif q.is_in_review_bin %} · in review bin{% endif %}</small>
       </header>
       {% if f.live_copy %}<p class="fr-merged" data-merged>Merged into <b>#{{ f.live_copy.pk }}</b> · this copy is in the review bin and students don't see it. <b>Edit</b> opens #{{ f.live_copy.pk }}, the one students see.</p>{% endif %}

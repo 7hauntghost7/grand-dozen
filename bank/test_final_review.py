@@ -44,6 +44,16 @@ class FinalReviewTests(TestCase):
         self.assertEqual(final_review.sync_chunks(self.subject, size=2), 1)
         self.assertEqual(ReviewChunk.objects.filter(subject=self.subject).count(), 4)
 
+    def test_round_tag_lets_a_settled_question_be_flagged_again(self):
+        q = self.questions[0]
+        ReviewFlag.objects.create(subject=self.subject, question=q, kind="BROKEN", reason="garbled", status="fixed")
+        url = self.url("final_review_subject", self.subject.slug)
+        self.client.post(url, {"action": "paste", "text": f"{q.pk} | BROKEN | - | garbled again"})
+        self.assertEqual(ReviewFlag.objects.filter(question=q).count(), 1)          # a plain repeat is skipped
+        self.client.post(url, {"action": "paste", "text": f"{q.pk} | BROKEN | round 2 | remove the editor note"})
+        new = ReviewFlag.objects.get(question=q, value="round 2")
+        self.assertEqual((new.status, new.reason), ("open", "remove the editor note"))
+
     def test_paste_creates_flags_validates_and_ignores_repeats(self):
         q0, q1, q2, q3 = self.questions[:4]
         reply = f"""Here is my review:

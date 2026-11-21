@@ -189,9 +189,12 @@ def parse_answer(subject, text):
         if kind == ReviewFlag.TF and LETTER_LIST.match(value):
             value = _letters(value)
         elif kind in (ReviewFlag.TF, ReviewFlag.WRONG, ReviewFlag.BROKEN):
-            if value and value != "-" and not reason:
+            # "round 2" in the value marks a later review round, so a question flagged and settled in an
+            # earlier round can be flagged again (otherwise it counts as a repeat and is skipped).
+            round_tag = re.fullmatch(r"(?:round|r)\s*(\d{1,2})", value, re.I) if kind != ReviewFlag.TF else None
+            if value and value != "-" and not reason and not round_tag:
                 reason = value
-            value = ""
+            value = f"round {round_tag.group(1)}" if round_tag else ""
             if kind == ReviewFlag.TF:
                 m = TRUE_LETTERS.match(reason)
                 value = _letters(m.group(1)) if m else ""
