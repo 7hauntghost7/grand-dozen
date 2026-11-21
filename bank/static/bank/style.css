@@ -4806,3 +4806,6 @@ tr.drop-active>td{background:var(--acc-soft)}
 :root[data-skin="dune"] .group-pick{border-radius:3px;border-width:2px}
 :root[data-skin="dune"] .group-card.is-everyone{border-color:var(--dn-edge);box-shadow:5px 5px 0 var(--brand-gold)}
 .group-announce textarea{font-family:inherit}
+/* Arabic posts and names read right-to-left (dir="auto" picks the direction from the first letters) */
+.group-announcement[dir="auto"],.group-announce textarea,.groups-page [dir="auto"]{text-align:start;unicode-bidi:plaintext}
+.group-announcement{white-space:normal;line-height:1.7}

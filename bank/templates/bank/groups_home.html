@@ -19,11 +19,11 @@
       <a class="exam-card group-card{% if g.is_everyone %} is-everyone{% endif %}" href="{{ g.get_absolute_url }}" style="--i:{{ forloop.counter0 }}">
         <div class="exam-card-top">
           <span class="group-emoji group-emoji-lg" aria-hidden="true">{{ g.emoji }}</span>
-          <h3>{{ g.name }}</h3>
+          <h3 dir="auto">{{ g.name }}</h3>
           {% if g.is_everyone %}<span class="exam-badge is-gold">Official · everyone</span>{% endif %}
           {% if g.waiting %}<span class="exam-badge is-live">{{ g.waiting }} waiting</span>{% endif %}
         </div>
-        {% if g.description %}<p class="exam-card-chapters">{{ g.description }}</p>{% endif %}
+        {% if g.description %}<p class="exam-card-chapters" dir="auto">{{ g.description }}</p>{% endif %}
         <p class="exam-card-meta"><span><b>{{ g.count }}</b> member{{ g.count|pluralize }}</span>{% if g.owner_id == user.pk %}<span>You own it</span>{% endif %}</p>
         <span class="exam-card-start">Open <span aria-hidden="true">→</span></span>
       </a>
@@ -43,10 +43,10 @@
       <div class="myspace-options">
         <div class="group-name-row">
           <label class="exam-field group-emoji-field"><span>Emoji</span><input type="text" name="emoji" maxlength="8" value="📚" aria-label="Emoji"></label>
-          <label class="exam-field"><span>Name</span><input type="text" name="name" maxlength="60" required placeholder="e.g. Renal squad"></label>
+          <label class="exam-field"><span>Name</span><input type="text" name="name" maxlength="60" required dir="auto" placeholder="e.g. Renal squad"></label>
         </div>
         <label class="exam-field"><span>Description <small class="mute">(optional)</small></span>
-          <input type="text" name="description" maxlength="200" placeholder="e.g. Physiology finals, 4 of us"></label>
+          <input type="text" name="description" maxlength="200" dir="auto" placeholder="e.g. Physiology finals, 4 of us"></label>
         <button class="exam-card-start">Create group <span aria-hidden="true">→</span></button>
       </div>
     </form>

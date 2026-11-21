@@ -5,8 +5,8 @@
   <section class="page-hero">
     {% include "bank/_hero_peaks.html" %}
     <nav class="page-crumbs" aria-label="Breadcrumb"><a href="{% url 'bank:groups' %}">Groups</a></nav>
-    <h2 class="page-title"><span aria-hidden="true">{{ group.emoji }}</span> {{ group.name }}</h2>
-    {% if group.description %}<p class="page-lede">{{ group.description }}</p>{% endif %}
+    <h2 class="page-title" dir="auto"><span aria-hidden="true">{{ group.emoji }}</span> {{ group.name }}</h2>
+    {% if group.description %}<p class="page-lede" dir="auto">{{ group.description }}</p>{% endif %}
     <div class="page-stats"><span><b>{{ count }}</b> member{{ count|pluralize }}</span>
       {% if group.is_everyone %}<span>Official · only admins post</span>{% elif group.owner %}<span>Owner <b>{{ group.owner.profile.name }}</b></span>{% endif %}</div>
   </section>
@@ -39,7 +39,7 @@
     {% if can_announce %}
     <form method="post" action="{% url 'bank:group_action' group.code %}" class="group-announce">{% csrf_token %}
       <input type="hidden" name="action" value="announce">
-      <textarea name="text" rows="2" maxlength="1000" required placeholder="📣 Post an announcement to the group…"></textarea>
+      <textarea name="text" rows="3" maxlength="1000" required dir="auto" placeholder="📣 Post an announcement to the group…"></textarea>
       <button class="exam-card-start">Post</button>
     </form>
     {% endif %}
@@ -53,9 +53,9 @@
             <b>{{ p.author.profile.name|default:"Someone" }}</b>
             {% if p.kind == "live" %}started a live quiz{% if p.live_room %}: <b>{{ p.live_room.title }}</b>{% endif %}
             {% elif p.kind == "quiz" %}shared a quiz: <b>{{ p.quiz.title }}</b> <span class="mute">· {{ p.quiz.questions|length }} questions</span>
-            {% elif p.kind == "saved" %}saved a question: <span class="group-stem">{{ p.question.stem|truncatechars:110 }}</span>
+            {% elif p.kind == "saved" %}saved a question: <span class="group-stem" dir="auto">{{ p.question.stem|truncatechars:110 }}</span>
             {% elif p.kind == "joined" %}joined the group 👋
-            {% else %}<span class="group-announcement">{{ p.text|linebreaksbr }}</span>{% endif %}
+            {% else %}<span class="group-announcement" dir="auto">{{ p.text|linebreaksbr }}</span>{% endif %}
           </p>
           <small class="mute">{{ p.created_at|timesince }} ago</small>
           {% if p.kind == "live" and p.live_room %}
