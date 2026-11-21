@@ -75,6 +75,7 @@
   const tfPending = {};
   const cm = {};
   const nt = {};  // per-question personal note panel: {open, text, err, msg, busy}
+  const gp = {};  // per-question "save to group" picker: {open, groups, err}
   const notice = {};
 
   const dirtyDraftIds = () => Object.keys(drafts).filter(id => drafts[id].dirty);
@@ -212,6 +213,34 @@
       byId[id].saved = r.json.saved;
       if (!r.json.saved) { byId[id].my_note = ""; delete nt[id]; }
     }
+    render();
+  }
+
+  // Study groups: save a question to a group's shared list.
+  async function toggleGroupPicker(id) {
+    const g = gp[id] || (gp[id] = {});
+    g.open = !g.open;
+    render();
+    if (g.open && g.groups === undefined) {
+      try {
+        const r = await fetch(D.groups + "?question=" + id, {cache: "no-store"});
+        g.groups = (await r.json()).groups || [];
+      } catch (e) {
+        g.groups = [];
+        g.err = "Couldn't load your groups.";
+      }
+      render();
+    }
+  }
+
+  async function saveToGroup(id, code) {
+    const g = gp[id];
+    const r = await post(url(D.groupSave, id), {group: code});
+    if (r.json && typeof r.json.saved === "boolean") {
+      const item = g.groups.find(x => x.code === code);
+      if (item) item.saved = r.json.saved;
+      g.err = "";
+    } else g.err = (r.json && r.json.error) || "Couldn't save to the group.";
     render();
   }
 
@@ -855,6 +884,13 @@
     const edit = review
       ? `<button class="btn" data-act="toggle-edit">${editing[id] ? "Close editor" : "✎ Edit question"}</button>`
       : D.edit ? `<a class="btn" href="${esc(editUrl(id))}">✎ Edit</a>` : "";
+    const groupButton = !review && D.groups && AUTH && q.kind !== "image"
+      ? `<button class="btn quiz-group-save" data-act="group-pick" aria-expanded="${!!(gp[id] && gp[id].open)}" title="Save this question to a study group">👥 Group</button>` : "";
+    const groupPanel = gp[id] && gp[id].open
+      ? `<div class="group-pick" role="group" aria-label="Save to a group">${gp[id].groups === undefined ? '<span class="mute">Loading your groups…</span>'
+          : !gp[id].groups.length ? '<span class="mute">You aren’t in a group you can save to yet. Make one in the Groups tab.</span>'
+          : gp[id].groups.map(g => `<button class="btn${g.saved ? " pri" : ""}" data-act="group-save" data-group="${esc(g.code)}">${esc(g.emoji)} ${esc(g.name)}${g.saved ? " ✓" : ""}</button>`).join("")}
+          ${gp[id].err ? `<span class="fb bad">${esc(gp[id].err)}</span>` : ""}</div>` : "";
     const loginNote = notice[id] === "login"
       ? `<div class="fb info"><a href="${esc(D.login)}">Log in</a> to save questions and send comments.</div>` : "";
     const finishLabel = lastInBlock ? "Finish block" : "";
@@ -932,10 +968,11 @@
           ${q.is_in_sorting_bin ? '<span class="tag">In sorting bin</span>' : ""}${q.is_in_review_bin ? '<span class="tag">In review bin</span>' : ""}${binLabel}${reviewBinLabel}
         </div>
         <div class="quiz-question-tools${!edit && !binAction && !reviewBinAction && !quizBinAction && !quizReviewBinAction ? " quiz-question-tools-solo" : ""}">
-          ${edit}${star}
+          ${edit}${star}${groupButton}
           ${(binAction || reviewBinAction || quizBinAction || quizReviewBinAction) ? `<div class="quiz-question-triage">${binAction}${reviewBinAction}${quizBinAction}${quizReviewBinAction}</div>` : ""}
         </div>
       </div>
+        ${groupPanel}
         ${loginNote}
         ${questionLayout(figure, `${q.kind === "desc" ? descriptiveStudy : q.kind === "image" ? body : `<div class="stem">${esc(q.stem)}</div>${body}`}${a ? feedback(q, a) : ""}
         ${review && q.source_chapter ? `<p class="mute review-source">Original chapter: ${esc(q.source_chapter)}</p>` : ""}
@@ -1154,6 +1191,8 @@
         else window.scrollTo(0, 0);
         break;
       case "save": toggleSave(id); break;
+      case "group-pick": toggleGroupPicker(id); break;
+      case "group-save": saveToGroup(id, d.group); break;
       case "cmtoggle": (cm[id] = cm[id] || {}).open = !(cm[id] || {}).open; if (cm[id].open) cm[id].msg = ""; render(); break;
       case "cmsend": sendComment(id); break;
       case "note-toggle": {

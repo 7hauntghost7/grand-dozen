@@ -1,0 +1,27 @@
+{% extends "bank/base.html" %}
+{% block title %}{{ group.name }}{% endblock %}
+{% block content %}
+<main class="study-page myspace-page groups-page">
+  <section class="page-hero">
+    {% include "bank/_hero_peaks.html" %}
+    <nav class="page-crumbs" aria-label="Breadcrumb"><a href="{% url 'bank:groups' %}">Groups</a></nav>
+    <h2 class="page-title"><span aria-hidden="true">{{ group.emoji }}</span> {{ group.name }}</h2>
+    {% if group.description %}<p class="page-lede">{{ group.description }}</p>{% endif %}
+    <div class="page-stats"><span><b>{{ count }}</b> member{{ count|pluralize }}</span>
+      {% if group.owner %}<span>Owner <b>{{ group.owner.profile.name }}</b></span>{% endif %}</div>
+  </section>
+  <div class="exam-step group-join-box">
+    {% if mine %}
+    <h3>Request sent ✓</h3>
+    <p class="mute">{{ group.owner.profile.name|default:"The owner" }} will let you in. You’ll get a notification.</p>
+    <form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}
+      <input type="hidden" name="action" value="cancel"><button class="exam-link-btn is-danger">Cancel my request</button></form>
+    {% else %}
+    <h3>Join this group?</h3>
+    <p class="mute">The owner accepts each new member.</p>
+    <form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}
+      <input type="hidden" name="action" value="request"><button class="exam-card-start">Ask to join <span aria-hidden="true">→</span></button></form>
+    {% endif %}
+  </div>
+</main>
+{% endblock %}

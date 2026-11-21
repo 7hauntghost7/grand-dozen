@@ -14,9 +14,11 @@
      data-edit="{% if perms.bank.change_question %}{% url 'bank:question_edit' 0 %}{% endif %}"
      data-messages="{% url 'bank:messages' %}"
      data-saved="{% url 'bank:saved_home' %}"
-     data-friends-page="{% url 'bank:friends' %}">
+     data-friends-page="{% url 'bank:friends' %}"
+     data-posted-group="{{ posted_group }}">
   <p class="mute">Connecting…</p>
 </div>
 {{ friends|json_script:"live-friends" }}
+{{ groups|json_script:"live-groups" }}
 {% endblock %}
-{% block scripts %}<script src="{% static 'bank/live.js' %}?v=20261118-13"></script>{% endblock %}
+{% block scripts %}<script src="{% static 'bank/live.js' %}?v=20261121-1"></script>{% endblock %}

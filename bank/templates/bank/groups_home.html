@@ -1,0 +1,65 @@
+{% extends "bank/base.html" %}
+{% block title %}Groups{% endblock %}
+{% block content %}
+<main class="study-page myspace-page groups-page">
+  <section class="page-hero">
+    {% include "bank/_hero_peaks.html" %}
+    <p class="page-eyebrow">Study together</p>
+    <h2 class="page-title">Groups</h2>
+    <p class="page-lede">Start live quizzes with your group, share quizzes, and build a list of questions to revise together.</p>
+  </section>
+
+  <section class="exam-section" aria-labelledby="mine-title">
+    <div class="study-section-heading">
+      <div><p>YOUR GROUPS</p><h2 id="mine-title">My groups</h2></div>
+      <span class="study-total">{{ groups|length }} group{{ groups|length|pluralize }}</span>
+    </div>
+    <div class="exam-cards">
+      {% for g in groups %}
+      <a class="exam-card group-card{% if g.is_everyone %} is-everyone{% endif %}" href="{{ g.get_absolute_url }}" style="--i:{{ forloop.counter0 }}">
+        <div class="exam-card-top">
+          <span class="group-emoji group-emoji-lg" aria-hidden="true">{{ g.emoji }}</span>
+          <h3>{{ g.name }}</h3>
+          {% if g.is_everyone %}<span class="exam-badge is-gold">Official · everyone</span>{% endif %}
+          {% if g.waiting %}<span class="exam-badge is-live">{{ g.waiting }} waiting</span>{% endif %}
+        </div>
+        {% if g.description %}<p class="exam-card-chapters">{{ g.description }}</p>{% endif %}
+        <p class="exam-card-meta"><span><b>{{ g.count }}</b> member{{ g.count|pluralize }}</span>{% if g.owner_id == user.pk %}<span>You own it</span>{% endif %}</p>
+        <span class="exam-card-start">Open <span aria-hidden="true">→</span></span>
+      </a>
+      {% endfor %}
+    </div>
+    {% if asked %}
+    <p class="exam-card-chapters groups-asked">Waiting for approval:
+      {% for m in asked %}<a href="{{ m.group.get_absolute_url }}">{{ m.group.emoji }} {{ m.group.name }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+    {% endif %}
+  </section>
+
+  <div class="groups-forms">
+    <form method="post" class="exam-step">{% csrf_token %}
+      <input type="hidden" name="action" value="create">
+      <div class="exam-step-head"><span class="exam-step-num" aria-hidden="true">+</span>
+        <div><h3>Create a group</h3><p>You’ll own it and decide who joins.</p></div></div>
+      <div class="myspace-options">
+        <div class="group-name-row">
+          <label class="exam-field group-emoji-field"><span>Emoji</span><input type="text" name="emoji" maxlength="8" value="📚" aria-label="Emoji"></label>
+          <label class="exam-field"><span>Name</span><input type="text" name="name" maxlength="60" required placeholder="e.g. Renal squad"></label>
+        </div>
+        <label class="exam-field"><span>Description <small class="mute">(optional)</small></span>
+          <input type="text" name="description" maxlength="200" placeholder="e.g. Physiology finals, 4 of us"></label>
+        <button class="exam-card-start">Create group <span aria-hidden="true">→</span></button>
+      </div>
+    </form>
+
+    <form method="post" class="exam-step">{% csrf_token %}
+      <input type="hidden" name="action" value="code">
+      <div class="exam-step-head"><span class="exam-step-num" aria-hidden="true">🔗</span>
+        <div><h3>Join a group</h3><p>Paste the link a friend shared, or its code.</p></div></div>
+      <div class="myspace-options">
+        <label class="exam-field"><span>Link or code</span><input type="text" name="code" required autocomplete="off" placeholder="e.g. k3x9qa2m"></label>
+        <button class="exam-card-start is-quiet">Find group</button>
+      </div>
+    </form>
+  </div>
+</main>
+{% endblock %}

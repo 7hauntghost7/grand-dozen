@@ -4752,3 +4752,57 @@ tr.drop-active>td{background:var(--acc-soft)}
 @media (prefers-reduced-motion:reduce){.live-podium.is-fresh *{animation:none!important}}
 .fr-merged{margin:4px 0 8px;padding:8px 10px;border-radius:8px;border:1px solid var(--ok);background:color-mix(in srgb,var(--ok) 10%,transparent);font-size:.92rem}
 :root[data-skin="dune"] .fr-merged{border-radius:3px;border-width:2px}
+
+/* Study groups */
+.group-emoji{font-style:normal;line-height:1}
+.group-emoji-lg{font-size:1.7rem;flex:none}
+.group-card{text-decoration:none;color:inherit}
+.group-card .exam-card-top h3{flex:1 1 auto}
+.group-card.is-everyone{border-color:var(--brand-gold);background:color-mix(in srgb,var(--brand-gold) 8%,var(--card))}
+.groups-asked{margin-top:12px}
+.groups-forms{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px;margin-top:26px}
+.group-name-row{display:grid;grid-template-columns:84px minmax(0,1fr);gap:10px}
+.group-emoji-field input{text-align:center;font-size:1.3rem}
+.group-join-box{margin-top:22px;display:grid;gap:10px;justify-items:start}
+.group-join-box h3{margin:0}
+.group-jump{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0}
+.group-jump a{padding:6px 14px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;font-weight:650;font-size:.88rem}
+.group-jump a:hover{border-color:var(--brand-gold)}
+.group-pending{margin-top:18px}
+.group-pending h3{margin:0 0 8px}
+.group-announce{display:grid;gap:8px;justify-items:start;margin-bottom:12px}
+.group-announce textarea{width:100%;box-sizing:border-box;border-radius:12px;font-size:16px;resize:vertical}
+.group-hint{font-size:.85rem;margin:0 0 12px}
+.group-feed{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.group-post{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--card)}
+.group-post .avatar{flex:none}
+.group-post-body{min-width:0;flex:1;display:grid;gap:4px}
+.group-post-body p{margin:0;overflow-wrap:anywhere}
+.group-post-body small{font-size:.78rem}
+.group-post.is-live{border-color:#c0392b}
+.group-post.is-announce{border-color:var(--brand-gold);background:color-mix(in srgb,var(--brand-gold) 10%,var(--card))}
+.group-announcement{display:block;margin-top:4px;color:var(--ink)}
+.group-post.is-joined{padding:8px 14px;background:transparent;border-style:dashed}
+.group-stem{color:var(--ink)}
+.group-post-action{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px}
+.group-saves{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.group-saves li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
+.group-saves li small{grid-column:1}
+.group-saves li form{grid-column:2;grid-row:1/3}
+.group-link{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 8px;align-items:center;margin-bottom:14px}
+.group-link .exam-chips-label,.group-link small{grid-column:1/-1}
+.group-link input{min-height:40px;font-size:.9rem}
+.group-settings{display:grid;gap:10px}
+.group-settings .live-room-body form{margin:0}
+.group-pick{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0;padding:10px;border-radius:12px;border:1px dashed var(--line)}
+.live-group-post{display:flex;gap:8px;align-items:center;width:100%}
+.live-group-post select{flex:1;min-width:0;min-height:40px}
+.live-posted{margin:0}
+:root[data-skin="dune"] .group-post,:root[data-skin="dune"] .group-saves li{border:2px solid var(--line);border-radius:3px}
+:root[data-skin="dune"] .group-post.is-live{border-color:#c0392b;box-shadow:4px 4px 0 #c0392b}
+:root[data-skin="dune"] .group-post.is-announce{border-color:var(--dn-edge);box-shadow:4px 4px 0 var(--brand-gold)}
+:root[data-skin="dune"] .group-jump a{border-radius:3px;border-width:2px}
+:root[data-skin="dune"] .group-announce textarea{border-radius:3px}
+:root[data-skin="dune"] .group-pick{border-radius:3px;border-width:2px}
+:root[data-skin="dune"] .group-card.is-everyone{border-color:var(--dn-edge);box-shadow:5px 5px 0 var(--brand-gold)}
+.group-announce textarea{font-family:inherit}

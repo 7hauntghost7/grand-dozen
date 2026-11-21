@@ -725,6 +725,7 @@ class LiveRoom(models.Model):
     personal_quiz = models.ForeignKey(PersonalQuiz, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     question_ids = models.JSONField(default=list)
     group_saves = models.JSONField(default=list)       # Question ids the leaders saved for the group
+    group = models.ForeignKey("StudyGroup", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     position = models.PositiveIntegerField(default=0)
     revealed = models.JSONField(default=list)          # positions whose answer has been shown
     results_block = models.PositiveIntegerField(null=True, blank=True)   # a block report everyone is looking at
@@ -782,3 +783,80 @@ class LiveSave(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["room", "user", "question"], name="unique_live_save")]
+
+
+class StudyGroup(models.Model):
+    """A study group. Students join with its link and the owner accepts them.
+
+    ``is_everyone`` groups (the Academic Secretary) hold every user without membership rows, and only
+    admins post in them.
+    """
+    name = models.CharField(max_length=60)
+    emoji = models.CharField(max_length=8, default="📚")
+    description = models.CharField(max_length=200, blank=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    code = models.CharField(max_length=12, unique=True)
+    is_everyone = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-is_everyone", "name", "id"]
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse("bank:group", args=[self.code])
+
+
+class GroupMember(models.Model):
+    PENDING, ACTIVE = "pending", "active"
+    group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name="members")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="group_memberships")
+    status = models.CharField(max_length=8, default=PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    joined_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["joined_at", "created_at", "id"]
+        constraints = [models.UniqueConstraint(fields=["group", "user"], name="unique_group_member")]
+
+
+class GroupPost(models.Model):
+    """One line of a group's feed: something a member did, or an announcement."""
+    JOINED, LIVE, QUIZ, SAVED, ANNOUNCE = "joined", "live", "quiz", "saved", "announce"
+    group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name="posts")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    kind = models.CharField(max_length=10)
+    text = models.TextField(max_length=1000, blank=True)
+    live_room = models.ForeignKey("LiveRoom", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    quiz = models.ForeignKey(PersonalQuiz, null=True, blank=True, on_delete=models.CASCADE, related_name="+")
+    question = models.ForeignKey(Question, null=True, blank=True, on_delete=models.CASCADE, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+
+class GroupQuiz(models.Model):
+    """A My Space quiz shared with a group (the questions stay stored once)."""
+    group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name="quizzes")
+    quiz = models.ForeignKey(PersonalQuiz, on_delete=models.CASCADE, related_name="group_shares")
+    shared_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [models.UniqueConstraint(fields=["group", "quiz"], name="unique_group_quiz")]
+
+
+class GroupSave(models.Model):
+    """A question saved to a group's shared revision list."""
+    group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name="saves")
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="group_saves")
+    saved_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [models.UniqueConstraint(fields=["group", "question"], name="unique_group_save")]

@@ -65,6 +65,11 @@ def _member_or_404(room, user):
 
 
 def _is_friend_of_room(room, user):
+    """Who may join: friends of someone in the room, or members of the group it was posted to."""
+    if room.group_id:
+        from .groups import is_member
+        if is_member(room.group, user):
+            return True
     ids = _active_members(room).values_list("user_id", flat=True)
     return Friendship.objects.filter(user=user, friend_id__in=ids).exists()
 
@@ -437,6 +442,22 @@ def _enter(room, user, member=None):
 
 
 @login_required
+@require_POST
+def group_join(request, pk):
+    """The Join button in a group's feed."""
+    room = get_object_or_404(LiveRoom, pk=pk, ended_at__isnull=True)
+    member = room.members.filter(user=request.user, left_at__isnull=True).first()
+    if member is None:
+        if not _is_friend_of_room(room, request.user):
+            raise Http404
+        if _active_members(room).count() >= LiveRoom.MAX_MEMBERS:
+            messages.error(request, f"That live quiz is full ({LiveRoom.MAX_MEMBERS} people).")
+            return redirect(request.POST.get("back") or "bank:groups")
+    _enter(room, request.user, member)
+    return redirect("bank:live_room", room.pk)
+
+
+@login_required
 @ensure_csrf_cookie
 def room_page(request, pk):
     room = get_object_or_404(LiveRoom, pk=pk)
@@ -450,7 +471,10 @@ def room_page(request, pk):
     pals = [{"id": p.user_id, "name": p.name, "initials": p.initials, "color": p.avatar_color,
              "avatar": p.avatar_small_url or p.avatar_url} for p in friends.friends_of(request.user)
             if p.user_id not in in_room]
-    return render(request, "bank/live.html", {"room": room, "friends": pals})
+    from .groups import postable_groups
+    groups = [{"code": g.code, "name": g.name, "emoji": g.emoji} for g in postable_groups(request.user)]
+    return render(request, "bank/live.html", {"room": room, "friends": pals, "groups": groups,
+                                              "posted_group": room.group.name if room.group_id else ""})
 
 
 @login_required
@@ -556,6 +580,16 @@ def _do(room, member, user, action, data, now):
             elif not _active_members(room).exists():
                 _end(room, now)
                 return ""
+
+    elif action == "group":
+        from .groups import post_live
+        from .models import StudyGroup
+        group = StudyGroup.objects.filter(code=str(data.get("code", ""))).first()
+        if group is None:
+            return "No such group."
+        error = post_live(group, room, user)
+        if error:
+            return error
 
     elif action == "invite":
         ids = {int(i) for i in data.get("friends") or [] if str(i).isdigit()}

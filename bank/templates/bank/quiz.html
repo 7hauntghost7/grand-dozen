@@ -18,6 +18,8 @@
      data-save="{% url 'bank:api_save' 0 %}"
      data-comment="{% url 'bank:api_comment' 0 %}"
      data-note="{% url 'bank:api_note' 0 %}"
+     data-groups="{% if user.is_authenticated and not personal %}{% url 'bank:api_groups_postable' %}{% endif %}"
+     data-group-save="{% url 'bank:api_group_save' 0 %}"
      data-personal="{% if personal %}1{% else %}0{% endif %}"
      data-live-start="{% if user.is_authenticated and not review %}{% url 'bank:live_start' %}{% endif %}"
      data-live-mine="{{ live_mine|default:'' }}"
@@ -27,4 +29,4 @@
   <p class="mute">Loading…</p>
 </div>
 {% endblock %}
-{% block scripts %}<script src="{% static 'bank/quiz.js' %}?v=20261118-1"></script>{% endblock %}
+{% block scripts %}<script src="{% static 'bank/quiz.js' %}?v=20261121-1"></script>{% endblock %}

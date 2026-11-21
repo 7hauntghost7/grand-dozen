@@ -45,6 +45,10 @@
 
         <form method="post" action="{% url 'bank:my_space_action' quiz.pk %}" class="myspace-panel" id="send-{{ quiz.pk }}" hidden>{% csrf_token %}
           <input type="hidden" name="action" value="share">
+          {% if groups %}<span class="exam-chips-label">Share with a group</span>
+          <div class="myspace-friends">
+            {% for g in groups %}<label class="myspace-friend"><input type="checkbox" name="groups" value="{{ g.code }}"><span class="group-emoji">{{ g.emoji }}</span><span>{{ g.name }}</span></label>{% endfor %}
+          </div>{% endif %}
           <span class="exam-chips-label">Send to friends</span>
           {% if friends %}
           <div class="myspace-friends">
@@ -53,10 +57,10 @@
               {% include "bank/_avatar.html" with p=p size="sm" small=True %}<span>{{ p.name }}</span></label>
             {% endfor %}
           </div>
-          <button class="exam-card-start">Send <span aria-hidden="true">→</span></button>
           {% else %}
           <p class="mute">You have no friends here yet. <a href="{% url 'bank:friends' %}">Add friends</a> to send them quizzes.</p>
           {% endif %}
+          {% if friends or groups %}<button class="exam-card-start">Send <span aria-hidden="true">→</span></button>{% endif %}
         </form>
         {% if quiz.mine %}
         <form method="post" action="{% url 'bank:my_space_action' quiz.pk %}" class="myspace-panel myspace-rename" id="rename-{{ quiz.pk }}" hidden>{% csrf_token %}

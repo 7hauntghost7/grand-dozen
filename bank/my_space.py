@@ -182,9 +182,11 @@ def _mix(quiz):
 
 
 def _visible_quiz(user, pk):
-    """A quiz in the user's My Space, or one a friend sent them (they can try it before adding it)."""
+    """A quiz in the user's My Space, one a friend sent them, or one shared with a group they're in."""
+    from .groups import my_groups
     return get_object_or_404(
-        PersonalQuiz.objects.filter(Q(access__user=user) | Q(shares__recipient=user)).distinct(), pk=pk)
+        PersonalQuiz.objects.filter(Q(access__user=user) | Q(shares__recipient=user)
+                                    | Q(group_shares__group__in=my_groups(user))).distinct(), pk=pk)
 
 
 def _drop_if_unused(quiz):
@@ -202,7 +204,9 @@ def home(request):
         quiz.mix = _mix(quiz)
         quiz.mine = quiz.user_id == request.user.pk
         quizzes.append(quiz)
-    return render(request, "bank/my_space.html", {"quizzes": quizzes, "friends": friends.friends_of(request.user)})
+    from .groups import postable_groups
+    return render(request, "bank/my_space.html", {"quizzes": quizzes, "friends": friends.friends_of(request.user),
+                                                  "groups": postable_groups(request.user)})
 
 
 @login_required
@@ -281,6 +285,12 @@ def quiz_action(request, pk):
             quiz.title = title
             quiz.save(update_fields=["title", "updated_at"])
     elif action == "share":
+        from .groups import share_quiz
+        from .models import StudyGroup
+        shared_to = [g.name for g in StudyGroup.objects.filter(code__in=request.POST.getlist("groups"))
+                     if share_quiz(g, quiz, request.user)]
+        if shared_to:
+            messages.success(request, f"Shared “{quiz.title}” with {', '.join(shared_to)}.")
         ids = {int(i) for i in request.POST.getlist("friends") if i.isdigit()}
         targets = [p.user for p in friends.friends_of(request.user) if p.user_id in ids]
         sent = 0
@@ -299,8 +309,8 @@ def quiz_action(request, pk):
             messages.success(request, f"Sent “{quiz.title}” to {sent} friend{'s' if sent != 1 else ''}.")
         elif targets:
             messages.info(request, "They already have this quiz in their space.")
-        else:
-            messages.error(request, "Pick at least one friend.")
+        elif not shared_to:
+            messages.error(request, "Pick at least one friend or group.")
     return redirect("bank:my_space")
 
 

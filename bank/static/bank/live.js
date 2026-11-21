@@ -11,6 +11,8 @@
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
   const csrf = () => (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || "";
   const friendsList = JSON.parse(document.getElementById("live-friends").textContent || "[]");
+  const groupsList = JSON.parse((document.getElementById("live-groups") || {}).textContent || "[]");
+  let postedGroup = D.postedGroup || "";
 
   let Q = [], S = null, sig = "", busy = false, error = "", offline = false;
   let pollTimer = null, deadline = null, timerFired = false;
@@ -582,6 +584,11 @@
         <ul class="live-members">${rows}</ul>
         ${follow}
         ${invite}
+        ${S.ended ? "" : postedGroup ? `<p class="mute live-posted">📣 Posted to <b>${esc(postedGroup)}</b>: its members can join from the group page.</p>`
+          : groupsList.length ? `<div class="live-invite"><span class="exam-chips-label">Post to a study group</span>
+              <div class="live-group-post"><select data-group-pick aria-label="Group">${groupsList.map(g => `<option value="${esc(g.code)}">${esc(g.emoji)} ${esc(g.name)}</option>`).join("")}</select>
+              <button class="exam-card-start" data-act="post-group" ${busy ? "disabled" : ""}>Post <span aria-hidden="true">→</span></button></div>
+              <small class="mute">Members get a notification and a Join button in the group.</small></div>` : ""}
         ${S.ended ? "" : '<button class="exam-link-btn is-danger" data-act="leave" data-confirm="Leave this live quiz?">Leave the live quiz</button>'}
       </div>
     </details>`;
@@ -668,6 +675,12 @@
       case "pass": act("pass", {user: +d.user}); break;
       case "invite": act("invite", {friends: [...inviteSel]}).then(ok => { if (ok) { inviteSel.clear(); render(); } }); break;
       case "leave": act("leave"); break;
+      case "post-group": {
+        const pick = root.querySelector("[data-group-pick]");
+        const chosen = groupsList.find(g => g.code === pick.value);
+        act("group", {code: pick.value}).then(ok => { if (ok && chosen) { postedGroup = chosen.name; render(true); } });
+        break;
+      }
     }
   });
 

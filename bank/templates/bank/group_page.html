@@ -1,0 +1,183 @@
+{% extends "bank/base.html" %}
+{% block title %}{{ group.name }}{% endblock %}
+{% block content %}
+<main class="study-page myspace-page groups-page">
+  <section class="page-hero">
+    {% include "bank/_hero_peaks.html" %}
+    <nav class="page-crumbs" aria-label="Breadcrumb"><a href="{% url 'bank:groups' %}">Groups</a></nav>
+    <h2 class="page-title"><span aria-hidden="true">{{ group.emoji }}</span> {{ group.name }}</h2>
+    {% if group.description %}<p class="page-lede">{{ group.description }}</p>{% endif %}
+    <div class="page-stats"><span><b>{{ count }}</b> member{{ count|pluralize }}</span>
+      {% if group.is_everyone %}<span>Official · only admins post</span>{% elif group.owner %}<span>Owner <b>{{ group.owner.profile.name }}</b></span>{% endif %}</div>
+  </section>
+
+  <nav class="jump group-jump" aria-label="Sections">
+    <a href="#feed">Feed</a><a href="#quizzes">Quizzes · {{ shared|length }}</a><a href="#saved">Saved · {{ saves_count }}</a>
+    {% if not group.is_everyone %}<a href="#members">Members · {{ count }}</a>{% endif %}
+  </nav>
+
+  {% if pending %}
+  <section class="exam-step group-pending" aria-labelledby="pending-title">
+    <h3 id="pending-title">Waiting to join · {{ pending|length }}</h3>
+    <ul class="person-list">
+      {% for m in pending %}
+      <li class="person-row">
+        <a class="person-link" href="{{ m.user.profile.get_absolute_url }}">{% include "bank/_avatar.html" with p=m.user.profile size="md" small=True %}
+          <span class="person-text"><strong>{{ m.user.profile.name }}</strong><span class="mute">@{{ m.user.profile.handle }}</span></span></a>
+        <div class="person-actions">
+          <form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}<input type="hidden" name="user" value="{{ m.user_id }}">
+            <button class="btn pri" name="action" value="accept">Accept</button> <button class="btn" name="action" value="decline">Decline</button></form>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section class="exam-section" id="feed" aria-labelledby="feed-title">
+    <div class="study-section-heading"><div><p>WHAT’S HAPPENING</p><h2 id="feed-title">Feed</h2></div></div>
+    {% if can_announce %}
+    <form method="post" action="{% url 'bank:group_action' group.code %}" class="group-announce">{% csrf_token %}
+      <input type="hidden" name="action" value="announce">
+      <textarea name="text" rows="2" maxlength="1000" required placeholder="📣 Post an announcement to the group…"></textarea>
+      <button class="exam-card-start">Post</button>
+    </form>
+    {% endif %}
+    {% if can_post %}<p class="mute group-hint">To start a live quiz here: open any quiz, tap <b>👥 Go live</b>, then <b>Post to a study group</b> in the People panel.</p>{% endif %}
+    <ul class="group-feed">
+      {% for p in posts %}
+      <li class="group-post is-{{ p.kind }}">
+        {% if p.author %}{% include "bank/_avatar.html" with p=p.author.profile size="sm" small=True %}{% endif %}
+        <div class="group-post-body">
+          <p>
+            <b>{{ p.author.profile.name|default:"Someone" }}</b>
+            {% if p.kind == "live" %}started a live quiz{% if p.live_room %}: <b>{{ p.live_room.title }}</b>{% endif %}
+            {% elif p.kind == "quiz" %}shared a quiz: <b>{{ p.quiz.title }}</b> <span class="mute">· {{ p.quiz.questions|length }} questions</span>
+            {% elif p.kind == "saved" %}saved a question: <span class="group-stem">{{ p.question.stem|truncatechars:110 }}</span>
+            {% elif p.kind == "joined" %}joined the group 👋
+            {% else %}<span class="group-announcement">{{ p.text|linebreaksbr }}</span>{% endif %}
+          </p>
+          <small class="mute">{{ p.created_at|timesince }} ago</small>
+          {% if p.kind == "live" and p.live_room %}
+            {% if not p.live_room.ended_at %}
+            <form method="post" action="{% url 'bank:live_group_join' p.live_room.pk %}" class="group-post-action">{% csrf_token %}
+              <input type="hidden" name="back" value="{{ request.path }}">
+              <span class="exam-badge is-live">● Live now · code {{ p.live_room.code }}</span>
+              <button class="exam-card-start">Join <span aria-hidden="true">→</span></button></form>
+            {% else %}<span class="exam-badge">Ended</span>{% endif %}
+          {% endif %}
+          {% if p.kind == "quiz" %}<div class="group-post-action"><a class="exam-link-btn" href="#quizzes">See it in Quizzes ↓</a></div>{% endif %}
+        </div>
+      </li>
+      {% empty %}
+      <li class="exam-empty">Nothing yet. Start a live quiz, share a quiz or save a question to get things going.</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="exam-section" id="quizzes" aria-labelledby="quizzes-title">
+    <div class="study-section-heading"><div><p>SHARED WITH THE GROUP</p><h2 id="quizzes-title">Quizzes</h2></div></div>
+    {% if shared %}
+    <div class="exam-cards">
+      {% for s in shared %}
+      <article class="exam-card" style="--i:{{ forloop.counter0 }}">
+        <div class="exam-card-top"><h3>{{ s.quiz.title }}</h3></div>
+        <p class="exam-card-meta"><span><b>{{ s.quiz.questions|length }}</b> questions</span><span>by {{ s.shared_by.profile.name|default:"someone" }}</span></p>
+        <p class="exam-card-mix">{% if s.mix.mcq %}<span>MCQ {{ s.mix.mcq }}</span>{% endif %}{% if s.mix.tf %}<span>T/F {{ s.mix.tf }}</span>{% endif %}{% if s.mix.desc %}<span>Descriptive {{ s.mix.desc }}</span>{% endif %}</p>
+        <div class="exam-card-actions">
+          <a class="exam-card-start" href="{% url 'bank:my_space_quiz' s.quiz_id %}">Start <span aria-hidden="true">→</span></a>
+          {% if s.in_space %}<span class="exam-badge is-source">In My Space ✓</span>
+          {% else %}<form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}<input type="hidden" name="quiz" value="{{ s.quiz_id }}">
+            <button class="exam-link-btn" name="action" value="add_quiz">Add to My Space</button></form>{% endif %}
+          {% if s.shared_by_id == user.pk or owner %}<form method="post" action="{% url 'bank:group_action' group.code %}" onsubmit="return confirm('Remove this quiz from the group?')">{% csrf_token %}
+            <input type="hidden" name="quiz" value="{{ s.quiz_id }}"><button class="exam-link-btn is-danger" name="action" value="unshare">Remove</button></form>{% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="exam-empty">No quizzes yet.{% if can_post %} In <a href="{% url 'bank:my_space' %}">My Space</a>, tap <b>Send</b> on a quiz and pick this group.{% endif %}</p>
+    {% endif %}
+  </section>
+
+  <section class="exam-section" id="saved" aria-labelledby="saved-title">
+    <div class="study-section-heading"><div><p>TO REVISE TOGETHER</p><h2 id="saved-title">Saved questions</h2></div>
+      {% if saves_count %}<a class="exam-card-start" href="{% url 'bank:group_saved_quiz' group.code %}">Practise all {{ saves_count }} <span aria-hidden="true">→</span></a>{% endif %}</div>
+    {% if saves %}
+    <ul class="group-saves">
+      {% for s in saves %}
+      <li><span class="group-stem">{{ s.question.stem|truncatechars:140 }}</span>
+        <small class="mute">{{ s.question.bank.title }} · saved by {{ s.saved_by.profile.name|default:"someone" }}</small>
+        {% if can_post %}<form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}<input type="hidden" name="question" value="{{ s.question_id }}">
+          <button class="exam-link-btn is-danger" name="action" value="unsave" title="Remove from the group’s list">Remove</button></form>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="exam-empty">No saved questions yet.{% if can_post %} In any quiz, tap <b>👥 Group</b> on a question to save it here.{% endif %}</p>
+    {% endif %}
+  </section>
+
+  {% if not group.is_everyone %}
+  <section class="exam-section" id="members" aria-labelledby="members-title">
+    <div class="study-section-heading"><div><p>WHO’S IN</p><h2 id="members-title">Members</h2></div></div>
+    <div class="exam-step">
+      <div class="group-link">
+        <span class="exam-chips-label">Invite link</span>
+        <input type="text" readonly value="{{ link }}" aria-label="Invite link" data-link>
+        <button type="button" class="exam-card-start" data-copy-link>Copy</button>
+        <small class="mute">Share it in WhatsApp. People who open it ask to join{% if owner %} and you accept them{% endif %}.</small>
+      </div>
+      <ul class="person-list">
+        {% for m in members %}
+        <li class="person-row">
+          <a class="person-link" href="{{ m.user.profile.get_absolute_url }}">{% include "bank/_avatar.html" with p=m.user.profile size="md" small=True %}
+            <span class="person-text"><strong>{{ m.user.profile.name }}{% if m.user_id == group.owner_id %} 👑{% endif %}</strong><span class="mute">@{{ m.user.profile.handle }}</span></span></a>
+          {% if owner and m.user_id != group.owner_id %}
+          <div class="person-actions"><form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}<input type="hidden" name="user" value="{{ m.user_id }}">
+            <button class="exam-link-btn" name="action" value="make_owner" onclick="return confirm('Make {{ m.user.profile.name|escapejs }} the owner? You will be a regular member.')">Make owner</button>
+            <button class="exam-link-btn is-danger" name="action" value="remove" onclick="return confirm('Remove {{ m.user.profile.name|escapejs }} from the group?')">Remove</button></form></div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+
+  <section class="exam-section group-settings" aria-label="Settings">
+    {% if owner %}
+    <details class="topic-manual">
+      <summary><span class="topic-manual-icon" aria-hidden="true">⚙️</span><span><b>Group settings</b><small>Name, emoji, link, delete</small></span><span class="topic-manual-chevron" aria-hidden="true">⌄</span></summary>
+      <div class="live-room-body">
+        <form method="post" action="{% url 'bank:group_action' group.code %}" class="myspace-options">{% csrf_token %}
+          <input type="hidden" name="action" value="edit">
+          <div class="group-name-row">
+            <label class="exam-field group-emoji-field"><span>Emoji</span><input type="text" name="emoji" maxlength="8" value="{{ group.emoji }}"></label>
+            <label class="exam-field"><span>Name</span><input type="text" name="name" maxlength="60" value="{{ group.name }}" required></label>
+          </div>
+          <label class="exam-field"><span>Description</span><input type="text" name="description" maxlength="200" value="{{ group.description }}"></label>
+          <button class="exam-card-start is-quiet">Save</button>
+        </form>
+        <form method="post" action="{% url 'bank:group_action' group.code %}" onsubmit="return confirm('Make a new invite link? The old one stops working.')">{% csrf_token %}
+          <button class="exam-link-btn" name="action" value="new_link">Make a new invite link</button></form>
+        <form method="post" action="{% url 'bank:group_action' group.code %}" onsubmit="return confirm('Delete {{ group.name|escapejs }} for everyone? This cannot be undone.')">{% csrf_token %}
+          <button class="exam-link-btn is-danger" name="action" value="delete">Delete the group</button></form>
+      </div>
+    </details>
+    {% else %}
+    <form method="post" action="{% url 'bank:group_action' group.code %}" onsubmit="return confirm('Leave {{ group.name|escapejs }}?')">{% csrf_token %}
+      <button class="exam-link-btn is-danger" name="action" value="leave">Leave the group</button></form>
+    {% endif %}
+  </section>
+  {% endif %}
+</main>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelector("[data-copy-link]")?.addEventListener("click", async e => {
+  const box = document.querySelector("[data-link]");
+  try { await navigator.clipboard.writeText(box.value); } catch (err) { box.select(); document.execCommand("copy"); }
+  e.target.textContent = "Copied ✓";
+  setTimeout(() => e.target.textContent = "Copy", 2000);
+});
+</script>
+{% endblock %}

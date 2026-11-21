@@ -52,7 +52,7 @@
 <link rel="manifest" href="{% url 'bank:manifest' %}">
 <link rel="icon" type="image/svg+xml" href="{% static 'bank/icons/app-101.svg' %}">
 <link rel="apple-touch-icon" href="{% static 'bank/icons/app-101-192.png' %}">
-<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20261118-8">
+<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20261121-2">
 <link rel="stylesheet" href="{% static 'bank/skin-dune.css' %}?v=20261118-1">
 {% block head %}{% endblock %}
 </head>
@@ -72,6 +72,7 @@
         <a href="{% url 'bank:library_home' %}"{% if here == "library_home" or here == "book_detail" %} aria-current="page"{% endif %}>Library</a>
         <a href="{% url 'bank:saved_home' %}"{% if here == "saved_home" %} aria-current="page"{% endif %}>Saved</a>
         <a href="{% url 'bank:my_space' %}"{% if here == "my_space" or here == "my_space_new" %} aria-current="page"{% endif %}>My Space</a>
+        <a href="{% url 'bank:groups' %}"{% if here == "groups" or here == "group" %} aria-current="page"{% endif %}>Groups{% if group_requests_count %}<span class="badge" aria-label="{{ group_requests_count }} waiting">{{ group_requests_count }}</span>{% endif %}</a>
         <a href="{% url 'bank:messages' %}"{% if here == "messages" %} aria-current="page"{% endif %}>Messages{% if unseen_messages_count %}<span class="badge" aria-label="{{ unseen_messages_count }} new">{{ unseen_messages_count }}</span>{% endif %}</a>
         <a href="{% url 'bank:friends' %}"{% if here == "friends" %} aria-current="page"{% endif %}>Friends{% if friend_requests_count %}<span class="badge" aria-label="{{ friend_requests_count }} new request{{ friend_requests_count|pluralize }}">{{ friend_requests_count }}</span>{% endif %}</a>
         <a href="{% url 'bank:settings' %}"{% if here == "settings" %} aria-current="page"{% endif %}>Settings</a>
