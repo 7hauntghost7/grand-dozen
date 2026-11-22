@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import final_review, groups, live, my_space, views
+from . import challenge, final_review, groups, live, my_space, views
 
 app_name = "bank"
 
@@ -60,6 +60,7 @@ urlpatterns = [
     path("my-space/", my_space.home, name="my_space"),
     path("my-space/new/", my_space.new_quiz, name="my_space_new"),
     path("my-space/prompt/", my_space.prompt_text, name="my_space_prompt"),
+    path("my-space/build/", my_space.build_quiz, name="my_space_build"),
     path("my-space/<int:pk>/", my_space.take_quiz, name="my_space_quiz"),
     path("my-space/<int:pk>/questions/", my_space.quiz_questions, name="my_space_questions"),
     path("my-space/<int:pk>/edit/", my_space.quiz_action, name="my_space_action"),
@@ -77,6 +78,12 @@ urlpatterns = [
     path("groups/<str:code>/", groups.group_page, name="group"),
     path("groups/<str:code>/do/", groups.group_action, name="group_action"),
     path("groups/<str:code>/saved/", groups.saved_quiz, name="group_saved_quiz"),
+    path("groups/<str:code>/challenge/<int:pk>/", challenge.page, name="challenge"),
+    path("groups/<str:code>/challenge/<int:pk>/data/", challenge.data, name="challenge_data"),
+    path("groups/<str:code>/challenge/<int:pk>/answer/", challenge.answer, name="challenge_answer"),
+    path("groups/<str:code>/challenge/<int:pk>/submit/", challenge.submit, name="challenge_submit"),
+    path("groups/<str:code>/challenge/<int:pk>/results/", challenge.results, name="challenge_results"),
+    path("groups/<str:code>/challenge/<int:pk>/do/", challenge.action, name="challenge_action"),
     path("groups/<str:code>/saved/questions/", groups.saved_questions, name="group_saved_questions"),
     path("api/groups/postable/", groups.api_postable, name="api_groups_postable"),
     path("api/question/<int:pk>/group-save/", groups.api_group_save, name="api_group_save"),

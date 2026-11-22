@@ -37,7 +37,7 @@
         <span class="gx-row-top"><b dir="auto">{{ g.name }}</b>
           {% if g.is_everyone %}<span class="gx-tag gx-tag-gold">Official</span>{% endif %}
           {% if g.waiting %}<span class="gx-tag gx-tag-red">{{ g.waiting }} waiting</span>{% endif %}</span>
-        <span class="gx-row-last">{% if g.last %}{% with p=g.last %}{% if p.kind == "announce" %}📣 {{ p.author.profile.name }}: <bdi>{{ p.text|truncatechars:34 }}</bdi>{% elif p.kind == "live" %}🔴 {{ p.author.profile.name }} started a live quiz{% if p.live_room %}: <bdi>{{ p.live_room.title }}</bdi>{% endif %}{% elif p.kind == "quiz" %}📚 {{ p.author.profile.name }} shared “<bdi>{{ p.quiz.title }}</bdi>”{% elif p.kind == "saved" %}⭐ {{ p.author.profile.name }} saved a question{% else %}👋 {{ p.author.profile.name }} joined{% endif %}{% endwith %}{% else %}{{ g.description|default:"No activity yet" }}{% endif %}</span>
+        <span class="gx-row-last">{% if g.last %}{% with p=g.last %}{% if p.kind == "announce" %}📣 {{ p.author.profile.name }}: <bdi>{{ p.text|truncatechars:34 }}</bdi>{% elif p.kind == "live" %}🔴 {{ p.author.profile.name }} started a live quiz{% if p.live_room %}: <bdi>{{ p.live_room.title }}</bdi>{% endif %}{% elif p.kind == "board" %}🥇 Leaderboard out: <bdi>{{ p.quiz.title }}</bdi>{% elif p.kind == "quiz" %}📚 {{ p.author.profile.name }} shared “<bdi>{{ p.quiz.title }}</bdi>”{% elif p.kind == "saved" %}⭐ {{ p.author.profile.name }} saved a question{% else %}👋 {{ p.author.profile.name }} joined{% endif %}{% endwith %}{% else %}{{ g.description|default:"No activity yet" }}{% endif %}</span>
       </span>
       <span class="gx-row-side">
         {% if g.last %}<small>{{ g.last.created_at|timesince|truncatewords:2 }}</small>{% endif %}

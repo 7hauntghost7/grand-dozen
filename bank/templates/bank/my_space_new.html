@@ -6,10 +6,19 @@
     {% include "bank/_hero_peaks.html" %}
     <nav class="page-crumbs" aria-label="Breadcrumb"><a href="{% url 'bank:my_space' %}">My Space</a></nav>
     <h2 class="page-title">New quiz</h2>
-    <p class="page-lede">Pick your quiz, copy the prompt into any AI chat with your textbook attached, then paste its reply here.</p>
+    <p class="page-lede">Make it with an AI chat, write it yourself question by question, or paste questions you already have.</p>
   </section>
 
+  <nav class="myspace-modes" role="tablist" aria-label="How to make the quiz">
+    <button type="button" role="tab" data-mode="ai"><span aria-hidden="true">✨</span> With AI</button>
+    <button type="button" role="tab" data-mode="write"><span aria-hidden="true">✍️</span> Write it myself</button>
+    <button type="button" role="tab" data-mode="paste"><span aria-hidden="true">📋</span> Paste questions</button>
+  </nav>
+
+  {# ---------------------------------------------------------------- with AI #}
+  <div data-mode-panel="ai">
   <form method="post" class="myspace-steps" id="myspace-form">{% csrf_token %}
+    <input type="hidden" name="mode" value="ai">
     <div class="exam-step">
       <div class="exam-step-head">
         <span class="exam-step-num" aria-hidden="true">1</span>
@@ -63,36 +72,111 @@
       <div class="myspace-options">
         <label class="exam-field">
           <span>The AI's reply</span>
-          <textarea name="reply" rows="10" class="myspace-reply" placeholder="Q: …&#10;A. …&#10;B. …&#10;ANSWER: …">{{ reply }}</textarea>
+          <textarea name="reply" rows="10" class="myspace-reply" placeholder="Q: …&#10;A. …&#10;B. …&#10;ANSWER: …">{% if mode == "ai" %}{{ reply }}{% endif %}</textarea>
         </label>
         <label class="exam-field">
           <span>Quiz name <small class="mute">(optional)</small></span>
-          <input type="text" name="title" value="{{ title }}" maxlength="120" placeholder="e.g. Upper limb · Snell ch. 9">
+          <input type="text" name="title" value="{% if mode == "ai" %}{{ title }}{% endif %}" maxlength="120" placeholder="e.g. Upper limb · Snell ch. 9">
         </label>
-        {% if checked %}
-        <div class="myspace-check{% if problems %} has-problems{% endif %}" role="status">
-          <p><b>{{ good|length }}</b> question{{ good|length|pluralize }} ready{% if problems %} · <b>{{ problems|length }}</b> with problems will be left out{% endif %}.</p>
-          {% if problems %}
-          <ul class="myspace-problems">
-            {% for number, stem, errors in problems %}
-            <li><b>Q{{ number }}</b> {{ stem }}<small>{{ errors|join:" " }}</small></li>
-            {% endfor %}
-          </ul>
-          <p class="mute">To fix them, ask the AI: “Rewrite these questions in the exact format I gave you”, then paste again.</p>
-          {% endif %}
-        </div>
-        {% endif %}
+        {% if checked and mode == "ai" %}{% include "bank/_myspace_check.html" %}
+        <p class="mute">To fix them, ask the AI: “Rewrite these questions in the exact format I gave you”, then paste again.</p>{% endif %}
         <div class="exam-card-actions">
-          <button class="exam-card-start{% if checked and good %} is-quiet{% endif %}" name="action" value="check">Check reply</button>
-          {% if checked and good %}<button class="exam-card-start" name="action" value="save">Save quiz · {{ good|length }} <span aria-hidden="true">→</span></button>{% endif %}
+          <button class="exam-card-start{% if checked and good and mode == "ai" %} is-quiet{% endif %}" name="action" value="check">Check reply</button>
+          {% if checked and good and mode == "ai" %}<button class="exam-card-start" name="action" value="save">Save quiz · {{ good|length }} <span aria-hidden="true">→</span></button>{% endif %}
         </div>
       </div>
     </div>
   </form>
+  </div>
+
+  {# ---------------------------------------------------------------- write it myself #}
+  <div data-mode-panel="write" hidden>
+    <div class="mb" id="builder" data-api="{% url 'bank:my_space_build' %}" data-key="gd:builder:{{ user.pk }}">
+      <label class="exam-field mb-title">
+        <span>Quiz name</span>
+        <input type="text" maxlength="120" data-title dir="auto" placeholder="e.g. Renal physiology challenge">
+      </label>
+      <div class="mb-list" data-list></div>
+      <div class="mb-add" role="group" aria-label="Add a question">
+        <span class="exam-chips-label">Add a question</span>
+        <button type="button" class="mb-add-btn" data-add="mcq"><b aria-hidden="true">＋</b> MCQ</button>
+        <button type="button" class="mb-add-btn" data-add="tf"><b aria-hidden="true">＋</b> True / False</button>
+        <button type="button" class="mb-add-btn" data-add="desc"><b aria-hidden="true">＋</b> Written</button>
+      </div>
+      <div class="myspace-check has-problems" data-errors role="alert" hidden></div>
+      <div class="mb-foot">
+        <span class="mute" data-count></span>
+        <button type="button" class="exam-link-btn is-danger" data-clear>Start over</button>
+        <button type="button" class="exam-card-start" data-save>Save quiz <span aria-hidden="true">→</span></button>
+      </div>
+      <p class="myspace-hint">What you write is kept on this phone until you save, even if you close the page.</p>
+    </div>
+  </div>
+
+  {# ---------------------------------------------------------------- paste questions #}
+  <div data-mode-panel="paste" hidden>
+  <form method="post" class="myspace-steps" id="paste-form">{% csrf_token %}
+    <input type="hidden" name="mode" value="paste">
+    <div class="exam-step">
+      <div class="exam-step-head">
+        <span class="exam-step-num" aria-hidden="true">1</span>
+        <div><h3>Turn your questions into the site format</h3><p>Copy this prompt into any AI chat, paste your questions under it (or attach the file) and send. It converts them exactly as they are; it doesn’t write new ones.</p></div>
+      </div>
+      <div class="myspace-copy">
+        <button type="button" class="exam-card-start" data-copy-convert>Copy prompt</button>
+        <details class="myspace-peek"><summary class="exam-link-btn">Show the prompt</summary>
+          <textarea class="myspace-prompt" rows="14" readonly data-convert aria-label="The convert prompt">{{ convert_prompt }}</textarea></details>
+      </div>
+      <p class="myspace-hint">Already in the site format? Skip this and paste them below.</p>
+    </div>
+    <div class="exam-step">
+      <div class="exam-step-head">
+        <span class="exam-step-num" aria-hidden="true">2</span>
+        <div><h3>Paste them here</h3><p>Then check and save your quiz.</p></div>
+      </div>
+      <div class="myspace-options">
+        <label class="exam-field">
+          <span>Questions in the site format</span>
+          <textarea name="reply" rows="12" class="myspace-reply" placeholder="Q: …&#10;A. …&#10;B. …&#10;ANSWER: …">{% if mode == "paste" %}{{ reply }}{% endif %}</textarea>
+        </label>
+        <label class="exam-field">
+          <span>Quiz name <small class="mute">(optional)</small></span>
+          <input type="text" name="title" value="{% if mode == "paste" %}{{ title }}{% endif %}" maxlength="120" placeholder="e.g. Physiology past paper 2024">
+        </label>
+        {% if checked and mode == "paste" %}{% include "bank/_myspace_check.html" %}{% endif %}
+        <div class="exam-card-actions">
+          <button class="exam-card-start{% if checked and good and mode == "paste" %} is-quiet{% endif %}" name="action" value="check">Check</button>
+          {% if checked and good and mode == "paste" %}<button class="exam-card-start" name="action" value="save">Save quiz · {{ good|length }} <span aria-hidden="true">→</span></button>{% endif %}
+        </div>
+      </div>
+    </div>
+  </form>
+  </div>
 </main>
 {% endblock %}
 {% block scripts %}
+{% load static %}
 <script>
+(() => {
+  // The three ways to make a quiz
+  const modes = [...document.querySelectorAll("[data-mode]")];
+  const showMode = name => {
+    if (!modes.some(m => m.dataset.mode === name)) name = "ai";
+    modes.forEach(m => m.setAttribute("aria-selected", String(m.dataset.mode === name)));
+    document.querySelectorAll("[data-mode-panel]").forEach(p => p.hidden = p.dataset.modePanel !== name);
+  };
+  modes.forEach(m => m.addEventListener("click", () => { showMode(m.dataset.mode); history.replaceState(null, "", "#" + m.dataset.mode); }));
+  showMode({% if checked %}"{{ mode }}"{% else %}location.hash.slice(1) || "{{ mode }}"{% endif %});
+
+  const convertBtn = document.querySelector("[data-copy-convert]");
+  convertBtn.addEventListener("click", async () => {
+    const box = document.querySelector("[data-convert]");
+    try { await navigator.clipboard.writeText(box.value); }
+    catch (e) { box.closest("details").open = true; box.select(); document.execCommand("copy"); }
+    convertBtn.textContent = "Copied ✓";
+    setTimeout(() => convertBtn.textContent = "Copy prompt", 2000);
+  });
+})();
 (() => {
   const form = document.getElementById("myspace-form");
   const box = form.querySelector("[data-prompt]");
@@ -127,4 +211,5 @@
   });
 })();
 </script>
+<script src="{% static 'bank/builder.js' %}?v=20261122-1"></script>
 {% endblock %}

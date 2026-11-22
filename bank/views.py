@@ -224,7 +224,13 @@ def home(request):
         "total_chapters": sum(s.n_decks for s in subjects),
         "saved_count": request.user.saved_questions.count() if request.user.is_authenticated else 0,
         "book_count": counts["books"],
+        "challenges": challenge_cards(request.user) if request.user.is_authenticated else [],
     })
+
+
+def challenge_cards(user):
+    from .challenge import home_cards
+    return home_cards(user)
 
 
 @login_required

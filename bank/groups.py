@@ -115,7 +115,8 @@ def notify(user_ids, text, url):
 def add_post(group, author, kind, text="", notify_text="", **links):
     post = GroupPost.objects.create(group=group, author=author, kind=kind, text=text, **links)
     if notify_text:
-        notify(member_users(group).exclude(pk=author.pk).values_list("pk", flat=True), notify_text, group.get_absolute_url())
+        people = member_users(group).exclude(pk=author.pk) if author else member_users(group)
+        notify(people.values_list("pk", flat=True), notify_text, group.get_absolute_url())
     return post
 
 
@@ -176,6 +177,8 @@ def group_page(request, code):
         mine = GroupMember.objects.filter(group=group, user=user).select_related("invited_by__profile").first()
         count = GroupMember.objects.filter(group=group, status=GroupMember.ACTIVE).count()
         return render(request, "bank/group_join.html", {"group": group, "mine": mine, "count": count})
+    from .challenge import settle
+    settle(group)              # publish small groups' finished challenges before reading the feed
     posts = list(group.posts.select_related("author__profile", "live_room", "quiz", "question")[:60])
     shared = list(group.quizzes.select_related("quiz", "shared_by__profile"))
     have = set(QuizAccess.objects.filter(user=user, quiz__in=[s.quiz_id for s in shared]).values_list("quiz_id", flat=True))
@@ -200,7 +203,15 @@ def group_page(request, code):
         invited = GroupMember.objects.filter(group=group, status=GroupMember.INVITED).select_related("user__profile")
     else:
         invited = []
+    from . import challenge as ch
+    board = ch.leaderboard_context(group, user)
+    by_quiz = {c.quiz_id: c for c in board["running"] + board["waiting"] + board["boards"]}
+    for p in posts:
+        p.challenge = by_quiz.get(p.quiz_id) if p.quiz_id else None
+    for s in shared:
+        s.challenge = by_quiz.get(s.quiz_id)
     return render(request, "bank/group_page.html", {
+        **board, "board_count": len(board["boards"]) + len(board["running"]) + len(board["waiting"]),
         "group": group, "posts": posts, "shared": shared, "saves": saves[:30], "saves_count": saves.count(),
         "members": members, "pending": pending, "count": count, "owner": is_owner(group, user),
         "can_post": can_post(group, user), "can_announce": can_announce(group, user),
@@ -330,8 +341,11 @@ def group_action(request, code):
         if share and (share.shared_by_id == user.pk or owner):
             share.delete()
     elif action == "add_quiz":
+        from .challenge import lock_for
         share = GroupQuiz.objects.filter(group=group, quiz_id=request.POST.get("quiz")).first()
-        if share:
+        if share and lock_for(user, share.quiz):
+            messages.error(request, "Finish the challenge first. You can add it to My Space after that.")
+        elif share:
             QuizAccess.objects.get_or_create(user=user, quiz=share.quiz)
             messages.success(request, f"Added “{share.quiz.title}” to My Space.")
     return redirect(group)
@@ -403,11 +417,21 @@ def api_group_save(request, pk):
     return JsonResponse({"saved": True})
 
 
-def share_quiz(group, quiz, user):
-    """Share a My Space quiz with a group (from My Space's Send panel)."""
+def share_quiz(group, quiz, user, challenge=None):
+    """Share a My Space quiz with a group (from My Space's Send panel).
+    ``challenge`` = {"reveal", "days", "allow_hiding"} turns its leaderboard on."""
+    from . import challenge as ch
     if not can_post(group, user):
         return False
-    _, created = GroupQuiz.objects.get_or_create(group=group, quiz=quiz, defaults={"shared_by": user})
+    share, created = GroupQuiz.objects.get_or_create(group=group, quiz=quiz, defaults={"shared_by": user})
+    if challenge and (created or not share.is_open):
+        ch.setup(share, challenge.get("reveal"), challenge.get("days"), challenge.get("allow_hiding", True))
+        share.shared_by = user
+        share.save()
+        ends = timezone.localtime(share.ends_at)
+        add_post(group, user, GroupPost.QUIZ, quiz=quiz,
+                 notify_text=f"🏆 New challenge in {group.name}: {quiz.title}. Ends {ends:%a %d %b, %H:%M}.")
+        return True
     if created:
         add_post(group, user, GroupPost.QUIZ, quiz=quiz)
     return created

@@ -40,6 +40,21 @@
     </div>
   </section>
 
+  {% for c in challenges %}
+  <a class="home-challenge" href="{% url 'bank:challenge' c.group.code c.pk %}" style="--i:{{ forloop.counter0 }}">
+    <span class="home-challenge-glow" aria-hidden="true"></span>
+    <span class="home-challenge-icon" aria-hidden="true">🏆</span>
+    <span class="home-challenge-text">
+      <span class="home-challenge-kicker">📣 Challenge · {{ c.group.name }}</span>
+      <strong dir="auto">{{ c.quiz.title }}</strong>
+      <span>{{ c.quiz.questions|length }} questions · ends {{ c.ends_at|date:"D j M, H:i" }} · <b data-left="{{ c.ends_at|date:'c' }}">{{ c.ends_at|timeuntil }} left</b></span>
+    </span>
+    {% if c.my and c.my.finished_at %}<span class="home-challenge-cta is-done">✓ Done · {{ c.my.score }}/{{ c.my.total }}</span>
+    {% elif c.my %}<span class="home-challenge-cta">Continue →</span>
+    {% else %}<span class="home-challenge-cta">Start →</span>{% endif %}
+  </a>
+  {% endfor %}
+
   <div class="home-quick">
     <a class="quick-card" href="{% url 'bank:saved_home' %}" style="--i:0">
       <span class="quick-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg></span>

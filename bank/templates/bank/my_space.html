@@ -48,6 +48,23 @@
           {% if groups %}<span class="exam-chips-label">Share with a group</span>
           <div class="myspace-friends">
             {% for g in groups %}<label class="myspace-friend"><input type="checkbox" name="groups" value="{{ g.code }}"><span class="group-emoji">{{ g.emoji }}</span><span>{{ g.name }}</span></label>{% endfor %}
+          </div>
+          <label class="myspace-switch"><input type="checkbox" name="challenge" value="1" data-challenge-toggle>
+            <span class="myspace-switch-track" aria-hidden="true"></span>
+            <span><b>🏆 Challenge with a leaderboard</b><small>Everyone’s first try is scored. For the groups you tick; friends get a normal quiz.</small></span></label>
+          <div class="myspace-challenge" data-challenge-options hidden>
+            <div class="exam-chips" role="radiogroup" aria-label="Show answers">
+              <span class="exam-chips-label">Show answers</span>
+              <label class="exam-chip"><input type="radio" name="reveal" value="each" checked><span>After each question</span></label>
+              <label class="exam-chip"><input type="radio" name="reveal" value="end"><span>After submitting</span></label>
+            </div>
+            <div class="exam-chips" role="radiogroup" aria-label="Ends in">
+              <span class="exam-chips-label">Ends in</span>
+              {% for key, label, n in durations %}<label class="exam-chip"><input type="radio" name="days" value="{{ key }}" {% if key == "3" %}checked{% endif %}><span>{{ label }}</span></label>{% endfor %}
+            </div>
+            <label class="myspace-check-row"><input type="checkbox" name="allow_hiding" value="1" checked>
+              <span>Let people hide their name <small class="mute">(they show as “Anonymous”)</small></span></label>
+            <p class="myspace-hint">Small groups get the leaderboard by themselves when it ends. In the Academic Secretary, admins see the results first and publish them.</p>
           </div>{% endif %}
           <span class="exam-chips-label">Send to friends</span>
           {% if friends %}
@@ -80,6 +97,9 @@
 {% endblock %}
 {% block scripts %}
 <script>
+document.querySelectorAll("[data-challenge-toggle]").forEach(box => box.addEventListener("change", () => {
+  box.closest("form").querySelector("[data-challenge-options]").hidden = !box.checked;
+}));
 document.querySelectorAll("[data-panel]").forEach(button => button.addEventListener("click", () => {
   const card = button.closest(".exam-card");
   const panel = document.getElementById(button.dataset.panel);

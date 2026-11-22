@@ -9,7 +9,7 @@ import re
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -118,6 +118,87 @@ def build_prompt(size, types, difficulty, extra=""):
     return "\n".join(lines).rstrip() + "\n"
 
 
+def convert_prompt():
+    """For questions the student already has (a past paper, a lecture's MCQs): turn them into the site format
+    without changing them."""
+    lines = [
+        "Below are some questions I already have. Convert them into the exact format shown, so my website can "
+        "read them. Don't write new questions.",
+        "",
+        "RULES",
+        "- Keep every question. Don't skip, merge, shorten or reword any question, option, answer or explanation.",
+        "- Fix only obvious typos.",
+        "- Keep the correct answer that is given. If a question has no answer, work out the correct one.",
+        "- If an explanation is given, copy it in full after EXPLANATION:. If there is none, leave the "
+        "EXPLANATION line out.",
+        "- MCQs with more than 5 options keep all of them (up to H).",
+        "- A question that is a list of true/false statements is a True/False question.",
+        "- A question with no options is Descriptive.",
+        "",
+        "FORMAT (follow it exactly)",
+        "- Put all the questions inside ONE plain-text code block.",
+        "- No headings, bold, bullet points or question numbers. Every question starts with \"Q:\".",
+        "- Leave one empty line between questions.",
+        "- If there are more than 40 questions, send 40, then stop. Each time I write \"continue\", send the next 40.",
+        "",
+    ]
+    for t in ("mcq", "tf", "desc"):
+        lines += [FORMAT[t].replace("- Exactly 5 options, A to E, each on its own line.",
+                                    "- Each option on its own line, starting with its letter.")
+                  .replace("- Exactly ONE correct answer. No \"all of the above\" or \"none of the above\".",
+                           "- ANSWER is the letter of the correct option.")
+                  .replace("- Exactly 5 statements, A to E. ANSWER gives T or F for each statement, in order (5 letters).",
+                           "- Keep all its statements. ANSWER gives T or F for each statement, in order "
+                           "(one letter per statement)."), ""]
+    lines += ["MY QUESTIONS", "(paste them here)"]
+    return "\n".join(lines) + "\n"
+
+
+def check_built(items):
+    """Questions written one by one on the New quiz page. Returns (stored questions, problems)."""
+    good, problems = [], []
+    if not isinstance(items, list):
+        return good, ["No questions were sent."]
+    for n, item in enumerate(items[:MAX_QUESTIONS + 1], 1):
+        if not isinstance(item, dict):
+            problems.append(f"Question {n} is empty.")
+            continue
+        kind = item.get("kind")
+        stem = str(item.get("stem") or "").strip()[:4000]
+        explanation = str(item.get("explanation") or "").strip()[:4000]
+        options = [str(o).strip()[:1000] for o in item.get("options") or [] if str(o).strip()]
+        correct = [c is True for c in (item.get("correct") or [])]
+        if not stem:
+            problems.append(f"Question {n} has no question text.")
+            continue
+        if kind == "desc":
+            answer = str(item.get("answer") or "").strip()[:4000]
+            if not answer:
+                problems.append(f"Question {n} needs an answer.")
+                continue
+            good.append({"kind": "desc", "stem": stem, "options": [], "correct": [], "answer": answer,
+                         "explanation": explanation})
+        elif kind in ("mcq", "tf"):
+            raw = [str(o).strip() for o in item.get("options") or []]
+            correct = [c for o, c in zip(raw, correct + [False] * len(raw)) if o]
+            if kind == "mcq" and len(options) < 2:
+                problems.append(f"Question {n} needs at least 2 options.")
+            elif kind == "tf" and not options:
+                problems.append(f"Question {n} needs at least one statement.")
+            elif len(options) > 8:
+                problems.append(f"Question {n} has more than 8 options.")
+            elif kind == "mcq" and sum(correct) != 1:
+                problems.append(f"Question {n}: tap the one correct option.")
+            else:
+                good.append({"kind": kind, "stem": stem, "options": options, "correct": correct, "answer": "",
+                             "explanation": explanation})
+        else:
+            problems.append(f"Question {n} has no type.")
+    if len(good) > MAX_QUESTIONS:
+        problems.append(f"A quiz can hold up to {MAX_QUESTIONS} questions.")
+    return good, problems
+
+
 def _to_store(q):
     return {"kind": q.kind, "stem": q.stem, "options": list(q.options), "correct": list(q.correct),
             "answer": q.answer_raw.strip() if q.kind == parser.DESC else "", "explanation": q.explanation.strip()}
@@ -181,12 +262,21 @@ def _mix(quiz):
     return {kind: sum(q.get("kind") == kind for q in quiz.questions) for kind in ("mcq", "tf", "desc")}
 
 
-def _visible_quiz(user, pk):
-    """A quiz in the user's My Space, one a friend sent them, or one shared with a group they're in."""
+def _reachable_quiz(user, pk):
     from .groups import my_groups
     return get_object_or_404(
         PersonalQuiz.objects.filter(Q(access__user=user) | Q(shares__recipient=user)
                                     | Q(group_shares__group__in=my_groups(user))).distinct(), pk=pk)
+
+
+def _visible_quiz(user, pk):
+    """A quiz in the user's My Space, one a friend sent them, or one shared with a group they're in.
+    A running group challenge they haven't finished doesn't count: its answers would be on the page."""
+    from .challenge import lock_for
+    quiz = _reachable_quiz(user, pk)
+    if lock_for(user, quiz):
+        raise Http404
+    return quiz
 
 
 def _drop_if_unused(quiz):
@@ -205,8 +295,9 @@ def home(request):
         quiz.mine = quiz.user_id == request.user.pk
         quizzes.append(quiz)
     from .groups import postable_groups
+    from .challenge import DURATIONS
     return render(request, "bank/my_space.html", {"quizzes": quizzes, "friends": friends.friends_of(request.user),
-                                                  "groups": postable_groups(request.user)})
+                                                  "groups": postable_groups(request.user), "durations": DURATIONS})
 
 
 @login_required
@@ -233,12 +324,30 @@ def new_quiz(request):
                 QuizAccess.objects.create(user=request.user, quiz=quiz)
                 messages.success(request, f"Saved “{quiz.title}” with {len(good)} question{'s' if len(good) != 1 else ''}.")
                 return redirect("bank:my_space")
+    mode = request.POST.get("mode") or request.GET.get("mode") or "ai"
     return render(request, "bank/my_space_new.html", {
+        "mode": mode if mode in ("ai", "write", "paste") else "ai", "convert_prompt": convert_prompt(),
         "sizes": SIZES, "types": TYPES, "difficulties": DIFFICULTIES, "size": size, "chosen_types": types,
         "difficulty": request.POST.get("difficulty", "mixed"), "extra": request.POST.get("extra", ""),
         "title": title, "reply": reply, "good": good, "problems": problems, "checked": checked, "batch": BATCH,
         "prompt": build_prompt(size, types, request.POST.get("difficulty", "mixed"), request.POST.get("extra", "")),
     })
+
+
+@login_required
+@require_POST
+def build_quiz(request):
+    """Save a quiz written question by question on the New quiz page (sent as JSON)."""
+    from .views import json_body
+    body = json_body(request) or {}
+    good, problems = check_built(body.get("questions"))
+    if problems or not good:
+        return JsonResponse({"errors": problems or ["Add at least one question."]}, status=400)
+    title = str(body.get("title") or "").strip()[:120] or f"My quiz · {timezone.localdate():%d %b %Y}"
+    quiz = PersonalQuiz.objects.create(user=request.user, questions=good, title=title)
+    QuizAccess.objects.create(user=request.user, quiz=quiz)
+    messages.success(request, f"Saved “{quiz.title}” with {len(good)} question{'s' if len(good) != 1 else ''}.")
+    return JsonResponse({"url": reverse("bank:my_space")})
 
 
 @login_required
@@ -252,6 +361,10 @@ def prompt_text(request):
 @login_required
 @ensure_csrf_cookie
 def take_quiz(request, pk):
+    from .challenge import lock_for
+    lock = lock_for(request.user, _reachable_quiz(request.user, pk))
+    if lock:
+        return redirect("bank:challenge", lock.group.code, lock.pk)
     quiz = _visible_quiz(request.user, pk)
     in_space = quiz.access.filter(user=request.user).exists()
     return render(request, "bank/quiz.html", {
@@ -287,10 +400,14 @@ def quiz_action(request, pk):
     elif action == "share":
         from .groups import share_quiz
         from .models import StudyGroup
+        challenge = ({"reveal": request.POST.get("reveal"), "days": request.POST.get("days"),
+                      "allow_hiding": request.POST.get("allow_hiding") == "1"}
+                     if request.POST.get("challenge") == "1" else None)
         shared_to = [g.name for g in StudyGroup.objects.filter(code__in=request.POST.getlist("groups"))
-                     if share_quiz(g, quiz, request.user)]
+                     if share_quiz(g, quiz, request.user, challenge)]
         if shared_to:
-            messages.success(request, f"Shared “{quiz.title}” with {', '.join(shared_to)}.")
+            messages.success(request, (f"Challenge “{quiz.title}” is live in {', '.join(shared_to)}." if challenge
+                                       else f"Shared “{quiz.title}” with {', '.join(shared_to)}."))
         ids = {int(i) for i in request.POST.getlist("friends") if i.isdigit()}
         targets = [p.user for p in friends.friends_of(request.user) if p.user_id in ids]
         sent = 0

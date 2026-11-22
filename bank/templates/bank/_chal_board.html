@@ -1,0 +1,98 @@
+{# The Leaderboard tab of a group: running challenges, ended ones waiting for admins, then published boards. #}
+{% for c in running %}
+<article class="gx-card chal-card is-running">
+  <div class="chal-card-head">
+    <span class="chal-badge">🏆 Challenge</span>
+    <span class="gx-tag gx-tag-red">● {{ c.ends_at|timeuntil }} left</span>
+    {% if c.home_until %}<span class="gx-tag gx-tag-gold">On Home</span>{% endif %}
+  </div>
+  <b class="chal-card-title" dir="auto">{{ c.quiz.title }}</b>
+  <small class="chal-card-meta">{{ c.quiz.questions|length }} questions · answers {% if c.reveal == "end" %}after submitting{% else %}after each question{% endif %} · {{ c.count }} finished · by {{ c.shared_by.profile.name|default:"someone" }}</small>
+  <div class="chal-card-actions">
+    {% if c.my and c.my.finished_at %}
+      <span class="gx-tag">✓ Done · {{ c.my.score }}/{{ c.my.total }}</span>
+      <a class="gx-link" href="{% url 'bank:challenge' group.code c.pk %}">Review</a>
+    {% elif c.my %}<a class="gx-btn gx-btn-sm" href="{% url 'bank:challenge' group.code c.pk %}">Continue →</a>
+    {% else %}<a class="gx-btn gx-btn-sm" href="{% url 'bank:challenge' group.code c.pk %}">Start →</a>{% endif %}
+    {% if c.manage %}
+      <a class="gx-btn gx-btn-sm gx-btn-ghost" href="{% url 'bank:challenge_results' group.code c.pk %}">📊 Results</a>
+      {% if group.is_everyone and not c.home_until %}<button type="button" class="gx-btn gx-btn-sm gx-btn-ghost" data-open="home-dialog-{{ c.pk }}">🏠 Show on Home</button>{% endif %}
+    {% endif %}
+  </div>
+</article>
+{% if c.manage and group.is_everyone and not c.home_until %}{% include "bank/_chal_home_dialog.html" with back=request.path|add:"#leaderboard" %}{% endif %}
+{% endfor %}
+
+{% for c in waiting %}
+<article class="gx-card chal-card is-waiting">
+  <div class="chal-card-head"><span class="chal-badge">🏆 Challenge</span><span class="gx-tag">Ended</span></div>
+  <b class="chal-card-title" dir="auto">{{ c.quiz.title }}</b>
+  <small class="chal-card-meta">{{ c.count }} finished · {% if c.manage %}publish the leaderboard when you’re ready{% else %}the admins will publish the leaderboard soon{% endif %}{% if c.my and c.my.finished_at %} · you got {{ c.my.score }}/{{ c.my.total }}{% endif %}</small>
+  <div class="chal-card-actions">
+    {% if c.my and c.my.finished_at %}<a class="gx-link" href="{% url 'bank:challenge' group.code c.pk %}">Review my answers</a>{% endif %}
+    {% if c.manage %}<a class="gx-btn gx-btn-sm" href="{% url 'bank:challenge_results' group.code c.pk %}">📊 Results &amp; publish</a>{% endif %}
+  </div>
+</article>
+{% endfor %}
+
+{% for c in boards %}
+<article class="gx-card chal-board{% if c.pinned_at %} is-pinned{% endif %}" id="board-{{ c.pk }}">
+  <header class="chal-board-head">
+    <div>
+      {% if c.pinned_at %}<span class="chal-pin">📌 Pinned</span>{% endif %}
+      <b class="chal-card-title" dir="auto">{{ c.quiz.title }}</b>
+      <small class="chal-card-meta">{{ c.ranked }} took part · {{ c.published_at|date:"j M Y" }}</small>
+    </div>
+    {% if c.manage %}
+    <details class="gx-menu">
+      <summary aria-label="Leaderboard options">⋯</summary>
+      <div class="gx-menu-list">
+        <form method="post" action="{% url 'bank:challenge_action' group.code c.pk %}">{% csrf_token %}
+          {% if c.pinned_at %}<button name="action" value="unpin">📌 Unpin</button>{% else %}<button name="action" value="pin">📌 Pin to the top</button>{% endif %}</form>
+        <a href="{% url 'bank:challenge_results' group.code c.pk %}">📊 Full results</a>
+      </div>
+    </details>
+    {% endif %}
+  </header>
+  {% if c.rows %}
+  <div class="live-podium chal-podium">
+    {% for r in c.podium %}
+    <div class="live-podium-col is-p{{ r.rank }}{% if r.me %} is-me{% endif %}" style="--n:{{ forloop.counter0 }}">
+      <span class="live-podium-face">{% if r.profile %}{% include "bank/_avatar.html" with p=r.profile size="md" small=True %}{% else %}<span class="avatar avatar-md avatar-initials chal-anon" aria-hidden="true">?</span>{% endif %}<i aria-hidden="true">{% if r.rank == 1 %}🥇{% elif r.rank == 2 %}🥈{% else %}🥉{% endif %}</i></span>
+      <b class="live-podium-name">{% if r.me %}You{% else %}{{ r.name }}{% endif %}</b>
+      <span class="live-podium-score"><b>{{ r.attempt.score }}</b>/{{ r.attempt.total }} · {{ r.time }}</span>
+      <span class="live-podium-step">{{ r.rank }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% if c.rest %}
+  <ol class="chal-table" start="4">
+    {% for r in c.rest %}
+    <li class="chal-row{% if r.me %} is-me{% endif %}">
+      <span class="chal-rank">{{ r.rank }}</span>
+      {% if r.profile %}{% include "bank/_avatar.html" with p=r.profile size="sm" small=True %}{% else %}<span class="avatar avatar-sm avatar-initials chal-anon" aria-hidden="true">?</span>{% endif %}
+      <span class="chal-name"><b>{% if r.me %}You{% else %}{{ r.name }}{% endif %}</b></span>
+      <span class="chal-score"><b>{{ r.attempt.score }}</b>/{{ r.attempt.total }}<small>{{ r.percent }}% · ⏱ {{ r.time }}</small></span>
+    </li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+  {% if c.me_outside %}
+  <div class="chal-row is-me chal-my-rank">
+    <span class="chal-rank">{{ c.me.rank }}</span>
+    <span class="chal-name"><b>Your rank: {{ c.me.rank }} of {{ c.ranked }}</b></span>
+    <span class="chal-score"><b>{{ c.me.attempt.score }}</b>/{{ c.me.attempt.total }}<small>{{ c.me.percent }}% · ⏱ {{ c.me.time }}</small></span>
+  </div>
+  {% elif not c.me %}
+  <p class="chal-note mute">You didn’t take this one. <a href="{% url 'bank:challenge' group.code c.pk %}">Try it for practice →</a></p>
+  {% endif %}
+  {% else %}
+  <p class="mute">No one took this challenge.</p>
+  {% endif %}
+</article>
+{% endfor %}
+
+{% if not running and not waiting and not boards %}
+<div class="gx-empty"><span aria-hidden="true">🏆</span><b>No leaderboards yet</b>
+  <small>{% if can_post %}In <a href="{% url 'bank:my_space' %}">My Space</a>, tap <b>Send</b> on a quiz, pick this group and switch on <b>Challenge with a leaderboard</b>.{% else %}When the admins post a challenge, it shows up here.{% endif %}</small></div>
+{% endif %}

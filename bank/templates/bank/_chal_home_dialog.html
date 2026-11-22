@@ -1,0 +1,17 @@
+  <dialog id="home-dialog-{{ c.pk }}" class="gx-dialog" aria-labelledby="home-title-{{ c.pk }}">
+    <form method="post" action="{% url 'bank:challenge_action' c.group.code c.pk %}" class="gx-dialog-body">{% csrf_token %}
+      <input type="hidden" name="action" value="home"><input type="hidden" name="back" value="{{ back }}">
+      <header class="gx-dialog-head"><h3 id="home-title-{{ c.pk }}">🏠 Show on everyone’s Home</h3><button type="button" class="gx-x" data-close aria-label="Close">✕</button></header>
+      <div class="chal-home-preview" aria-hidden="true">
+        <span class="chal-home-kicker">📣 Challenge from the Academic Secretary</span>
+        <b dir="auto">{{ c.quiz.title }}</b>
+        <small>{{ c.quiz.questions|length }} questions · ends {{ c.ends_at|date:"D j M" }}</small>
+      </div>
+      <span class="gx-label">Show it for</span>
+      <div class="gx-choice">
+        {% for key, label in home_durations %}<label><input type="radio" name="for" value="{{ key }}" {% if key == "end" %}checked{% endif %}><span>{{ label }}</span></label>{% endfor %}
+      </div>
+      <p class="gx-hint">Everyone gets a notification too. It leaves Home by itself when the time is up or the challenge ends.</p>
+      <footer class="gx-dialog-foot"><button type="button" class="gx-btn gx-btn-ghost" data-close>Cancel</button><button class="gx-btn">Show on Home</button></footer>
+    </form>
+  </dialog>

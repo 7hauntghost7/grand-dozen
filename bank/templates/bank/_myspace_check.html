@@ -1,0 +1,8 @@
+<div class="myspace-check{% if problems %} has-problems{% endif %}" role="status">
+  <p><b>{{ good|length }}</b> question{{ good|length|pluralize }} ready{% if problems %} · <b>{{ problems|length }}</b> with problems will be left out{% endif %}.</p>
+  {% if problems %}
+  <ul class="myspace-problems">
+    {% for number, stem, errors in problems %}<li><b>Q{{ number }}</b> {{ stem }}<small>{{ errors|join:" " }}</small></li>{% endfor %}
+  </ul>
+  {% endif %}
+</div>

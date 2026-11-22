@@ -1,0 +1,74 @@
+{% extends "bank/base.html" %}
+{% block title %}Results · {{ challenge.quiz.title }}{% endblock %}
+{% block content %}
+<main class="gx gx-group">
+  <a class="gx-back" href="{{ group.get_absolute_url }}#leaderboard">← {{ group.name }}</a>
+
+  <section class="gx-card chal-admin">
+    <div class="chal-admin-head">
+      <span class="gx-attach-icon" aria-hidden="true">🏆</span>
+      <div>
+        <h2 class="gx-h" dir="auto">{{ challenge.quiz.title }}</h2>
+        <p class="gx-sub">
+          {% if challenge.published_at %}<span class="gx-tag gx-tag-gold">Published</span> {{ challenge.published_at|date:"D j M, H:i" }}
+          {% elif challenge.is_open %}<span class="gx-tag gx-tag-red">● Running</span> ends {{ challenge.ends_at|date:"D j M, H:i" }}
+          {% else %}<span class="gx-tag">Ended</span> {{ challenge.ends_at|date:"D j M, H:i" }} · not published yet{% endif %}
+          · answers {% if challenge.reveal == "end" %}after submitting{% else %}after each question{% endif %}
+          · names {% if challenge.allow_hiding %}can be hidden{% else %}always shown{% endif %}
+        </p>
+      </div>
+    </div>
+    <dl class="chal-counts">
+      <div><dt>Finished</dt><dd>{{ count }}</dd></div>
+      <div><dt>Still answering</dt><dd>{{ unfinished }}</dd></div>
+      <div><dt>Practice (late)</dt><dd>{{ late }}</dd></div>
+    </dl>
+    <div class="chal-admin-actions">
+      {% if not challenge.published_at %}
+      <form method="post" action="{% url 'bank:challenge_action' group.code challenge.pk %}" onsubmit="return confirm('Publish the leaderboard now? The challenge closes{% if challenge.is_open %} early{% endif %} and everyone in the group sees the ranking.')">{% csrf_token %}
+        <input type="hidden" name="back" value="{{ request.path }}">
+        <button class="gx-btn" name="action" value="publish">📣 Publish leaderboard</button></form>
+      <form method="post" action="{% url 'bank:challenge_action' group.code challenge.pk %}">{% csrf_token %}
+        <input type="hidden" name="back" value="{{ request.path }}"><input type="hidden" name="days" value="1">
+        <button class="gx-btn gx-btn-ghost" name="action" value="extend">⏳ +1 day</button></form>
+      {% endif %}
+      {% if group.is_everyone and challenge.is_open %}
+        {% if challenge.home_until %}
+        <form method="post" action="{% url 'bank:challenge_action' group.code challenge.pk %}">{% csrf_token %}
+          <input type="hidden" name="back" value="{{ request.path }}">
+          <button class="gx-btn gx-btn-ghost" name="action" value="home_off">🏠 On Home until {{ challenge.home_until|date:"D j M, H:i" }} · Take off</button></form>
+        {% else %}
+        <button type="button" class="gx-btn gx-btn-ghost" data-open="home-dialog-{{ challenge.pk }}">🏠 Show on Home</button>
+        {% endif %}
+      {% endif %}
+      {% if challenge.published_at %}
+      <form method="post" action="{% url 'bank:challenge_action' group.code challenge.pk %}">{% csrf_token %}
+        <input type="hidden" name="back" value="{{ request.path }}">
+        {% if challenge.pinned_at %}<button class="gx-btn gx-btn-ghost" name="action" value="unpin">📌 Unpin</button>
+        {% else %}<button class="gx-btn gx-btn-ghost" name="action" value="pin">📌 Pin in the group</button>{% endif %}</form>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="gx-card">
+    <h3 class="gx-card-title">Everyone’s results{% if not challenge.published_at %} <small class="mute">· only you can see this</small>{% endif %}</h3>
+    {% if rows %}
+    <ol class="chal-table">
+      {% for r in rows %}
+      <li class="chal-row{% if r.rank <= 3 %} is-top{% endif %}">
+        <span class="chal-rank">{% if r.rank == 1 %}🥇{% elif r.rank == 2 %}🥈{% elif r.rank == 3 %}🥉{% else %}{{ r.rank }}{% endif %}</span>
+        {% if r.profile %}{% include "bank/_avatar.html" with p=r.profile size="sm" small=True %}{% endif %}
+        <span class="chal-name"><b>{{ r.name }}</b>{% if r.hidden %}<small>🙈 shows as Anonymous</small>{% endif %}</span>
+        <span class="chal-score"><b>{{ r.attempt.score }}</b>/{{ r.attempt.total }}<small>{{ r.percent }}% · ⏱ {{ r.time }}</small></span>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <div class="gx-empty"><span aria-hidden="true">⏳</span><b>No one has finished yet</b><small>Results show up here as people hand in.</small></div>
+    {% endif %}
+  </section>
+
+  {% if group.is_everyone and challenge.is_open and not challenge.home_until %}{% include "bank/_chal_home_dialog.html" with c=challenge back=request.path %}{% endif %}
+</main>
+{% endblock %}
+{% block scripts %}{% include "bank/_gx_script.html" %}{% endblock %}

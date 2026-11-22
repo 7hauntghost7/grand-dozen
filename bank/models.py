@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.text import slugify
 
 SEMESTER_CHOICES = [(i, f"Semester {i}") for i in range(1, 13)]
@@ -530,6 +531,9 @@ class Profile(models.Model):
     live_saves = models.BooleanField(
         "Friends can save questions to my account in live quizzes", default=True,
         help_text="When a friend leads a live quiz you're in, the questions they save are saved for you too.")
+    hide_on_leaderboards = models.BooleanField(
+        "Hide my name on group leaderboards", default=False,
+        help_text="Others see “Anonymous” instead of your name. You still see your own rank.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -825,7 +829,7 @@ class GroupMember(models.Model):
 
 class GroupPost(models.Model):
     """One line of a group's feed: something a member did, or an announcement."""
-    JOINED, LIVE, QUIZ, SAVED, ANNOUNCE = "joined", "live", "quiz", "saved", "announce"
+    JOINED, LIVE, QUIZ, SAVED, ANNOUNCE, BOARD = "joined", "live", "quiz", "saved", "announce", "board"
     group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name="posts")
     author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
     kind = models.CharField(max_length=10)
@@ -841,15 +845,54 @@ class GroupPost(models.Model):
 
 
 class GroupQuiz(models.Model):
-    """A My Space quiz shared with a group (the questions stay stored once)."""
+    """A My Space quiz shared with a group (the questions stay stored once).
+
+    With ``leaderboard`` on it is a challenge: everyone's first try is scored until ``ends_at``, then the
+    leaderboard is published (by admins in the Academic Secretary, by itself in other groups).
+    """
+    EACH, END = "each", "end"      # show answers after each question / after submitting
     group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name="quizzes")
     quiz = models.ForeignKey(PersonalQuiz, on_delete=models.CASCADE, related_name="group_shares")
     shared_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
+    leaderboard = models.BooleanField(default=False)
+    reveal = models.CharField(max_length=4, default=EACH)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+    pinned_at = models.DateTimeField(null=True, blank=True)
+    home_until = models.DateTimeField(null=True, blank=True)    # Academic Secretary: the card on Home
+    allow_hiding = models.BooleanField(default=True)            # people who hide their name show as Anonymous
 
     class Meta:
         ordering = ["-created_at", "-id"]
         constraints = [models.UniqueConstraint(fields=["group", "quiz"], name="unique_group_quiz")]
+
+    @property
+    def is_open(self):
+        """Challenge still running: tries are ranked."""
+        return (self.leaderboard and not self.published_at
+                and (self.ends_at is None or self.ends_at > timezone.now()))
+
+
+class ChallengeAttempt(models.Model):
+    """Someone's try at a challenge. ``answers`` maps a 1-based position to what they picked."""
+    challenge = models.ForeignKey(GroupQuiz, on_delete=models.CASCADE, related_name="attempts")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    answers = models.JSONField(default=dict)
+    score = models.PositiveIntegerField(default=0)
+    total = models.PositiveIntegerField(default=0)
+    ranked = models.BooleanField(default=True)        # started while the challenge was open
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-score", "finished_at", "id"]
+        constraints = [models.UniqueConstraint(fields=["challenge", "user"], name="unique_challenge_attempt")]
+
+    @property
+    def seconds(self):
+        end = self.finished_at or timezone.now()
+        return max(0, int((end - self.started_at).total_seconds()))
 
 
 class GroupSave(models.Model):

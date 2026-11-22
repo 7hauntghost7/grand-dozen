@@ -29,6 +29,7 @@
   <nav class="gx-tabs" role="tablist" aria-label="Group sections">
     <button type="button" role="tab" data-tab="feed">Feed</button>
     <button type="button" role="tab" data-tab="quizzes">Quizzes{% if shared %} <span>{{ shared|length }}</span>{% endif %}</button>
+    <button type="button" role="tab" data-tab="leaderboard">🏆 Leaderboard{% if running %} <span>{{ running|length }}</span>{% endif %}</button>
     <button type="button" role="tab" data-tab="saved">Saved{% if saves_count %} <span>{{ saves_count }}</span>{% endif %}</button>
     {% if not group.is_everyone %}<button type="button" role="tab" data-tab="members">Members <span>{{ count }}</span>{% if pending %}<i class="gx-dot" aria-label="requests waiting"></i>{% endif %}</button>{% endif %}
   </nav>
@@ -54,8 +55,8 @@
       <header class="gx-post-head">
         {% if p.author %}{% include "bank/_avatar.html" with p=p.author.profile size="md" small=True %}{% endif %}
         <div class="gx-post-who">
-          <b>{{ p.author.profile.name|default:"Someone" }}</b>
-          <small>{% if p.kind == "live" %}started a live quiz{% elif p.kind == "quiz" %}shared a quiz{% elif p.kind == "saved" %}saved a question{% elif p.kind == "joined" %}joined the group{% else %}announcement{% endif %} · {{ p.created_at|timesince|truncatewords:2 }} ago{% if p.edited_at %} · edited{% endif %}</small>
+          <b>{% if p.author %}{{ p.author.profile.name }}{% else %}{{ group.name }}{% endif %}</b>
+          <small>{% if p.kind == "live" %}started a live quiz{% elif p.kind == "quiz" and p.challenge %}started a challenge{% elif p.kind == "board" %}published a leaderboard{% elif p.kind == "quiz" %}shared a quiz{% elif p.kind == "saved" %}saved a question{% elif p.kind == "joined" %}joined the group{% else %}announcement{% endif %} · {{ p.created_at|timesince|truncatewords:2 }} ago{% if p.edited_at %} · edited{% endif %}</small>
         </div>
         {% if p.can_delete or p.can_edit %}
         <details class="gx-menu">
@@ -80,6 +81,14 @@
           <button class="gx-btn">Join →</button></form>
         {% endif %}
       </div>
+      {% elif p.kind == "quiz" and p.challenge %}
+      <a class="gx-attach chal-attach" href="{% url 'bank:challenge' group.code p.challenge.pk %}">
+        <span class="gx-attach-icon" aria-hidden="true">🏆</span>
+        <span><b dir="auto">{{ p.quiz.title }}</b><small>{{ p.quiz.questions|length }} questions · {% if p.challenge.is_open %}ends {{ p.challenge.ends_at|date:"D j M, H:i" }} · tap to take it{% else %}ended{% endif %}</small></span></a>
+      {% elif p.kind == "board" and p.quiz %}
+      <a class="gx-attach chal-attach" href="#leaderboard" onclick="document.querySelector('[data-tab=leaderboard]').click();return false;">
+        <span class="gx-attach-icon" aria-hidden="true">🥇</span>
+        <span><b dir="auto">{{ p.quiz.title }}</b><small>The leaderboard is out · tap to see who won</small></span></a>
       {% elif p.kind == "quiz" and p.quiz %}
       <a class="gx-attach" href="{% url 'bank:my_space_quiz' p.quiz_id %}">
         <span class="gx-attach-icon" aria-hidden="true">📚</span>
@@ -116,8 +125,9 @@
         <small>{{ s.quiz.questions|length }} questions · shared by {{ s.shared_by.profile.name|default:"someone" }}</small>
         <span class="gx-mix">{% if s.mix.mcq %}<span>MCQ {{ s.mix.mcq }}</span>{% endif %}{% if s.mix.tf %}<span>T/F {{ s.mix.tf }}</span>{% endif %}{% if s.mix.desc %}<span>Written {{ s.mix.desc }}</span>{% endif %}</span>
         <div class="gx-quiz-actions">
-          <a class="gx-btn gx-btn-sm" href="{% url 'bank:my_space_quiz' s.quiz_id %}">Start</a>
-          {% if s.in_space %}<span class="gx-tag">In My Space ✓</span>
+          {% if s.challenge and s.challenge.is_open %}<a class="gx-btn gx-btn-sm" href="{% url 'bank:challenge' group.code s.challenge.pk %}">🏆 Challenge</a>
+          {% else %}<a class="gx-btn gx-btn-sm" href="{% url 'bank:my_space_quiz' s.quiz_id %}">Start</a>{% endif %}
+          {% if s.challenge and s.challenge.is_open %}{% elif s.in_space %}<span class="gx-tag">In My Space ✓</span>
           {% else %}<form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}<input type="hidden" name="quiz" value="{{ s.quiz_id }}">
             <button class="gx-btn gx-btn-sm gx-btn-ghost" name="action" value="add_quiz">＋ My Space</button></form>{% endif %}
           {% if s.shared_by_id == user.pk or owner %}<form method="post" action="{% url 'bank:group_action' group.code %}" onsubmit="return confirm('Remove this quiz from the group?')">{% csrf_token %}
@@ -128,6 +138,11 @@
     {% empty %}
     <div class="gx-empty"><span aria-hidden="true">📚</span><b>No quizzes yet</b><small>{% if can_post %}In <a href="{% url 'bank:my_space' %}">My Space</a>, tap <b>Send</b> on a quiz and pick this group.{% else %}Quizzes shared here will show up for everyone.{% endif %}</small></div>
     {% endfor %}
+  </section>
+
+  {# ------------------------------------------------------------------ leaderboard #}
+  <section class="gx-panel" data-panel="leaderboard" aria-label="Leaderboard" hidden>
+    {% include "bank/_chal_board.html" %}
   </section>
 
   {# ------------------------------------------------------------------ saved #}
