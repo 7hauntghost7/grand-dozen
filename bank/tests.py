@@ -3158,8 +3158,8 @@ class PasswordHashingTests(Base):
 class LoginPageTests(Base):
     def test_login_page_shows_the_arabic_name_and_a_password_eye(self):
         login = self.client.get(reverse("bank:login"))
-        self.assertContains(login, '<p class="auth-brand-name" lang="ar" dir="rtl">طب الخرطوم</p>', html=True)
-        self.assertContains(login, "password-toggle")
+        self.assertContains(login, '<span class="wl-ar" lang="ar" dir="rtl">طب الخرطوم</span>', html=True)
+        self.assertContains(login, 'data-eye="id_password"')
         self.assertContains(login, 'name="password"')
 
 

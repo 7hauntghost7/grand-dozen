@@ -188,3 +188,59 @@ class HiddenAccountTests(TestCase):
         self.client.post(url, {"action": "unhide"})
         self.client.force_login(self.helper)
         self.assertContains(self.client.get(reverse("bank:control_people")), "secret.one")
+
+
+class FirstPasswordTests(TestCase):
+    def setUp(self):
+        control._last_mark.clear()
+        self.owner = User.objects.create_superuser("owner", password="x")
+        self.client.force_login(self.owner)
+        r = self.client.post(reverse("bank:control_add"), {"names": "Ahmed Ali"})
+        self.cred = r.context["created"][0]
+        self.client.logout()
+
+    def login(self):
+        self.client.post(reverse("bank:login"), {"username": self.cred["username"], "password": self.cred["password"]})
+
+    def test_new_accounts_choose_their_own_password(self):
+        self.login()
+        r = self.client.get(reverse("bank:my_space"))
+        self.assertRedirects(r, reverse("bank:welcome") + "?next=/my-space/", fetch_redirect_response=False)
+        page = self.client.get(reverse("bank:welcome") + "?next=/my-space/")
+        self.assertContains(page, "Welcome, Ahmed")
+        self.assertEqual(self.client.post(reverse("bank:api_activity_answers"), "{}", content_type="text/plain").status_code, 200)
+        r = self.client.post(reverse("bank:welcome"), {"password1": "short", "password2": "short"})
+        self.assertContains(r, "too short")
+        r = self.client.post(reverse("bank:welcome"), {"password1": "kidneys-2026", "password2": "kidneys-2027"})
+        self.assertContains(r, "don’t match")
+        r = self.client.post(reverse("bank:welcome"), {"password1": self.cred["password"], "password2": self.cred["password"]})
+        self.assertContains(r, "not the password you were given")
+        r = self.client.post(reverse("bank:welcome"), {"password1": "Kidneys-2026", "password2": "Kidneys-2026", "next": "/my-space/"})
+        self.assertContains(r, "You’re all set, Ahmed!")
+        self.assertEqual(self.client.get(reverse("bank:my_space")).status_code, 200)     # still signed in, page opens
+        self.assertRedirects(self.client.get(reverse("bank:welcome")), "/", fetch_redirect_response=False)
+        user = User.objects.get(username=self.cred["username"])
+        self.assertTrue(user.check_password("Kidneys-2026"))
+        self.assertFalse(user.profile.must_change_password)
+
+    def test_a_reset_password_must_be_changed_too(self):
+        user = User.objects.get(username=self.cred["username"])
+        user.profile.must_change_password = False
+        user.profile.save()
+        self.client.force_login(self.owner)
+        self.client.post(reverse("bank:control_person", args=[user.pk]), {"action": "password"})
+        user.refresh_from_db()
+        self.assertTrue(user.profile.must_change_password)
+        self.assertFalse(User.objects.get(pk=self.owner.pk).profile.must_change_password)
+
+
+class LibraryOrderTests(TestCase):
+    def test_book_chapters_are_listed_by_number(self):
+        from .models import Book, BookChapter
+        book = Book.objects.create(title="Gray’s Review")
+        for n in (3, 1, 10, 2):
+            BookChapter.objects.create(book=book, number=n, title=f"Chapter title {n}")
+        self.client.force_login(User.objects.create_user("reader"))
+        page = self.client.get(book.get_absolute_url()).content.decode()
+        spots = [page.index(f"Chapter title {n}") for n in (1, 2, 3, 10)]
+        self.assertEqual(spots, sorted(spots))

@@ -371,6 +371,7 @@ def person_action(request, pk):
         password = make_password()
         target.set_password(password)
         target.save(update_fields=["password"])
+        Profile.objects.filter(user=target).update(must_change_password=True)     # they pick their own next time
         sign_out_everywhere(target)
         audit(AuditEntry.ACCOUNT, "password", f"Reset {name}’s password", about=target)
         request.session["control_new_password"] = {"name": name, "username": target.username, "password": password}
@@ -454,6 +455,7 @@ def add_accounts(request):
                     user = User.objects.create_user(username=username, password=password)
                     profile = user.profile
                     profile.display_name = name
+                    profile.must_change_password = True
                     if university in {k for k, _n, _ in UNIVERSITIES} | {"other"}:
                         profile.university = university
                     if year.isdigit() and 1 <= int(year) <= 6:

@@ -536,6 +536,7 @@ class Profile(models.Model):
         help_text="Others see “Anonymous” instead of your name. You still see your own rank.")
     created_at = models.DateTimeField(auto_now_add=True)
     last_seen = models.DateTimeField(null=True, blank=True)
+    must_change_password = models.BooleanField(default=False)    # given a password by an admin: pick your own first
 
     def __str__(self):
         return f"@{self.handle}"

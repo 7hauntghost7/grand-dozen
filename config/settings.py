@@ -40,6 +40,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "bank.middleware.SingleSessionMiddleware",
     "bank.control.ActivityMiddleware",
+    "bank.welcome.FirstPasswordMiddleware",
     "bank.middleware.PushTickMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",

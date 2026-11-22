@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import challenge, control, final_review, groups, live, my_space, views
+from . import challenge, control, final_review, groups, live, my_space, views, welcome
 
 app_name = "bank"
 
@@ -76,6 +76,7 @@ urlpatterns = [
     path("live/<int:pk>/act/", live.room_act, name="live_act"),
     path("live/member/<int:pk>/", live.member_action, name="live_member_action"),
     path("live/<int:pk>/group-join/", live.group_join, name="live_group_join"),
+    path("welcome/", welcome.welcome, name="welcome"),
     path("control/", control.overview, name="control"),
     path("control/people/", control.people, name="control_people"),
     path("control/people/<int:pk>/", control.person_action, name="control_person"),

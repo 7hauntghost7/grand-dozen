@@ -2511,7 +2511,8 @@ def book_detail(request, slug):
             chapter = BookChapter.objects.create(book=book, number=int(number or next_number), title=title[:200])
             messages.success(request, f"Added chapter {chapter.number}. {chapter.title}.")
             return redirect(book)
-    chapters = book.chapters.annotate(n_questions=Count("questions", filter=LIVE_QUESTIONS))
+    # A counting query drops the model's default ordering, so order by chapter number here.
+    chapters = book.chapters.annotate(n_questions=Count("questions", filter=LIVE_QUESTIONS)).order_by("number", "id")
     return render(request, "bank/book_detail.html", {"book": book, "chapters": chapters, "error": error},
                   status=400 if error else 200)
 

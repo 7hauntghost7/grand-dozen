@@ -1,18 +1,132 @@
 {% extends "bank/base.html" %}
 {% load static %}
 {% block title %}Log in{% endblock %}
-{% block body_class %}auth-page{% endblock %}
-{% block wrap_class %}auth-page-wrap{% endblock %}
-{% block header %}{% include "bank/_auth_header.html" %}{% endblock %}
+{% block head %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@700&display=swap">
+<link rel="stylesheet" href="{% static 'bank/welcome.css' %}?v=20261122-5">
+{% endblock %}
+{% block body_class %}auth-page wl-body{% endblock %}
+{% block wrap_class %}wl-wrap{% endblock %}
+{% block header %}{% endblock %}
 {% block resume_activity %}{% endblock %}
 {% block content %}
-<form method="post" class="card narrow login-form">
-  <h2 class="login-title">Log in</h2>
-  {% csrf_token %}
-  <input type="hidden" name="next" value="{{ next }}">
-  {{ form.non_field_errors }}
-  {% for f in form %}<div class="field">{{ f.label_tag }}{{ f }}{{ f.errors }}</div>{% endfor %}
-  <div class="login-actions"><button class="btn pri">Log in</button></div>
-</form>
+<div class="wl wl-login" id="wl">
+  <div class="wl-sky" aria-hidden="true">
+    <span class="wl-star" style="--x:10%;--y:12%;--d:.2s"></span><span class="wl-star" style="--x:24%;--y:6%;--s:3px;--d:1.1s"></span>
+    <span class="wl-star" style="--x:38%;--y:18%;--d:2s"></span><span class="wl-star" style="--x:61%;--y:9%;--s:3px;--d:.6s"></span>
+    <span class="wl-star" style="--x:76%;--y:22%;--d:1.5s"></span><span class="wl-star" style="--x:91%;--y:5%;--d:2.4s"></span>
+    <span class="wl-star" style="--x:5%;--y:30%;--d:.9s"></span><span class="wl-star" style="--x:50%;--y:4%;--s:3px;--d:1.8s"></span>
+    <span class="wl-star" style="--x:84%;--y:34%;--d:.4s"></span><span class="wl-star" style="--x:31%;--y:28%;--d:2.7s"></span>
+    <span class="wl-shooting"></span>
+    <span class="wl-cloud" style="--y:14%;--w:210px;--t:75s;--d:-25s"></span>
+    <span class="wl-cloud" style="--y:28%;--w:140px;--t:100s;--d:-70s"></span>
+    <span class="wl-sun"></span>
+    <svg class="wl-birds" viewBox="0 0 120 40"><path d="M2 18 q8 -10 16 0 q8 -10 16 0"/><path d="M50 8 q6 -7 12 0 q6 -7 12 0"/><path d="M84 26 q5 -6 10 0 q5 -6 10 0"/></svg>
+    <svg class="wl-ridges" viewBox="0 0 1200 360" preserveAspectRatio="none">
+      <g class="r-far"><path d="M0 200 L140 120 L260 170 L420 70 L560 150 L700 95 L860 175 L1000 80 L1140 160 L1200 130 L1340 120 L1460 170 L1620 70 L1760 150 L1900 95 L2060 175 L2200 80 L2340 160 L2400 200 L2400 360 L0 360Z"/></g>
+      <g class="r-mid"><path d="M0 250 L170 190 L300 240 L470 150 L620 235 L780 170 L940 250 L1080 175 L1200 250 L1370 190 L1500 240 L1670 150 L1820 235 L1980 170 L2140 250 L2280 175 L2400 250 L2400 360 L0 360Z"/></g>
+      <g class="r-near"><path d="M0 310 L200 255 L340 300 L520 240 L680 305 L860 250 L1020 310 L1200 310 L1400 255 L1540 300 L1720 240 L1880 305 L2060 250 L2220 310 L2400 310 L2400 360 L0 360Z"/></g>
+    </svg>
+  </div>
+
+  <main class="wl-card" aria-labelledby="wl-title">
+    <div class="wl-logo">
+      <img class="brand-logo brand-logo-light" src="{% static 'bank/rawasi-logo.png' %}" alt="Rawasi — Batch 101">
+      <img class="brand-logo brand-logo-dark" src="{% static 'bank/rawasi-logo-dark.png' %}" alt="" aria-hidden="true">
+      <span class="wl-ar" lang="ar" dir="rtl">طب الخرطوم</span>
+    </div>
+
+    <h1 class="wl-hello" id="wl-title" data-letters>Welcome back</h1>
+    <blockquote class="wl-poem" lang="ar" dir="rtl">
+      <span>سُمُّوا رَوَاسِيَ بِالْجِبَالِ تَيَمُّناً</span>
+      <span>لَا كَالسَّفِينِ الرَّاسِيَاتِ رُكُودَا</span>
+    </blockquote>
+
+    <form method="post" class="wl-form" id="wl-form" novalidate>{% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+      {% if form.errors %}<p class="wl-errors" role="alert">{% if form.non_field_errors %}That username and password don’t match. Check them and try again.{% else %}Type your username and password.{% endif %}</p>{% endif %}
+
+      <div class="wl-field has-icon">
+        <svg class="wl-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+        <input id="id_username" name="username" type="text" placeholder=" " autocomplete="username" autocapitalize="none" spellcheck="false" required
+               value="{{ form.username.value|default:'' }}" {% if not form.username.value %}autofocus{% endif %}>
+        <label for="id_username">Username</label>
+      </div>
+
+      <div class="wl-field has-icon">
+        <svg class="wl-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10.5" width="16" height="10.5" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
+        <input id="id_password" name="password" type="password" placeholder=" " autocomplete="current-password" required {% if form.username.value %}autofocus{% endif %}>
+        <label for="id_password">Password</label>
+        <button type="button" class="wl-eye" data-eye="id_password" aria-label="Show password" aria-pressed="false">👁</button>
+      </div>
+      <p class="wl-caps" id="wl-caps" hidden>⇪ Caps Lock is on</p>
+
+      <button class="wl-go" id="wl-go"><span class="label">Log in →</span><span class="spin" aria-hidden="true"></span></button>
+    </form>
+    <p class="wl-foot">Accounts are made by the batch admins. Forgot your password? Ask one of them for a new one.</p>
+  </main>
+</div>
 {% endblock %}
-{% block scripts %}{% include "bank/_password_toggle.html" %}{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const wl = document.getElementById("wl");
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const setP = v => wl.style.setProperty("--p", v);
+  // Phones: the sun rises from behind the card's top edge, so it needs to know where that is
+  const card = document.querySelector(".wl-card");
+  const setCt = () => wl.style.setProperty("--ct", Math.max(0, Math.round(card.getBoundingClientRect().top)) + "px");
+  setCt(); setTimeout(setCt, 950);
+  addEventListener("resize", setCt); addEventListener("scroll", setCt, {passive: true});
+
+  // Title letter by letter
+  const hello = document.querySelector("[data-letters]");
+  if (hello && !still) {
+    const text = hello.textContent;
+    hello.setAttribute("aria-label", text);
+    hello.textContent = "";
+    [...text].forEach((c, i) => {
+      const s = document.createElement("span");
+      s.className = "ch"; s.style.setProperty("--i", i); s.setAttribute("aria-hidden", "true");
+      s.textContent = c === " " ? " " : c;
+      hello.appendChild(s);
+    });
+  }
+
+  // Dawn breaks when the page opens; the sun climbs as the form fills up
+  const form = document.getElementById("wl-form");
+  const user = form.querySelector("#id_username"), pass = form.querySelector("#id_password"), go = form.querySelector("#wl-go");
+  const level = () => .3 + (user.value.trim() ? .25 : 0) + (pass.value ? .25 : 0);
+  setTimeout(() => setP(level()), still ? 0 : 350);
+  [user, pass].forEach(i => i.addEventListener("input", () => setP(level())));
+
+  form.querySelector("[data-eye]").addEventListener("click", e => {
+    const b = e.currentTarget, show = pass.type === "password";
+    pass.type = show ? "text" : "password";
+    b.textContent = show ? "🙈" : "👁";
+    b.setAttribute("aria-pressed", String(show));
+    b.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    pass.focus();
+  });
+  const caps = document.getElementById("wl-caps");
+  pass.addEventListener("keyup", e => { if (e.getModifierState) caps.hidden = !e.getModifierState("CapsLock"); });
+  pass.addEventListener("blur", () => caps.hidden = true);
+
+  form.addEventListener("submit", e => {
+    if (!user.value.trim() || !pass.value) {
+      e.preventDefault();
+      const card = document.querySelector(".wl-card");
+      card.classList.remove("is-shake"); void card.offsetWidth; card.classList.add("is-shake");
+      (user.value.trim() ? pass : user).focus();
+      return;
+    }
+    setP(1);                                                 // full sunrise on the way in
+    go.classList.add("is-busy");
+    setTimeout(() => go.disabled = true, 0);
+  });
+  {% if form.errors %}document.querySelector(".wl-card").classList.add("is-shake");{% endif %}
+})();
+</script>
+{% endblock %}

@@ -22,9 +22,10 @@
         savedTheme = saved;
         root.dataset.themePreference = saved;
       }
-      // The look ("skin"): the classic Rawasi look, or Dune. Picked in Settings, kept per browser.
-      if (window.localStorage.getItem("rawasi-skin") === "dune") root.dataset.skin = "dune";
+      // The look ("skin"): Dune unless this browser picked the classic Rawasi look in Settings.
+      if (window.localStorage.getItem("rawasi-skin") !== "rawasi") root.dataset.skin = "dune";
     } catch (error) {
+      root.dataset.skin = "dune";
       console.warn("Unable to read the saved Rawasi theme preference.", error);
     }
 
