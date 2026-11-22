@@ -16,3 +16,6 @@ class BankConfig(AppConfig):
                 profile_for(instance)
 
         post_save.connect(make_profile, sender=settings.AUTH_USER_MODEL, dispatch_uid="bank_make_profile")
+
+        from .control import connect_signals
+        connect_signals()

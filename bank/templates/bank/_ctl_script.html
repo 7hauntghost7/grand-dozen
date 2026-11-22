@@ -1,0 +1,19 @@
+<script>
+(() => {
+  // Copy buttons: [data-copy-text] copies its text, [data-copy-from="id"] copies a box's value
+  document.addEventListener("click", async e => {
+    const b = e.target.closest("[data-copy-text],[data-copy-from]");
+    if (!b) return;
+    const text = b.dataset.copyText ?? document.getElementById(b.dataset.copyFrom).value;
+    try { await navigator.clipboard.writeText(text); }
+    catch (err) { const box = document.getElementById(b.dataset.copyFrom); if (box) { box.select(); document.execCommand("copy"); } }
+    const label = b.textContent;
+    b.textContent = "Copied ✓";
+    setTimeout(() => b.textContent = label, 2000);
+  });
+  // Close an open ⋯ menu when tapping elsewhere
+  document.addEventListener("click", e => {
+    document.querySelectorAll(".gx-menu[open]").forEach(d => { if (!d.contains(e.target)) d.removeAttribute("open"); });
+  });
+})();
+</script>

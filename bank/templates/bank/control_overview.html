@@ -1,0 +1,80 @@
+{% extends "bank/base.html" %}
+{% block title %}Control{% endblock %}
+{% block content %}
+<main class="gx ctl">
+  {% include "bank/_control_tabs.html" with title="Overview" %}
+
+  <section class="ctl-stats" aria-label="Right now">
+    <div class="gx-card ctl-stat is-live"><span>Online now</span><b>{{ online }}</b><small>seen in the last 5 minutes</small></div>
+    <div class="gx-card ctl-stat"><span>Active today</span><b>{{ today }}</b><small>{{ week }} this week · {{ month }} this month</small></div>
+    <div class="gx-card ctl-stat"><span>Answers today</span><b>{{ answers_today }}</b><small>{{ answers_week }} this week</small></div>
+    <div class="gx-card ctl-stat"><span>Accounts</span><b>{{ accounts }}</b><small>{{ never }} never signed in</small></div>
+  </section>
+  {% if not tracking_since %}<p class="gx-tip">📈 Counting started with this update, so the charts fill up from today.</p>
+  {% else %}<p class="gx-hint">Site-wide totals only, counted since {{ tracking_since|date:"j M Y" }}. No one’s own scores are shown here.</p>{% endif %}
+
+  <section class="gx-card">
+    <div class="gx-card-head"><h3 class="gx-card-title">Last 30 days</h3>
+      <span class="ctl-legend"><i class="is-users"></i> people <i class="is-answers"></i> answers</span></div>
+    <div class="ctl-bars" role="img" aria-label="People and answers per day for the last 30 days">
+      {% for d in days %}
+      <div class="ctl-bar" title="{{ d.day|date:'D j M' }}: {{ d.users }} people · {{ d.answers }} answers">
+        <i class="is-users" style="--v:{{ d.u }}"></i><i class="is-answers" style="--v:{{ d.a }}"></i>
+        {% if forloop.first or forloop.last or d.day.day == 1 or d.day.day == 15 %}<small>{{ d.day|date:"j M" }}</small>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="ctl-grid">
+    <section class="gx-card">
+      <h3 class="gx-card-title">Busiest hours <small class="mute">· answers, last 30 days</small></h3>
+      <div class="ctl-bars ctl-hours" role="img" aria-label="Answers by hour of the day">
+        {% for h in hours %}<div class="ctl-bar" title="{{ h.hour }}:00 · {{ h.n }} answers"><i class="is-answers" style="--v:{{ h.h }}"></i>{% if h.hour|divisibleby:6 %}<small>{{ h.hour }}:00</small>{% endif %}</div>{% endfor %}
+      </div>
+    </section>
+    <section class="gx-card">
+      <h3 class="gx-card-title">Subjects this week</h3>
+      {% for s in subjects %}
+      <div class="ctl-hbar"><span>{{ s.bank__subject__name|default:"No subject" }}</span><i style="--w:{{ s.w }}"></i><b>{{ s.n }}</b></div>
+      {% empty %}<p class="mute">No answers yet this week.</p>{% endfor %}
+    </section>
+  </div>
+
+  <div class="ctl-grid">
+    <section class="gx-card">
+      <h3 class="gx-card-title">Top chapters this week</h3>
+      <ol class="ctl-list">
+        {% for c in chapters %}<li><a href="{% url 'bank:bank_detail' c.bank__slug %}">{{ c.bank__title }}</a><small>{{ c.bank__subject__name|default:"" }}</small><b>{{ c.n }}</b></li>
+        {% empty %}<li class="mute">Nothing yet.</li>{% endfor %}
+      </ol>
+    </section>
+    <section class="gx-card">
+      <h3 class="gx-card-title">This week on the site</h3>
+      <dl class="ctl-made">
+        <div><dt>My Space quizzes made</dt><dd>{{ made.quizzes }}</dd></div>
+        <div><dt>Mock exams finished</dt><dd>{{ made.exams }}</dd></div>
+        <div><dt>Live quizzes</dt><dd>{{ made.live }}</dd></div>
+        <div><dt>Challenge tries</dt><dd>{{ made.challenges }}</dd></div>
+        <div><dt>Study groups</dt><dd>{{ made.groups }}</dd></div>
+        <div><dt>Questions in the bank</dt><dd>{{ made.questions }}</dd></div>
+      </dl>
+    </section>
+  </div>
+
+  <section class="gx-card">
+    <h3 class="gx-card-title">Most-missed questions <small class="mute">· answered 8+ times. A very high miss rate is often a wrong answer key.</small></h3>
+    {% if missed %}
+    <ol class="ctl-missed">
+      {% for m in missed %}
+      <li>
+        <span class="ctl-rate{% if m.rate >= 80 %} is-hot{% endif %}">{{ m.rate }}%</span>
+        <span class="ctl-missed-q"><b dir="auto">{{ m.question.stem|truncatechars:140 }}</b><small>{{ m.question.bank.title }} · missed {{ m.missed }} of {{ m.answered }}</small></span>
+        {% if perms.bank.change_question %}<a class="gx-btn gx-btn-sm gx-btn-ghost" href="{% url 'bank:question_edit' m.question_id %}?next={{ request.path|urlencode }}">Check</a>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}<p class="mute">Not enough answers yet.</p>{% endif %}
+  </section>
+</main>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "bank/base.html" %}
+{% block title %}People · Control{% endblock %}
+{% block content %}
+<main class="gx ctl">
+  {% include "bank/_control_tabs.html" with title="People" %}
+
+  {% if new_password %}
+  <section class="gx-card ctl-secret" role="status">
+    <h3 class="gx-card-title">🔑 New password for {{ new_password.name }}</h3>
+    <p class="ctl-cred"><span>Username <b>{{ new_password.username }}</b></span><span>Password <b id="np">{{ new_password.password }}</b></span></p>
+    <p class="gx-hint">It’s shown only now. They were signed out everywhere and sign in with this.</p>
+    <button type="button" class="gx-btn gx-btn-sm" data-copy-text="Username: {{ new_password.username }}&#10;Password: {{ new_password.password }}">Copy</button>
+  </section>
+  {% endif %}
+
+  <form method="get" class="ctl-search">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search name or username" aria-label="Search people">
+    {% if show %}<input type="hidden" name="show" value="{{ show }}">{% endif %}
+    <button class="gx-btn gx-btn-sm">Search</button>
+  </form>
+  <div class="gx-choice ctl-filters" role="group" aria-label="Show">
+    <a class="ctl-chip{% if not show %} is-on{% endif %}" href="?{% if q %}q={{ q|urlencode }}{% endif %}">Everyone <b>{{ counts.all }}</b></a>
+    <a class="ctl-chip{% if show == 'online' %} is-on{% endif %}" href="?show=online{% if q %}&q={{ q|urlencode }}{% endif %}">● Online <b>{{ counts.online }}</b></a>
+    <a class="ctl-chip{% if show == 'team' %} is-on{% endif %}" href="?show=team{% if q %}&q={{ q|urlencode }}{% endif %}">Team <b>{{ counts.team }}</b></a>
+    <a class="ctl-chip{% if show == 'never' %} is-on{% endif %}" href="?show=never{% if q %}&q={{ q|urlencode }}{% endif %}">Never signed in <b>{{ counts.never }}</b></a>
+    <a class="ctl-chip{% if show == 'off' %} is-on{% endif %}" href="?show=off{% if q %}&q={{ q|urlencode }}{% endif %}">Deactivated <b>{{ counts.off }}</b></a>
+    {% if is_owner %}<a class="ctl-chip{% if show == 'hidden' %} is-on{% endif %}" href="?show=hidden{% if q %}&q={{ q|urlencode }}{% endif %}">Archived <b>{{ counts.hidden }}</b></a>{% endif %}
+  </div>
+
+  <div class="gx-card ctl-people">
+    {% for u in page %}
+    <div class="ctl-person{% if not u.is_active %} is-off{% endif %}">
+      <span class="ctl-face">{% if u.profile %}{% include "bank/_avatar.html" with p=u.profile size="md" small=True %}{% endif %}{% if u.online %}<i class="ctl-dot" aria-label="online"></i>{% endif %}</span>
+      <span class="ctl-person-main">
+        <b>{{ u.profile.name|default:u.username }}{% if u.pk == user.pk %} (you){% endif %}</b>
+        <small>@{{ u.username }}{% if u.profile.university_name %} · {{ u.profile.university_name }}{% endif %}{% if u.profile.year %} · Year {{ u.profile.year }}{% endif %}</small>
+        <small class="ctl-seen">{% if not u.is_active %}Deactivated{% elif u.online %}Online now{% elif u.seen %}Seen {{ u.seen|timesince|truncatewords:2 }} ago{% elif u.last_login %}Signed in {{ u.last_login|date:"j M" }}{% else %}Never signed in{% endif %}</small>
+      </span>
+      <span class="ctl-tags">
+        {% if u.role == "owner" %}<span class="gx-tag gx-tag-gold">Owner</span>{% elif u.role == "manager" %}<span class="gx-tag ctl-tag-manager">Manager</span>{% elif u.role == "team" %}<span class="gx-tag ctl-tag-team">Team</span>{% endif %}
+        {% if u.control %}<span class="gx-tag ctl-tag-control">🛡 Control</span>{% endif %}
+        {% if u.hidden %}<span class="gx-tag ctl-tag-hidden">Archived</span>{% endif %}
+      </span>
+      {% if u.role != "owner" or user.is_superuser %}{% if u.pk != user.pk or is_owner %}
+      <details class="gx-menu">
+        <summary aria-label="Options for {{ u.profile.name|default:u.username }}">⋯</summary>
+        <div class="gx-menu-list ctl-menu">
+          {% if u.role != "owner" and u.pk != user.pk %}
+          <form method="post" action="{% url 'bank:control_person' u.pk %}" class="ctl-role">{% csrf_token %}
+            <input type="hidden" name="action" value="role"><input type="hidden" name="back" value="{{ request.get_full_path }}">
+            <span class="gx-label">Role</span>
+            {% for key, label, help in roles %}<label class="ctl-role-opt"><input type="radio" name="role" value="{{ key }}" {% if u.role == key %}checked{% endif %} onchange="this.form.submit()"><span><b>{{ label }}</b><small>{{ help }}</small></span></label>{% endfor %}
+          </form>
+          {% endif %}
+          <form method="post" action="{% url 'bank:control_person' u.pk %}">{% csrf_token %}<input type="hidden" name="back" value="{{ request.get_full_path }}">
+            <button name="action" value="password" onclick="return confirm('Make a new password for {{ u.profile.name|default:u.username|escapejs }}? Their old one stops working.')">🔑 New password</button>
+            {% if u.pk != user.pk %}<button name="action" value="signout">🚪 Sign out everywhere</button>
+            {% if u.is_active %}<button class="is-danger" name="action" value="deactivate" onclick="return confirm('Deactivate {{ u.profile.name|default:u.username|escapejs }}? They won’t be able to sign in.')">⛔ Deactivate</button>
+            {% else %}<button name="action" value="activate">✅ Reactivate</button>{% endif %}{% endif %}
+            {% if is_owner and u.pk != user.pk %}{% if u.hidden %}<button name="action" value="unhide">📦 Unarchive</button>{% else %}<button name="action" value="hide">📦 Archive</button>{% endif %}{% endif %}
+            {% if is_owner and u.role != "owner" %}{% if u.control %}<button name="action" value="revoke">🛡 Remove from Control</button>{% else %}<button name="action" value="grant">🛡 Give Control access</button>{% endif %}{% endif %}
+          </form>
+        </div>
+      </details>
+      {% endif %}{% endif %}
+    </div>
+    {% empty %}
+    <div class="gx-empty"><span aria-hidden="true">🔎</span><b>No one matches</b></div>
+    {% endfor %}
+  </div>
+
+  {% if page.has_other_pages %}
+  <nav class="ctl-pages" aria-label="Pages">
+    {% if page.has_previous %}<a class="gx-btn gx-btn-sm gx-btn-ghost" href="?page={{ page.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if show %}&show={{ show }}{% endif %}">← Previous</a>{% endif %}
+    <span class="mute">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a class="gx-btn gx-btn-sm gx-btn-ghost" href="?page={{ page.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if show %}&show={{ show }}{% endif %}">Next →</a>{% endif %}
+  </nav>
+  {% endif %}
+</main>
+{% endblock %}
+{% block scripts %}{% include "bank/_ctl_script.html" %}{% endblock %}

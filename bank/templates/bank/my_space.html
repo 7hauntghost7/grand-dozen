@@ -35,7 +35,8 @@
         <div class="exam-card-actions">
           <a class="exam-card-start" href="{% url 'bank:my_space_quiz' quiz.pk %}">Start <span aria-hidden="true">→</span></a>
           <button type="button" class="exam-link-btn" data-panel="send-{{ quiz.pk }}" aria-expanded="false">Send</button>
-          {% if quiz.mine %}<button type="button" class="exam-link-btn" data-panel="rename-{{ quiz.pk }}" aria-expanded="false">Rename</button>{% endif %}
+          {% if quiz.mine %}<a class="exam-link-btn" href="{% url 'bank:my_space_edit' quiz.pk %}">✏️ Edit</a>
+          <button type="button" class="exam-link-btn" data-panel="rename-{{ quiz.pk }}" aria-expanded="false">Rename</button>{% endif %}
           <form method="post" action="{% url 'bank:my_space_action' quiz.pk %}"
                 onsubmit="return confirm('Remove this quiz from your space?')">{% csrf_token %}
             <input type="hidden" name="action" value="delete">
@@ -91,6 +92,43 @@
     </div>
     {% else %}
     <p class="exam-empty">You haven't made a quiz yet. Tap <b>New quiz</b> to make your first one from your own textbook.</p>
+    {% endif %}
+  </section>
+
+  <section class="exam-section" aria-labelledby="exams-title">
+    <div class="study-section-heading">
+      <div><p>KEPT FROM THE EXAM PAGE</p><h2 id="exams-title">Mock exams</h2></div>
+      {% if exams %}<span class="study-total">{{ exams|length }} exam{{ exams|length|pluralize }}</span>{% endif %}
+    </div>
+    {% if exams %}
+    <div class="exam-cards">
+      {% for row in exams %}
+      <article class="exam-card" style="--i:{{ forloop.counter0 }}">
+        <div class="exam-card-top">
+          <h3>{{ row.exam.title }}</h3>
+          <span class="exam-badge">📝 Mock exam</span>
+        </div>
+        <p class="exam-card-meta">
+          <span><b>{{ row.exam.question_ids|length }}</b> question{{ row.exam.question_ids|length|pluralize }}</span>
+          <span>{% if row.exam.subject %}{{ row.exam.subject.name }}{% else %}{{ row.exam.bank.title }}{% endif %}</span>
+          {% if row.exam.configuration.time_limit_minutes %}<span>⏱ {{ row.exam.configuration.time_limit_minutes }} min</span>{% endif %}
+        </p>
+        <p class="exam-card-mix">
+          <span>Taken {{ row.tries }} time{{ row.tries|pluralize }}</span>
+          {% if row.last %}<span>Last: {{ row.last.submitted_at|date:"j M Y" }}</span>{% endif %}
+        </p>
+        <div class="exam-card-actions">
+          <form method="post" action="{% url 'bank:my_space_exam' row.pk %}">{% csrf_token %}
+            <button class="exam-card-start" name="action" value="start">{% if row.open %}Continue{% else %}Take it again{% endif %} <span aria-hidden="true">→</span></button></form>
+          {% if row.last %}<a class="exam-link-btn" href="{% url 'bank:exam_attempt' row.last.pk %}">Last result</a>{% endif %}
+          <form method="post" action="{% url 'bank:my_space_exam' row.pk %}" onsubmit="return confirm('Remove this exam from My Space? Your past results stay on the Exam page.')">{% csrf_token %}
+            <button class="exam-link-btn is-danger" name="action" value="remove">Remove</button></form>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="exam-empty">After you finish a mock exam on the Exam page, tap <b>＋ Save to My Space</b> to keep it here and take it again later.</p>
     {% endif %}
   </section>
 </main>

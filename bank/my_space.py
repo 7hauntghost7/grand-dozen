@@ -187,8 +187,8 @@ def check_built(items):
                 problems.append(f"Question {n} needs at least one statement.")
             elif len(options) > 8:
                 problems.append(f"Question {n} has more than 8 options.")
-            elif kind == "mcq" and sum(correct) != 1:
-                problems.append(f"Question {n}: tap the one correct option.")
+            elif kind == "mcq" and not any(correct):
+                problems.append(f"Question {n}: tap the correct option.")
             else:
                 good.append({"kind": kind, "stem": stem, "options": options, "correct": correct, "answer": "",
                              "explanation": explanation})
@@ -296,8 +296,40 @@ def home(request):
         quizzes.append(quiz)
     from .groups import postable_groups
     from .challenge import DURATIONS
+    from .models import SavedExam
+    exams = list(SavedExam.objects.filter(user=request.user).select_related("exam__bank", "exam__subject"))
+    for row in exams:
+        tries = row.exam.__class__.objects.filter(user=request.user, question_ids=row.exam.question_ids,
+                                                  submitted_at__isnull=False)
+        row.tries = tries.count()
+        row.last = tries.order_by("-submitted_at").first()
+        row.open = row.exam.__class__.objects.filter(user=request.user, question_ids=row.exam.question_ids,
+                                                     submitted_at__isnull=True).order_by("-started_at").first()
     return render(request, "bank/my_space.html", {"quizzes": quizzes, "friends": friends.friends_of(request.user),
-                                                  "groups": postable_groups(request.user), "durations": DURATIONS})
+                                                  "groups": postable_groups(request.user), "durations": DURATIONS,
+                                                  "exams": exams})
+
+
+@login_required
+@require_POST
+def exam_action(request, pk):
+    """A mock exam kept in My Space: start a fresh try, or take it out of My Space."""
+    from .models import SavedExam
+    from .views import _create_shared_practice, _expire_exam_if_needed
+    row = get_object_or_404(SavedExam.objects.select_related("exam"), pk=pk, user=request.user)
+    if request.POST.get("action") == "remove":
+        row.delete()
+        messages.success(request, f"Removed “{row.exam.title}” from My Space.")
+        return redirect("bank:my_space")
+    unfinished = row.exam.__class__.objects.filter(user=request.user, question_ids=row.exam.question_ids,
+                                                   submitted_at__isnull=True).order_by("-started_at").first()
+    if unfinished:
+        _expire_exam_if_needed(unfinished)
+        unfinished.refresh_from_db()
+        if unfinished.submitted_at is None:
+            return redirect("bank:exam_attempt", attempt_id=unfinished.pk)
+    attempt = _create_shared_practice(row.exam, request.user)
+    return redirect("bank:exam_attempt", attempt_id=attempt.pk)
 
 
 @login_required
@@ -347,6 +379,47 @@ def build_quiz(request):
     quiz = PersonalQuiz.objects.create(user=request.user, questions=good, title=title)
     QuizAccess.objects.create(user=request.user, quiz=quiz)
     messages.success(request, f"Saved “{quiz.title}” with {len(good)} question{'s' if len(good) != 1 else ''}.")
+    return JsonResponse({"url": reverse("bank:my_space")})
+
+
+@login_required
+def edit_quiz(request, pk):
+    """Fix a saved quiz question by question. Everyone who has it sees the fix (it's stored once)."""
+    quiz = get_object_or_404(PersonalQuiz, pk=pk, user=request.user)
+    from .models import ChallengeAttempt
+    return render(request, "bank/my_space_edit.html", {
+        "quiz": quiz, "questions": quiz.questions,
+        "locked": ChallengeAttempt.objects.filter(challenge__quiz=quiz).exists(),
+        "shared": quiz.access.exclude(user=request.user).count() + quiz.group_shares.count(),
+    })
+
+
+@login_required
+@require_POST
+def save_quiz(request, pk):
+    """Save the edit page. Once people have taken it as a challenge, its questions keep their places and
+    types (their answers point at them); finished tries are scored again with the corrected key."""
+    from .challenge import score
+    from .models import ChallengeAttempt
+    from .views import json_body
+    quiz = get_object_or_404(PersonalQuiz, pk=pk, user=request.user)
+    body = json_body(request) or {}
+    good, problems = check_built(body.get("questions"))
+    if problems or not good:
+        return JsonResponse({"errors": problems or ["A quiz needs at least one question."]}, status=400)
+    attempts = list(ChallengeAttempt.objects.filter(challenge__quiz=quiz))
+    if attempts and [q["kind"] for q in good] != [q.get("kind") for q in quiz.questions]:
+        return JsonResponse({"errors": ["People have already taken this quiz as a challenge, so you can fix the "
+                                        "wording, options and answers, but not add, remove, move or change the type "
+                                        "of questions."]}, status=400)
+    quiz.questions = good
+    quiz.title = str(body.get("title") or "").strip()[:120] or quiz.title
+    quiz.save(update_fields=["questions", "title", "updated_at"])
+    for attempt in attempts:
+        if attempt.finished_at:
+            attempt.score, attempt.total = score(quiz, attempt.answers)
+            attempt.save(update_fields=["score", "total"])
+    messages.success(request, f"Saved your changes to “{quiz.title}”.")
     return JsonResponse({"url": reverse("bank:my_space")})
 
 

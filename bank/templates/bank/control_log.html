@@ -1,0 +1,46 @@
+{% extends "bank/base.html" %}
+{% block title %}Log · Control{% endblock %}
+{% block content %}
+<main class="gx ctl">
+  {% include "bank/_control_tabs.html" with title="Log" %}
+
+  <form method="get" class="ctl-search">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search, e.g. a question number" aria-label="Search the log">
+    <select name="area" aria-label="What">
+      <option value="">Everything</option>
+      <option value="question" {% if area == "question" %}selected{% endif %}>Questions</option>
+      <option value="account" {% if area == "account" %}selected{% endif %}>Accounts</option>
+      <option value="group" {% if area == "group" %}selected{% endif %}>Groups</option>
+      <option value="control" {% if area == "control" %}selected{% endif %}>Control access</option>
+    </select>
+    <select name="who" aria-label="Who">
+      <option value="">Anyone</option>
+      {% for a in actors %}<option value="{{ a.pk }}" {% if who == a.pk|stringformat:"s" %}selected{% endif %}>{{ a.profile.name|default:a.username }}</option>{% endfor %}
+    </select>
+    <button class="gx-btn gx-btn-sm">Show</button>
+  </form>
+
+  <div class="gx-card ctl-log">
+    {% for e in page %}
+    {% ifchanged e.created_at.date %}<h4 class="ctl-day">{{ e.created_at|date:"l j F Y" }}</h4>{% endifchanged %}
+    <div class="ctl-entry is-{{ e.area }}">
+      <span class="ctl-entry-icon" aria-hidden="true">{% if e.area == "question" %}📝{% elif e.area == "account" %}👤{% elif e.area == "group" %}👥{% else %}🛡{% endif %}</span>
+      <span class="ctl-entry-main">
+        <span dir="auto">{% if e.target_url %}<a href="{{ e.target_url }}">{{ e.summary }}</a>{% else %}{{ e.summary }}{% endif %}</span>
+        <small>{{ e.actor.profile.name|default:"Someone" }} · {{ e.created_at|time:"H:i" }}</small>
+      </span>
+    </div>
+    {% empty %}
+    <div class="gx-empty"><span aria-hidden="true">📜</span><b>Nothing logged yet</b><small>Question edits, account changes and group deletions show up here from now on.</small></div>
+    {% endfor %}
+  </div>
+
+  {% if page.has_other_pages %}
+  <nav class="ctl-pages" aria-label="Pages">
+    {% if page.has_previous %}<a class="gx-btn gx-btn-sm gx-btn-ghost" href="?page={{ page.previous_page_number }}&area={{ area }}&who={{ who }}&q={{ q|urlencode }}">← Newer</a>{% endif %}
+    <span class="mute">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a class="gx-btn gx-btn-sm gx-btn-ghost" href="?page={{ page.next_page_number }}&area={{ area }}&who={{ who }}&q={{ q|urlencode }}">Older →</a>{% endif %}
+  </nav>
+  {% endif %}
+</main>
+{% endblock %}

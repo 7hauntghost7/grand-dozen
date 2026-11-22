@@ -15,14 +15,25 @@
     : {kind, stem: "", options: ["", "", "", "", ""], correct: [0, 1, 2, 3, 4].map(() => kind === "tf"), explanation: ""};
 
   let S = {title: "", items: []};
-  try { S = JSON.parse(localStorage.getItem(KEY)) || S; } catch (e) {}
+  const initial = root.dataset.initial && document.getElementById(root.dataset.initial);
+  if (initial) {
+    S = {title: root.dataset.title || "", items: JSON.parse(initial.textContent).map(q => ({
+      kind: q.kind, stem: q.stem || "", explanation: q.explanation || "", answer: q.answer || "",
+      ...(q.kind === "desc" ? {} : {options: (q.options || []).slice(), correct: (q.correct || []).map(Boolean)}),
+    }))};
+  } else if (KEY) {
+    try { S = JSON.parse(localStorage.getItem(KEY)) || S; } catch (e) {}
+  }
+  const LOCKED = root.dataset.locked === "1";      // taken as a challenge: no adding, removing or moving
   if (!Array.isArray(S.items) || !S.items.length) S.items = [blank("mcq")];
   const filled = q => q.stem.trim() || (q.options || []).some(o => o.trim()) || (q.answer || "").trim();
   const count = () => {
     const n = S.items.filter(filled).length;
     root.querySelector("[data-count]").textContent = `${n} question${n === 1 ? "" : "s"}`;
   };
-  const keep = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} count(); };
+  let dirty = false;
+  const keep = () => { dirty = true; if (KEY) { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} } count(); };
+  window.addEventListener("beforeunload", e => { if (!KEY && dirty) { e.preventDefault(); e.returnValue = ""; } });
   titleEl.value = S.title || "";
   titleEl.addEventListener("input", () => { S.title = titleEl.value; keep(); });
 
@@ -35,7 +46,7 @@
         ${q.options.map((o, j) => `<div class="mb-opt${q.correct[j] ? " is-correct" : ""}">
           <button type="button" class="mb-letter" data-correct="${j}" aria-pressed="${!!q.correct[j]}" aria-label="Mark ${L[j]} as the correct answer">${q.correct[j] ? "✓" : L[j]}</button>
           <input type="text" dir="auto" maxlength="1000" data-opt="${j}" value="${esc(o)}" placeholder="Option ${L[j]}${j > 1 ? " (optional)" : ""}" aria-label="Option ${L[j]}"></div>`).join("")}
-        ${q.options.length < 8 ? '<button type="button" class="exam-link-btn mb-more" data-more>＋ Another option</button>' : ""}`;
+        ${q.options.length < 8 && !LOCKED ? '<button type="button" class="exam-link-btn mb-more" data-more>＋ Another option</button>' : ""}`;
     } else if (q.kind === "tf") {
       body = `<span class="mb-label">Statements <small>set each one True or False</small></span>
         ${q.options.map((o, j) => `<div class="mb-opt mb-opt-tf">
@@ -43,17 +54,17 @@
           <input type="text" dir="auto" maxlength="1000" data-opt="${j}" value="${esc(o)}" placeholder="Statement ${L[j]}" aria-label="Statement ${L[j]}">
           <span class="mb-tf" role="group" aria-label="Statement ${L[j]} is">
             <button type="button" class="${q.correct[j] ? "is-t" : ""}" data-tf="${j}" data-v="1" aria-pressed="${!!q.correct[j]}">T</button><button type="button" class="${q.correct[j] ? "" : "is-f"}" data-tf="${j}" data-v="0" aria-pressed="${!q.correct[j]}">F</button></span></div>`).join("")}
-        ${q.options.length < 8 ? '<button type="button" class="exam-link-btn mb-more" data-more>＋ Another statement</button>' : ""}`;
+        ${q.options.length < 8 && !LOCKED ? '<button type="button" class="exam-link-btn mb-more" data-more>＋ Another statement</button>' : ""}`;
     } else {
       body = `<label class="mb-field"><span class="mb-label">Answer</span>
         <textarea rows="3" dir="auto" maxlength="4000" data-f="answer" placeholder="The model answer">${esc(q.answer)}</textarea></label>`;
     }
     return `<article class="mb-card" data-i="${i}">
       <header class="mb-head"><span class="mb-num">Q${i + 1}</span>
-        <span class="mb-kinds" role="group" aria-label="Question type">${kinds}</span>
+        ${LOCKED ? `<span class="tag">${{mcq: "MCQ", tf: "True / False", desc: "Written"}[q.kind]}</span>` : `<span class="mb-kinds" role="group" aria-label="Question type">${kinds}</span>
         <span class="mb-tools">${i > 0 ? '<button type="button" class="mb-icon" data-move aria-label="Move up">↑</button>' : ""}
           <button type="button" class="mb-icon" data-dup aria-label="Duplicate question">⧉</button>
-          <button type="button" class="mb-icon is-danger" data-remove aria-label="Delete question">✕</button></span></header>
+          <button type="button" class="mb-icon is-danger" data-remove aria-label="Delete question">✕</button></span>`}</header>
       <label class="mb-field"><span class="mb-label">Question</span>
         <textarea rows="2" dir="auto" maxlength="4000" data-f="stem" placeholder="Type the question">${esc(q.stem)}</textarea></label>
       ${body}
@@ -113,7 +124,7 @@
     last?.scrollIntoView({behavior: "smooth", block: "center"});
     last?.querySelector("textarea")?.focus({preventScroll: true});
   }));
-  root.querySelector("[data-clear]").addEventListener("click", () => {
+  root.querySelector("[data-clear]")?.addEventListener("click", () => {
     if (!confirm("Clear every question you wrote here?")) return;
     S = {title: "", items: [blank("mcq")]};
     titleEl.value = "";
@@ -137,7 +148,8 @@
       });
       const j = await r.json().catch(() => ({}));
       if (r.ok && j.url) {
-        try { localStorage.removeItem(KEY); } catch (e) {}
+        dirty = false;
+        if (KEY) { try { localStorage.removeItem(KEY); } catch (e) {} }
         location.href = j.url;
         return;
       }

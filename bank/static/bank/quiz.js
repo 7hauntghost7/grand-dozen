@@ -134,6 +134,25 @@
     button.disabled = false;
   }
 
+  // Site-wide answer counts (for the Control overview): sent in small batches, never per person.
+  const tallyQueue = [];
+  const flushTally = () => {
+    if (!D.activity || !tallyQueue.length) return;
+    const body = JSON.stringify({answers: tallyQueue.splice(0, tallyQueue.length)});
+    try {
+      if (!navigator.sendBeacon || !navigator.sendBeacon(D.activity, new Blob([body], {type: "application/json"}))) {
+        fetch(D.activity, {method: "POST", body, keepalive: true, headers: {"Content-Type": "application/json"}}).catch(() => {});
+      }
+    } catch (e) {}
+  };
+  const countAnswer = (id, ok) => {
+    if (!D.activity || typeof ok !== "boolean" || !Number.isInteger(Number(id))) return;
+    tallyQueue.push({id: Number(id), ok});
+    if (tallyQueue.length >= 10) flushTally();
+  };
+  addEventListener("pagehide", flushTally);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushTally(); });
+
   function check(id, payload) {
     if (busy) return;
     const question = byId[id];
@@ -154,6 +173,7 @@
       if (!reveal) res.correct = res.correct_ids.includes(payload.selected);
     }
     S.a[id] = {payload, res, revealed: reveal};
+    if (!reveal) countAnswer(id, res.correct);
     save();
     render();
     scrollToAnswerAction();

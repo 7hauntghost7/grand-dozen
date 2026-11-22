@@ -10,8 +10,9 @@
      data-submit="{% url 'bank:challenge_submit' group.code challenge.pk %}"
      data-results="{% if manage %}{% url 'bank:challenge_results' group.code challenge.pk %}{% endif %}"
      data-official="{% if group.is_everyone %}1{% else %}0{% endif %}"
+     data-add="{% url 'bank:group_action' group.code %}" data-quiz="{{ quiz.pk }}" data-in-space="{% if in_space %}1{% endif %}"
      data-scored="{{ scored }}" data-count="{{ quiz.questions|length }}">
   <p class="mute">Loading…</p>
 </div>
 {% endblock %}
-{% block scripts %}<script src="{% static 'bank/challenge.js' %}?v=20261122-1"></script>{% endblock %}
+{% block scripts %}<script src="{% static 'bank/challenge.js' %}?v=20261122-2"></script>{% endblock %}

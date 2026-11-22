@@ -25,8 +25,9 @@
      data-live-mine="{{ live_mine|default:'' }}"
      data-edit="{% if perms.bank.change_question and not personal %}{% url 'bank:question_edit' 0 %}?next={{ request.get_full_path|urlencode }}{% endif %}"
      data-auth="{% if user.is_authenticated %}1{% else %}0{% endif %}"
+     data-activity="{% if user.is_authenticated and not personal and not review %}{% url 'bank:api_activity_answers' %}{% endif %}"
      data-login="{% url 'bank:login' %}?next={{ request.get_full_path|urlencode }}">
   <p class="mute">Loading…</p>
 </div>
 {% endblock %}
-{% block scripts %}<script src="{% static 'bank/quiz.js' %}?v=20261121-1"></script>{% endblock %}
+{% block scripts %}<script src="{% static 'bank/quiz.js' %}?v=20261122-1"></script>{% endblock %}

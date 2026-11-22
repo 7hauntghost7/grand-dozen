@@ -1,0 +1,46 @@
+{% extends "bank/base.html" %}
+{% block title %}Add accounts · Control{% endblock %}
+{% block content %}
+<main class="gx ctl">
+  {% include "bank/_control_tabs.html" with title="Add accounts" %}
+
+  {% if created %}
+  <section class="gx-card ctl-secret">
+    <h3 class="gx-card-title">✅ {{ created|length }} account{{ created|length|pluralize }} made</h3>
+    <p class="gx-hint"><b>Copy or print these now.</b> Passwords are shown only once. If one gets lost, use 🔑 New password in People.</p>
+    <div class="ctl-actions">
+      <button type="button" class="gx-btn gx-btn-sm" data-copy-from="sheet">Copy all</button>
+      <button type="button" class="gx-btn gx-btn-sm gx-btn-ghost" onclick="window.print()">🖨 Print</button>
+    </div>
+    <textarea id="sheet" class="ctl-sheet" rows="4" readonly aria-label="All new accounts">Sign in at {{ login }}
+{{ sheet }}</textarea>
+    <table class="ctl-table">
+      <thead><tr><th>Name</th><th>Username</th><th>Password</th><th></th></tr></thead>
+      <tbody>
+        {% for c in created %}
+        <tr><td dir="auto">{{ c.name }}</td><td><code>{{ c.username }}</code></td><td><code>{{ c.password }}</code></td>
+          <td><a class="gx-link" target="_blank" rel="noopener" href="https://wa.me/?text={% filter urlencode %}Your Rawasi account
+Sign in: {{ login }}
+Username: {{ c.username }}
+Password: {{ c.password }}{% endfilter %}">WhatsApp</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  <form method="post" class="gx-card ctl-add">{% csrf_token %}
+    <h3 class="gx-card-title">Paste the names, one per line</h3>
+    <textarea name="names" rows="10" class="gx-textarea" dir="auto" required placeholder="Ahmed Ali Hassan&#10;Sara Omer&#10;Mohamed Osman, m.osman"></textarea>
+    <p class="gx-hint">Usernames are made from the first two names (ahmed.ali). To choose one yourself, add it after a comma. Up to {{ max_bulk }} at a time. Every account gets its own password.</p>
+    <div class="ctl-add-row">
+      <label class="gx-field"><span>University <em>(optional, for all)</em></span>
+        <select name="university"><option value="">Not set</option>{% for key, name, _ in universities %}<option value="{{ key }}">{{ name }}</option>{% endfor %}<option value="other">Other</option></select></label>
+      <label class="gx-field"><span>Year <em>(optional)</em></span>
+        <select name="year"><option value="">Not set</option>{% for y in "123456" %}<option value="{{ y }}">Year {{ y }}</option>{% endfor %}</select></label>
+    </div>
+    <footer class="gx-dialog-foot"><button class="gx-btn">Make accounts</button></footer>
+  </form>
+</main>
+{% endblock %}
+{% block scripts %}{% include "bank/_ctl_script.html" %}{% endblock %}

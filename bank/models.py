@@ -535,6 +535,7 @@ class Profile(models.Model):
         "Hide my name on group leaderboards", default=False,
         help_text="Others see “Anonymous” instead of your name. You still see your own rank.")
     created_at = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"@{self.handle}"
@@ -905,3 +906,104 @@ class GroupSave(models.Model):
     class Meta:
         ordering = ["-created_at", "-id"]
         constraints = [models.UniqueConstraint(fields=["group", "question"], name="unique_group_save")]
+
+
+class GroupMute(models.Model):
+    """No phone notifications from this group's feed."""
+    group = models.ForeignKey(StudyGroup, on_delete=models.CASCADE, related_name="mutes")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["group", "user"], name="unique_group_mute")]
+
+
+class PostReaction(models.Model):
+    """One reaction per person per post, from a small fixed set."""
+    CHOICES = [("👍", "Like"), ("❤️", "Love"), ("👏", "Well done"), ("🤲", "Ameen"), ("💡", "Helpful")]
+    post = models.ForeignKey(GroupPost, on_delete=models.CASCADE, related_name="reactions")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    emoji = models.CharField(max_length=4, choices=CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [models.UniqueConstraint(fields=["post", "user"], name="unique_post_reaction")]
+
+
+class SavedExam(models.Model):
+    """A finished mock exam kept in My Space, to take again later (each time in a fresh try)."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="saved_exams")
+    exam = models.ForeignKey(ExamAttempt, on_delete=models.CASCADE, related_name="saved_by")
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-added_at", "-id"]
+        constraints = [models.UniqueConstraint(fields=["user", "exam"], name="unique_saved_exam")]
+
+
+# ---------------------------------------------------------------- Control (super admins)
+class ControlAccess(models.Model):
+    """Someone on the hand-picked list allowed into Control. Django superusers are always allowed and
+    are the only ones who change this list."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="control_access")
+    added_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    added_at = models.DateTimeField(auto_now_add=True)
+
+
+class AuditEntry(models.Model):
+    """Who changed what, and when."""
+    QUESTION, ACCOUNT, GROUP, CONTROL = "question", "account", "group", "control"
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    about = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    area = models.CharField(max_length=10, db_index=True)
+    action = models.CharField(max_length=40)
+    summary = models.CharField(max_length=300)
+    target_url = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+
+class DailyVisit(models.Model):
+    """One row per person per day they used the site (for site-wide totals only)."""
+    day = models.DateField(db_index=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    visits = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["day", "user"], name="unique_daily_visit")]
+
+
+class ChapterDay(models.Model):
+    """Answers given in a chapter on a day, by everyone together."""
+    day = models.DateField(db_index=True)
+    bank = models.ForeignKey(QuestionBank, on_delete=models.CASCADE, related_name="+")
+    answers = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["day", "bank"], name="unique_chapter_day")]
+
+
+class HourCount(models.Model):
+    """Answers by hour of the day (local time), by everyone together."""
+    day = models.DateField(db_index=True)
+    hour = models.PositiveSmallIntegerField()
+    answers = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["day", "hour"], name="unique_hour_count")]
+
+
+class QuestionStat(models.Model):
+    """How often a question is answered and missed, by everyone together (spots wrong answer keys)."""
+    question = models.OneToOneField(Question, on_delete=models.CASCADE, related_name="stat")
+    answered = models.PositiveIntegerField(default=0)
+    missed = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class HiddenAccount(models.Model):
+    """An account only the owner (Django superusers) can see in Control, its log and Django Admin."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="hidden_account")
+    hidden_at = models.DateTimeField(auto_now_add=True)

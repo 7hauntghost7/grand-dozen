@@ -12,6 +12,7 @@
     {% if c.my and c.my.finished_at %}
       <span class="gx-tag">✓ Done · {{ c.my.score }}/{{ c.my.total }}</span>
       <a class="gx-link" href="{% url 'bank:challenge' group.code c.pk %}">Review</a>
+      {% include "bank/_add_space.html" with quiz_id=c.quiz_id have=c.in_space back=request.path|add:"#leaderboard" %}
     {% elif c.my %}<a class="gx-btn gx-btn-sm" href="{% url 'bank:challenge' group.code c.pk %}">Continue →</a>
     {% else %}<a class="gx-btn gx-btn-sm" href="{% url 'bank:challenge' group.code c.pk %}">Start →</a>{% endif %}
     {% if c.manage %}
@@ -31,6 +32,7 @@
   <div class="chal-card-actions">
     {% if c.my and c.my.finished_at %}<a class="gx-link" href="{% url 'bank:challenge' group.code c.pk %}">Review my answers</a>{% endif %}
     {% if c.manage %}<a class="gx-btn gx-btn-sm" href="{% url 'bank:challenge_results' group.code c.pk %}">📊 Results &amp; publish</a>{% endif %}
+    {% include "bank/_add_space.html" with quiz_id=c.quiz_id have=c.in_space back=request.path|add:"#leaderboard" %}
   </div>
 </article>
 {% endfor %}
@@ -86,6 +88,7 @@
   {% elif not c.me %}
   <p class="chal-note mute">You didn’t take this one. <a href="{% url 'bank:challenge' group.code c.pk %}">Try it for practice →</a></p>
   {% endif %}
+  <div class="chal-board-foot">{% include "bank/_add_space.html" with quiz_id=c.quiz_id have=c.in_space back=request.path|add:"#leaderboard" %}</div>
   {% else %}
   <p class="mute">No one took this challenge.</p>
   {% endif %}

@@ -11,6 +11,7 @@
        data-share="{{ share_url }}"
        data-note="{% url 'bank:api_note' 0 %}"
        data-save-template="{{ save_template_url }}"
+       data-my-space="{{ my_space_url }}"
        data-delete-attempt="{{ delete_attempt_url }}"
        data-practice-again="{{ practice_again_url }}"
        data-back="{{ back_url }}">
@@ -47,4 +48,4 @@
   </div>
 </main>
 {% endblock %}
-{% block scripts %}<script src="{% static 'bank/exam.js' %}?v=20261103-2"></script>{% endblock %}
+{% block scripts %}<script src="{% static 'bank/exam.js' %}?v=20261122-1"></script>{% endblock %}

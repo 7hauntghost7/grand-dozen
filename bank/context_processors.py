@@ -19,6 +19,8 @@ def site(request):
         ctx["unseen_messages_count"] = unseen_count(u)
         from .groups import pending_for_owner
         ctx["group_requests_count"] = pending_for_owner(u)
+        from .control import can_control
+        ctx["can_control"] = can_control(u)
         from .live import close_idle_rooms
         close_idle_rooms()
         active_exam = ExamAttempt.objects.filter(

@@ -40,7 +40,7 @@ from .image_storage import (
 )
 from .models import (
     AIExamAssessment, BackupSnapshot, Book, BookChapter, Comment, ImageTarget, Option, Question, QuestionBank, QuestionImage,
-    ExamAttempt, ExamTemplate, ExamTemplateChapter, QuestionNote, SavedQuestion, Subject, SubjectSection,
+    ExamAttempt, ExamTemplate, ExamTemplateChapter, SavedExam, QuestionNote, SavedQuestion, Subject, SubjectSection,
     PushPhrase, PushPreference, PushSettings, PushSubscription, SEMESTER_CHOICES, Profile, FriendRequest,
     TopicSearch,
 )
@@ -822,6 +822,28 @@ def _saved_attempt_template_name(attempt):
     return name
 
 
+def _exam_source(attempt):
+    """Retries of an exam point at the try that was saved first, so the same exam isn't kept twice."""
+    saved = SavedExam.objects.filter(user=attempt.user_id, exam__question_ids=attempt.question_ids).first()
+    return saved.exam if saved else attempt
+
+
+@login_required
+@require_POST
+def api_exam_my_space(request, attempt_id):
+    """Keep a finished mock exam in My Space (or take it out again)."""
+    attempt = get_object_or_404(ExamAttempt, pk=attempt_id, user=request.user)
+    if attempt.submitted_at is None:
+        return JsonResponse({"error": "Finish the exam before saving it."}, status=409)
+    source = _exam_source(attempt)
+    saved = SavedExam.objects.filter(user=request.user, exam=source)
+    if (json_body(request) or {}).get("action") == "remove":
+        saved.delete()
+        return JsonResponse({"in_my_space": False})
+    SavedExam.objects.get_or_create(user=request.user, exam=source)
+    return JsonResponse({"in_my_space": True})
+
+
 @login_required
 @require_POST
 def api_exam_save_template(request, attempt_id):
@@ -1026,6 +1048,7 @@ def exam_attempt(request, attempt_id):
         "ai_assess_url": reverse("bank:api_exam_ai_assess", args=[attempt.pk]),
         "share_url": reverse("bank:api_exam_share", args=[attempt.pk]),
         "save_template_url": reverse("bank:api_exam_save_template", args=[attempt.pk]),
+        "my_space_url": reverse("bank:api_exam_my_space", args=[attempt.pk]),
         "delete_attempt_url": reverse("bank:exam_attempt_delete", args=[attempt.pk]),
         "practice_again_url": (
             reverse("bank:exam_share_retry", args=[attempt.pk])
@@ -1315,6 +1338,7 @@ def api_exam_attempt(request, attempt_id):
         result["ai_assessment_status"] = task.status if task else "not_requested"
     if result["report_ready"]:
         result["template_saved"] = ExamTemplate.objects.filter(source_attempt=attempt).exists()
+        result["in_my_space"] = SavedExam.objects.filter(user=attempt.user_id, exam=_exam_source(attempt)).exists()
     if result["report_ready"]:
         result["share_url"] = (
             request.build_absolute_uri(reverse("bank:exam_share", args=[attempt.share_token]))
@@ -1468,6 +1492,7 @@ def api_exam_submit(request, attempt_id):
     result = _exam_review_data(attempt)
     if result["report_ready"]:
         result["template_saved"] = ExamTemplate.objects.filter(source_attempt=attempt).exists()
+        result["in_my_space"] = SavedExam.objects.filter(user=attempt.user_id, exam=_exam_source(attempt)).exists()
         result["share_url"] = (
             request.build_absolute_uri(reverse("bank:exam_share", args=[attempt.share_token]))
             if attempt.share_token else None
@@ -1502,6 +1527,7 @@ def api_exam_ai_assess(request, attempt_id):
             payload.update(result)
             if result["report_ready"]:
                 payload["template_saved"] = ExamTemplate.objects.filter(source_attempt=attempt).exists()
+                payload["in_my_space"] = SavedExam.objects.filter(user=attempt.user_id, exam=_exam_source(attempt)).exists()
                 payload["share_url"] = (
                     request.build_absolute_uri(reverse("bank:exam_share", args=[attempt.share_token]))
                     if attempt.share_token else None

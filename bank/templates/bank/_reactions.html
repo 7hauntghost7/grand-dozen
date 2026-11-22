@@ -1,0 +1,11 @@
+{# Reactions under a group post: a small fixed set, one per person; tap yours again to take it back. #}
+<form method="post" action="{% url 'bank:group_action' group.code %}" class="gx-react" data-react id="react-{{ p.pk }}">{% csrf_token %}
+  <input type="hidden" name="action" value="react"><input type="hidden" name="post" value="{{ p.pk }}">
+  {% for r in p.reaction_bar.items %}<button class="gx-react-chip{% if r.mine %} is-mine{% endif %}" name="emoji" value="{{ r.emoji }}" title="{{ r.who }}" aria-pressed="{% if r.mine %}true{% else %}false{% endif %}" aria-label="{{ r.emoji }} {{ r.count }}: {{ r.who }}">{{ r.emoji }} <b>{{ r.count }}</b></button>{% endfor %}
+  <details class="gx-react-menu">
+    <summary aria-label="React to this post">{% if p.reaction_bar.mine %}<span aria-hidden="true">{{ p.reaction_bar.mine }}</span> Reacted{% else %}<span class="gx-react-plus" aria-hidden="true">☺</span> React{% endif %}</summary>
+    <div class="gx-react-pop" role="group" aria-label="Pick a reaction">
+      {% for emoji, label in reaction_choices %}<button name="emoji" value="{{ emoji }}" class="{% if p.reaction_bar.mine == emoji %}is-mine{% endif %}" title="{{ label }}" aria-label="{{ label }}">{{ emoji }}<small>{{ label }}</small></button>{% endfor %}
+    </div>
+  </details>
+</form>

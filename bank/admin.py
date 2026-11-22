@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.contrib.auth import get_user_model
+from django.contrib.auth.admin import UserAdmin
 
 from .forms import OptionFormSet, QuestionForm
 from .models import Block, Book, BookChapter, Comment, FriendRequest, Option, Profile, Question, QuestionBank, Subject, SubjectSection
@@ -83,6 +85,9 @@ class ProfileAdmin(admin.ModelAdmin):
     readonly_fields = ("friend_code", "avatar_key", "avatar_url", "avatar_small_url", "created_at", "handle_changed_at")
     actions = ["remove_pictures"]
 
+    def get_queryset(self, request):
+        return _without_hidden(request, super().get_queryset(request), "user_id")
+
     @admin.display(boolean=True, description="Picture")
     def has_picture(self, obj):
         return bool(obj.avatar_key)
@@ -95,6 +100,23 @@ class ProfileAdmin(admin.ModelAdmin):
             remove_avatar(profile)
             count += 1
         self.message_user(request, f"Removed {count} profile picture{'s' if count != 1 else ''}.")
+
+
+def _without_hidden(request, qs, field="pk"):
+    """Accounts the owner hid (Control → People) stay out of Admin for everyone but superusers."""
+    if request.user.is_superuser:
+        return qs
+    from .models import HiddenAccount
+    return qs.exclude(**{f"{field}__in": HiddenAccount.objects.values("user_id")})
+
+
+class PrivateUserAdmin(UserAdmin):
+    def get_queryset(self, request):
+        return _without_hidden(request, super().get_queryset(request))
+
+
+admin.site.unregister(get_user_model())
+admin.site.register(get_user_model(), PrivateUserAdmin)
 
 
 @admin.register(FriendRequest)

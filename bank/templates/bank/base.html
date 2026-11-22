@@ -52,7 +52,7 @@
 <link rel="manifest" href="{% url 'bank:manifest' %}">
 <link rel="icon" type="image/svg+xml" href="{% static 'bank/icons/app-101.svg' %}">
 <link rel="apple-touch-icon" href="{% static 'bank/icons/app-101-192.png' %}">
-<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20261122-1">
+<link rel="stylesheet" href="{% static 'bank/style.css' %}?v=20261122-3">
 <link rel="stylesheet" href="{% static 'bank/skin-dune.css' %}?v=20261118-1">
 {% block head %}{% endblock %}
 </head>
@@ -76,6 +76,7 @@
         <a href="{% url 'bank:messages' %}"{% if here == "messages" %} aria-current="page"{% endif %}>Messages{% if unseen_messages_count %}<span class="badge" aria-label="{{ unseen_messages_count }} new">{{ unseen_messages_count }}</span>{% endif %}</a>
         <a href="{% url 'bank:friends' %}"{% if here == "friends" %} aria-current="page"{% endif %}>Friends{% if friend_requests_count %}<span class="badge" aria-label="{{ friend_requests_count }} new request{{ friend_requests_count|pluralize }}">{{ friend_requests_count }}</span>{% endif %}</a>
         <a href="{% url 'bank:settings' %}"{% if here == "settings" %} aria-current="page"{% endif %}>Settings</a>
+        {% if can_control %}<a href="{% url 'bank:control' %}"{% if here == "control" or here == "control_people" or here == "control_add" or here == "control_log" %} aria-current="page"{% endif %}>🛡 Control</a>{% endif %}
       </div>
       {% if perms.bank.add_question or perms.bank.change_question or user.is_staff %}
       <div class="nav-tools" role="group" aria-labelledby="nav-tools-label">

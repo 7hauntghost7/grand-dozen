@@ -152,9 +152,12 @@ def leaderboard_context(group, user):
     settle(group)
     challenges = list(group.quizzes.filter(leaderboard=True).select_related("quiz", "shared_by__profile"))
     mine = {a.challenge_id: a for a in ChallengeAttempt.objects.filter(challenge__in=challenges, user=user)}
+    from .models import QuizAccess
+    have = set(QuizAccess.objects.filter(user=user, quiz__in=[c.quiz_id for c in challenges]).values_list("quiz_id", flat=True))
     running, waiting, boards = [], [], []
     for c in challenges:
         c.my = mine.get(c.pk)
+        c.in_space = c.quiz_id in have
         c.manage = can_manage(c, user)
         c.count = c.attempts.filter(finished_at__isnull=False, ranked=True).count()
         if c.published_at:
@@ -248,6 +251,7 @@ def page(request, code, pk):
         "manage": can_manage(challenge, request.user),
         "scored": sum(q.get("kind") != "desc" for q in challenge.quiz.questions),
         "attempt": _attempt(challenge, request.user, create=False),
+        "in_space": challenge.quiz.access.filter(user=request.user).exists(),
     })
 
 
@@ -322,7 +326,7 @@ def results(request, code, pk):
 @login_required
 @require_POST
 def action(request, code, pk):
-    from .groups import member_users, notify
+    from .groups import audience, notify
     challenge = _challenge_or_404(request, code, pk)
     if not can_manage(challenge, request.user):
         raise Http404
@@ -349,7 +353,7 @@ def action(request, code, pk):
         until = challenge.ends_at if span == "end" else now + timedelta(days=int(span) if span.isdigit() else 1)
         challenge.home_until = min(until, challenge.ends_at) if challenge.ends_at else until
         challenge.save(update_fields=["home_until"])
-        notify(member_users(group).exclude(pk=request.user.pk).values_list("pk", flat=True),
+        notify(audience(group, exclude=request.user).values_list("pk", flat=True),
                f"📣 Challenge: {challenge.quiz.title}. Take it before it ends!",
                reverse("bank:challenge", args=[group.code, challenge.pk]))
         messages.success(request, "It’s on everyone’s Home now.")

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import challenge, final_review, groups, live, my_space, views
+from . import challenge, control, final_review, groups, live, my_space, views
 
 app_name = "bank"
 
@@ -64,6 +64,8 @@ urlpatterns = [
     path("my-space/<int:pk>/", my_space.take_quiz, name="my_space_quiz"),
     path("my-space/<int:pk>/questions/", my_space.quiz_questions, name="my_space_questions"),
     path("my-space/<int:pk>/edit/", my_space.quiz_action, name="my_space_action"),
+    path("my-space/<int:pk>/questions/edit/", my_space.edit_quiz, name="my_space_edit"),
+    path("my-space/<int:pk>/questions/save/", my_space.save_quiz, name="my_space_save"),
     path("messages/", my_space.inbox, name="messages"),
     path("messages/<int:pk>/", my_space.inbox_action, name="message_action"),
     path("live/start/", live.start, name="live_start"),
@@ -74,6 +76,12 @@ urlpatterns = [
     path("live/<int:pk>/act/", live.room_act, name="live_act"),
     path("live/member/<int:pk>/", live.member_action, name="live_member_action"),
     path("live/<int:pk>/group-join/", live.group_join, name="live_group_join"),
+    path("control/", control.overview, name="control"),
+    path("control/people/", control.people, name="control_people"),
+    path("control/people/<int:pk>/", control.person_action, name="control_person"),
+    path("control/add/", control.add_accounts, name="control_add"),
+    path("control/log/", control.log, name="control_log"),
+    path("api/activity/answers/", control.api_answers, name="api_activity_answers"),
     path("groups/", groups.home, name="groups"),
     path("groups/<str:code>/", groups.group_page, name="group"),
     path("groups/<str:code>/do/", groups.group_action, name="group_action"),
@@ -101,6 +109,8 @@ urlpatterns = [
     path("api/exams/<int:attempt_id>/ai-assess/", views.api_exam_ai_assess, name="api_exam_ai_assess"),
     path("api/exams/<int:attempt_id>/share/", views.api_exam_share, name="api_exam_share"),
     path("api/exams/<int:attempt_id>/save-template/", views.api_exam_save_template, name="api_exam_save_template"),
+    path("api/exams/<int:attempt_id>/my-space/", views.api_exam_my_space, name="api_exam_my_space"),
+    path("my-space/exam/<int:pk>/", my_space.exam_action, name="my_space_exam"),
     path("api/saved/deck/<slug:slug>/questions/", views.api_saved_questions, name="api_saved_questions"),
     path("api/question/<int:pk>/check/", views.api_check, name="api_check"),
     path("api/question/<int:pk>/image-target/<int:target_pk>/", views.api_image_target, name="api_image_target"),

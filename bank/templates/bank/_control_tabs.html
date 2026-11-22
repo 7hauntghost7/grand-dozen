@@ -1,0 +1,12 @@
+<header class="gx-topbar ctl-top">
+  <div>
+    <p class="ctl-kicker">🛡 Control · super admins only</p>
+    <h2 class="gx-h">{{ title }}</h2>
+  </div>
+</header>
+<nav class="gx-tabs ctl-tabs" aria-label="Control">
+  <a href="{% url 'bank:control' %}" {% if here_tab == "overview" %}aria-current="page"{% endif %}>📊 Overview</a>
+  <a href="{% url 'bank:control_people' %}" {% if here_tab == "people" %}aria-current="page"{% endif %}>👥 People</a>
+  <a href="{% url 'bank:control_add' %}" {% if here_tab == "add" %}aria-current="page"{% endif %}>＋ Add accounts</a>
+  <a href="{% url 'bank:control_log' %}" {% if here_tab == "log" %}aria-current="page"{% endif %}>📜 Log</a>
+</nav>

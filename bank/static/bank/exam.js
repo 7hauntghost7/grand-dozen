@@ -868,6 +868,14 @@
       </button>
       <p class="exam-save-status" data-save-status role="status" aria-live="polite">${result.template_saved ? "Saved without answers. Your completed attempt remains in Recent exam attempts." : ""}</p>
     </section>
+    <section class="exam-save-controls exam-myspace-controls" aria-label="Save to My Space">
+      <div>
+        <h3>Save to My Space</h3>
+        <p>Keep this mock exam with your quizzes and take it again whenever you like, each time in a fresh try.</p>
+      </div>
+      <button class="btn${result.in_my_space ? "" : " pri"}" type="button" data-my-space>${result.in_my_space ? "In My Space ✓ · Remove" : "＋ Save to My Space"}</button>
+      <p class="exam-save-status" data-my-space-status role="status" aria-live="polite"></p>
+    </section>
     <div class="result-actions">
       <a class="btn pri" href="${escapeHtml(root.dataset.back)}">Back to exams</a>
       ${root.dataset.practiceAgain ? `<form method="post" action="${escapeHtml(root.dataset.practiceAgain)}">
@@ -914,6 +922,26 @@
         shareStatus.textContent = error.message;
       } finally {
         button.disabled = false;
+      }
+    });
+    const spaceButton = questionElement.querySelector("[data-my-space]");
+    const spaceStatus = questionElement.querySelector("[data-my-space-status]");
+    let inSpace = Boolean(result.in_my_space);
+    spaceButton.addEventListener("click", async () => {
+      spaceButton.disabled = true;
+      try {
+        const saved = await fetchJson(root.dataset.mySpace, {
+          method: "POST",
+          body: JSON.stringify({ action: inSpace ? "remove" : "add" }),
+        });
+        inSpace = saved.in_my_space;
+        spaceButton.textContent = inSpace ? "In My Space ✓ · Remove" : "＋ Save to My Space";
+        spaceButton.classList.toggle("pri", !inSpace);
+        spaceStatus.textContent = inSpace ? "Saved. Find it in My Space under Mock exams." : "Removed from My Space.";
+      } catch (error) {
+        spaceStatus.textContent = error.message;
+      } finally {
+        spaceButton.disabled = false;
       }
     });
     saveButton.addEventListener("click", async () => {

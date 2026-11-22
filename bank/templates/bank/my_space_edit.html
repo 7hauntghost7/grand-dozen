@@ -1,0 +1,41 @@
+{% extends "bank/base.html" %}
+{% load static %}
+{% block title %}Edit · {{ quiz.title }}{% endblock %}
+{% block content %}
+<main class="study-page myspace-page">
+  <section class="page-hero">
+    {% include "bank/_hero_peaks.html" %}
+    <nav class="page-crumbs" aria-label="Breadcrumb"><a href="{% url 'bank:my_space' %}">My Space</a></nav>
+    <h2 class="page-title">Edit quiz</h2>
+    <p class="page-lede">Fix a typo, a wrong answer or an explanation{% if not locked %}, or add and remove questions{% endif %}.</p>
+  </section>
+
+  {% if shared %}<p class="myspace-hint mb-banner">👥 Friends and groups have this quiz too. They’ll see your changes.</p>{% endif %}
+  {% if locked %}<p class="myspace-hint mb-banner is-gold">🏆 People have taken this quiz as a challenge, so its questions stay in the same places. You can fix the wording, options and answers, and finished tries are scored again with your corrected answers.</p>{% endif %}
+
+  <div class="mb" id="builder" data-api="{% url 'bank:my_space_save' quiz.pk %}" data-key=""
+       data-initial="quiz-questions" data-title="{{ quiz.title }}" data-locked="{% if locked %}1{% endif %}">
+    <label class="exam-field mb-title">
+      <span>Quiz name</span>
+      <input type="text" maxlength="120" data-title dir="auto">
+    </label>
+    <div class="mb-list" data-list></div>
+    {% if not locked %}
+    <div class="mb-add" role="group" aria-label="Add a question">
+      <span class="exam-chips-label">Add a question</span>
+      <button type="button" class="mb-add-btn" data-add="mcq"><b aria-hidden="true">＋</b> MCQ</button>
+      <button type="button" class="mb-add-btn" data-add="tf"><b aria-hidden="true">＋</b> True / False</button>
+      <button type="button" class="mb-add-btn" data-add="desc"><b aria-hidden="true">＋</b> Written</button>
+    </div>
+    {% endif %}
+    <div class="myspace-check has-problems" data-errors role="alert" hidden></div>
+    <div class="mb-foot">
+      <span class="mute" data-count></span>
+      <a class="exam-link-btn" href="{% url 'bank:my_space' %}">Cancel</a>
+      <button type="button" class="exam-card-start" data-save>Save changes <span aria-hidden="true">→</span></button>
+    </div>
+  </div>
+</main>
+{{ questions|json_script:"quiz-questions" }}
+{% endblock %}
+{% block scripts %}<script src="{% static 'bank/builder.js' %}?v=20261122-2"></script>{% endblock %}

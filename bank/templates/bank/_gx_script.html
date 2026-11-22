@@ -22,6 +22,30 @@
     tabs.forEach(t => t.addEventListener("click", () => { show(t.dataset.tab); history.replaceState(null, "", "#" + t.dataset.tab); }));
     show(location.hash.slice(1));
   }
+  // Reactions: update in place instead of reloading the page
+  document.addEventListener("submit", async e => {
+    const form = e.target.closest("form[data-react]");
+    if (!form || !e.submitter) return;
+    e.preventDefault();
+    const data = new FormData(form);
+    data.set("emoji", e.submitter.value);
+    form.querySelector("details")?.removeAttribute("open");
+    // getAttribute: the form has a field named "action", which hides form.action
+    const url = form.getAttribute("action");
+    try {
+      const r = await fetch(url, {method: "POST", body: data, headers: {"X-Requested-With": "fetch"}});
+      const j = await r.json();
+      if (j.html) form.outerHTML = j.html;
+    } catch (err) {                               // no connection or no JSON: send it the ordinary way
+      const keep = document.createElement("input");
+      keep.type = "hidden"; keep.name = "emoji"; keep.value = e.submitter.value;
+      form.appendChild(keep);
+      HTMLFormElement.prototype.submit.call(form);
+    }
+  });
+  document.addEventListener("click", e => {      // close an open reaction picker when tapping elsewhere
+    document.querySelectorAll(".gx-react-menu[open]").forEach(d => { if (!d.contains(e.target)) d.removeAttribute("open"); });
+  });
   // Copy the invite link
   document.querySelectorAll("[data-copy-link]").forEach(button => button.addEventListener("click", async () => {
     const box = document.getElementById(button.dataset.copyLink);

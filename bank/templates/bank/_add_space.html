@@ -1,0 +1,4 @@
+{# "＋ My Space" for a quiz shared in a group. Pass quiz_id, have (already in My Space) and optionally back. #}
+{% if have %}<span class="gx-tag">In My Space ✓</span>
+{% else %}<form method="post" action="{% url 'bank:group_action' group.code %}">{% csrf_token %}<input type="hidden" name="quiz" value="{{ quiz_id }}">{% if back %}<input type="hidden" name="back" value="{{ back }}">{% endif %}
+  <button class="gx-btn gx-btn-sm gx-btn-ghost" name="action" value="add_quiz">＋ My Space</button></form>{% endif %}

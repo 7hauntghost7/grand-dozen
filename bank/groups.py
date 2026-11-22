@@ -26,8 +26,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
 from . import push
-from .models import (GroupMember, GroupPost, GroupQuiz, GroupSave, LiveRoom, PersonalQuiz, Question, QuizAccess,
-                     StudyGroup)
+from .models import (GroupMember, GroupMute, GroupPost, GroupQuiz, GroupSave, LiveRoom, PersonalQuiz, PostReaction,
+                     Question, QuizAccess, StudyGroup)
 
 log = logging.getLogger(__name__)
 MAX_OWNED = 10
@@ -85,6 +85,15 @@ def member_users(group):
                                                        group_memberships__status=GroupMember.ACTIVE)
 
 
+def audience(group, exclude=None):
+    """Who hears about the group's feed: its members, minus anyone who muted it."""
+    people = member_users(group).exclude(pk__in=GroupMute.objects.filter(group=group).values("user_id"))
+    return people.exclude(pk=exclude.pk) if exclude else people
+
+
+REACTIONS = [emoji for emoji, _label in PostReaction.CHOICES]
+
+
 def new_code():
     while True:
         code = secrets.token_urlsafe(6).replace("-", "").replace("_", "")[:8].lower()
@@ -115,8 +124,7 @@ def notify(user_ids, text, url):
 def add_post(group, author, kind, text="", notify_text="", **links):
     post = GroupPost.objects.create(group=group, author=author, kind=kind, text=text, **links)
     if notify_text:
-        people = member_users(group).exclude(pk=author.pk) if author else member_users(group)
-        notify(people.values_list("pk", flat=True), notify_text, group.get_absolute_url())
+        notify(audience(group, exclude=author).values_list("pk", flat=True), notify_text, group.get_absolute_url())
     return post
 
 
@@ -192,9 +200,16 @@ def group_page(request, code):
                if is_owner(group, user) else [])
     count = get_user_model().objects.filter(is_active=True).count() if group.is_everyone else len(members)
     faces = [m.user.profile for m in list(members)[:6] if hasattr(m.user, "profile")]   # for the cover
+    reactions = {}
+    for r in PostReaction.objects.filter(post__in=posts).select_related("user__profile"):
+        reactions.setdefault(r.post_id, []).append(r)
+    in_space = set(QuizAccess.objects.filter(user=user, quiz__in=[p.quiz_id for p in posts if p.quiz_id])
+                   .values_list("quiz_id", flat=True))
     for p in posts:
         p.can_delete = can_delete_post(group, p, user)
         p.can_edit = can_edit_post(p, user)
+        p.reaction_bar = reaction_bar(reactions.get(p.pk, []), user)
+        p.in_space = p.quiz_id in in_space
     pals = []
     if not group.is_everyone:
         from .friends import friends_of
@@ -216,7 +231,8 @@ def group_page(request, code):
         "members": members, "pending": pending, "count": count, "owner": is_owner(group, user),
         "can_post": can_post(group, user), "can_announce": can_announce(group, user),
         "link": request.build_absolute_uri(group.get_absolute_url()),
-        "pals": pals, "invited": invited, "faces": faces,
+        "pals": pals, "invited": invited, "faces": faces, "reaction_choices": PostReaction.CHOICES,
+        "muted": GroupMute.objects.filter(group=group, user=user).exists(), "in_space_ids": in_space | have,
     })
 
 
@@ -269,6 +285,37 @@ def group_action(request, code):
         return redirect("bank:groups")
     if not is_member(group, user):
         raise Http404
+    if action in ("mute", "unmute"):
+        if action == "mute":
+            GroupMute.objects.get_or_create(group=group, user=user)
+            messages.success(request, f"Muted {group.name}. You won’t get its notifications.")
+        else:
+            GroupMute.objects.filter(group=group, user=user).delete()
+            messages.success(request, f"Notifications from {group.name} are back on.")
+        return redirect(group)
+    if action == "react":
+        post = get_object_or_404(GroupPost, group=group, pk=request.POST.get("post"))
+        emoji = request.POST.get("emoji", "")
+        mine = PostReaction.objects.filter(post=post, user=user).first()
+        if emoji not in REACTIONS:
+            pass                                   # only the fixed set is allowed
+        elif mine and mine.emoji == emoji:
+            mine.delete()                          # tapping your own reaction again takes it back
+        elif mine:
+            mine.emoji = emoji
+            mine.save(update_fields=["emoji"])
+        else:
+            try:
+                PostReaction.objects.create(post=post, user=user, emoji=emoji)
+            except IntegrityError:
+                pass
+        if request.headers.get("X-Requested-With") == "fetch":
+            from django.template.loader import render_to_string
+            post.reaction_bar = reaction_bar(list(post.reactions.select_related("user__profile")), user)
+            html = render_to_string("bank/_reactions.html", {"p": post, "group": group,
+                                                             "reaction_choices": PostReaction.CHOICES}, request=request)
+            return JsonResponse({"html": html})
+        return redirect(f"{group.get_absolute_url()}#post-{post.pk}")
     if action in ("accept", "decline", "remove", "make_owner", "edit", "new_link", "delete") and not owner:
         messages.error(request, "Only the group's owner can do that.")
         return redirect(group)
@@ -295,6 +342,8 @@ def group_action(request, code):
         messages.success(request, "New link made. The old one no longer works.")
     elif action == "delete" and not group.is_everyone:
         name = group.name
+        from .control import audit
+        audit("group", "delete", f"Deleted the group {name}")
         group.delete()
         messages.success(request, f"Deleted {name}.")
         return redirect("bank:groups")
@@ -319,6 +368,10 @@ def group_action(request, code):
         if post is None:
             pass
         elif action == "delete_post" and can_delete_post(group, post, user):
+            if post.author_id != user.pk:
+                from .control import audit
+                audit("group", "post", f"Deleted a post by {_name(post.author) if post.author else 'someone'} in {group.name}"
+                      + (f": {post.text[:100]}" if post.text else ""), group.get_absolute_url())
             post.delete()
         elif action == "edit_post" and can_edit_post(post, user):
             text = request.POST.get("text", "").strip()[:1000]
@@ -348,7 +401,23 @@ def group_action(request, code):
         elif share:
             QuizAccess.objects.get_or_create(user=user, quiz=share.quiz)
             messages.success(request, f"Added “{share.quiz.title}” to My Space.")
+        back = request.POST.get("back", "")
+        if back.startswith("/") and not back.startswith("//"):
+            return redirect(back)
     return redirect(group)
+
+
+def reaction_bar(rows, user):
+    """[(emoji, count, names, mine)] in the fixed order, plus the viewer's own pick."""
+    out, mine = [], None
+    for emoji in REACTIONS:
+        people = [r for r in rows if r.emoji == emoji]
+        if people:
+            names = [getattr(r.user, "profile", None) and r.user.profile.name or r.user.get_username() for r in people]
+            out.append({"emoji": emoji, "count": len(people), "who": ", ".join(names[:8]) + (f" +{len(names) - 8}" if len(names) > 8 else ""),
+                        "mine": any(r.user_id == user.pk for r in people)})
+    mine = next((r.emoji for r in rows if r.user_id == user.pk), None)
+    return {"items": out, "mine": mine, "total": len(rows)}
 
 
 def _accept_from_request(request, group, member):

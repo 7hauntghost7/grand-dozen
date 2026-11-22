@@ -186,6 +186,10 @@
         <div class="chal-done-actions">
           <button class="btn pri" data-act="review">Review answers</button>
           <a class="btn" href="${esc(D.back)}">${S.published ? "See the leaderboard" : "Back to the group"}</a>
+          ${D.inSpace ? '<span class="tag">In My Space ✓</span>' : `<form method="post" action="${esc(D.add)}">
+            <input type="hidden" name="csrfmiddlewaretoken" value="${esc(csrf())}"><input type="hidden" name="action" value="add_quiz">
+            <input type="hidden" name="quiz" value="${esc(D.quiz)}"><input type="hidden" name="back" value="${esc(location.pathname)}">
+            <button class="btn">＋ My Space</button></form>`}
           ${D.results ? `<a class="exam-link-btn" href="${esc(D.results)}">Everyone’s results</a>` : ""}
         </div>
       </div>`;
