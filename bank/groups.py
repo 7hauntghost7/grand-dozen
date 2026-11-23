@@ -16,7 +16,7 @@ import threading
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.db import IntegrityError, close_old_connections, transaction
+from django.db import IntegrityError, close_old_connections, connection, transaction
 from django.db.models import Count, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -116,7 +116,7 @@ def notify(user_ids, text, url):
                 except Exception:
                     log.warning("Group notification to user %s failed", user.pk, exc_info=True)
         finally:
-            close_old_connections()
+            connection.close()      # this thread is about to end; close_old_connections() would leave it open
 
     transaction.on_commit(lambda: threading.Thread(target=run, daemon=True).start())
 

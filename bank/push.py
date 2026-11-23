@@ -16,7 +16,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.cache import cache
-from django.db import close_old_connections
+from django.db import close_old_connections, connection
 from django.utils import timezone
 
 from .models import PushPhrase, PushPreference, PushSettings, PushSubscription
@@ -155,7 +155,7 @@ def _tick():
     except Exception:
         logger.exception("Sending notifications failed")
     finally:
-        close_old_connections()
+        connection.close()          # this thread is about to end; close_old_connections() would leave it open
 
 
 def maybe_tick():

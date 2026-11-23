@@ -11,7 +11,7 @@ import logging
 import threading
 from datetime import timedelta
 
-from django.db import IntegrityError, close_old_connections, transaction
+from django.db import IntegrityError, close_old_connections, connection, transaction
 from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
@@ -219,6 +219,6 @@ def notify(user, text, url):
         except Exception:
             log.warning("Friend notification to user %s failed", user_id, exc_info=True)
         finally:
-            close_old_connections()
+            connection.close()      # this thread is about to end; close_old_connections() would leave it open
 
     transaction.on_commit(lambda: threading.Thread(target=run, daemon=True).start())
