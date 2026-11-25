@@ -1010,12 +1010,13 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding
   .image-marker{position:absolute;display:grid;place-items:center;min-width:27px;height:27px;padding:0 5px;transform:translate(-50%,-50%);border:2px solid #fff;border-radius:50%;background:#a8322a;color:#fff;font-size:.8rem;font-weight:800;box-shadow:0 2px 10px rgba(0,0,0,.45)}
   .image-answer-list{display:grid;gap:10px;margin-top:18px}
   .image-answer-list h3{margin:0}
-  .image-target-answer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+  .image-target-answer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
   .image-target-title{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
   .image-target-title>strong{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:50%;background:var(--acc-soft);color:var(--acc)}
   .image-answer{padding:7px 11px;border-left:3px solid var(--acc);border-radius:5px;background:var(--card);white-space:pre-line}
   .image-answer-hidden{min-width:145px;color:var(--mute);filter:blur(5px);user-select:none}
-  .image-grade{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+  /* Its own row under the answer: beside it, a long answer squeezed the row and the question ran over the answer */
+  .image-grade{display:flex;align-items:center;gap:7px 10px;flex-wrap:wrap;flex:1 1 100%;justify-content:flex-start}
   /* Questions with an image keep the figure in view while the stem, answers, and feedback scroll.
      overflow:clip still clips the card but, unlike hidden, does not break position:sticky. */
   #quiz[data-question-type] .quiz-question.quiz-question-has-image,.quiz-question.quiz-question-has-image{overflow:clip}
@@ -1456,6 +1457,9 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding
     letter-spacing:.06em;
     text-transform:uppercase;
   }
+  #quiz[data-question-type="mcq_tf"] .quiz-question .tfb button.sel{border-color:var(--acc);background:var(--acc-soft);color:var(--acc)}
+  #quiz[data-question-type="mcq_tf"] .quiz-question .tfb button.ok{border-color:var(--ok);background:var(--ok-soft);color:var(--ok)}
+  #quiz[data-question-type="mcq_tf"] .quiz-question .tfb button.bad{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
   #quiz[data-question-type="mcq_tf"] .quiz-controls{
     display:flex;
     align-items:center;

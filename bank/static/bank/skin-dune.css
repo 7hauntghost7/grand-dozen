@@ -277,6 +277,13 @@
 :root[data-skin="dune"] .nav button{border-radius:2px;box-shadow:none;border-width:2px}
 :root[data-skin="dune"] .nav button.cur{outline:0;box-shadow:3px 3px 0 var(--dn-shadow);border-color:var(--dn-edge)}
 :root[data-skin="dune"] .tfb button{box-shadow:2px 2px 0 var(--dn-shadow)}
+/* The chosen True / False button looks pressed in gold, so students can see what they picked before checking */
+:root[data-skin="dune"] #quiz .quiz-question .tfb button.sel,:root[data-skin="dune"] .tfb button.sel{
+  background:var(--brand-gold);color:#2a120a;border-color:var(--dn-edge);transform:translate(2px,2px);box-shadow:none}
+:root[data-skin="dune"] #quiz .quiz-question .tfb button.ok,:root[data-skin="dune"] .tfb button.ok{
+  background:var(--ok-soft);border-color:var(--ok);color:var(--ok);box-shadow:2px 2px 0 var(--ok)}
+:root[data-skin="dune"] #quiz .quiz-question .tfb button.bad,:root[data-skin="dune"] .tfb button.bad{
+  background:var(--bad-soft);border-color:var(--bad);color:var(--bad);box-shadow:2px 2px 0 var(--bad)}
 :root[data-skin="dune"] .bar{border-radius:0;border:2px solid var(--dn-edge);height:12px}
 :root[data-skin="dune"] .qn{font-family:var(--font-display);color:var(--acc)}
 :root[data-skin="dune"] #quiz .quiz-question,:root[data-skin="dune"] #exam-runner .exam-question{
