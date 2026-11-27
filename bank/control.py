@@ -453,7 +453,9 @@ def add_accounts(request):
                         username = username_for(name, taken)
                     password = make_password()
                     user = User.objects.create_user(username=username, password=password)
-                    profile = user.profile
+                    # Read the profile the sign-up signal just made straight from the database: on Django 6.1.3
+                    # user.profile can still hold the "no profile yet" it cached before the row existed.
+                    profile = Profile.objects.get(user=user)
                     profile.display_name = name
                     profile.must_change_password = True
                     if university in {k for k, _n, _ in UNIVERSITIES} | {"other"}:
